@@ -1,5 +1,5 @@
 //@version=6
-// Versie: 1.1.0 - zie CHANGELOG.md voor de wijzigingsgeschiedenis.
+// Versie: 1.2.1 - zie CHANGELOG.md voor de wijzigingsgeschiedenis.
 indicator("Trade Lijnen (SL/S/R)", overlay=true, max_lines_count=30, max_labels_count=30)
 
 // ============================================================
@@ -303,12 +303,26 @@ var label signalLabel = na
 var int lastLongSignalBar  = na
 var int lastShortSignalBar = na
 
+// Lijnstukje op het niveau van de break zelf (Resistance/Support + x ticks),
+// zwart/1px/dashed, zelfde lengte (`lineLen`) als de SL-lijnen. Blijft net
+// als de SL-lijnen staan binnen het signaalvenster (`slSignalWindow`). Net
+// als bij de SL-lijnen is er maar 1 tegelijk zichtbaar: een nieuw LONG- of
+// SHORT-signaal verwijdert meteen de break-lijn van de andere richting.
+var line longBreakLine  = na
+var line shortBreakLine = na
+
 if bullishBreak
     lastLongSignalBar := bar_index
     if not na(signalLabel)
         label.delete(signalLabel)
     signalLabel := label.new(bar_index, low, "LONG", xloc.bar_index, yloc.belowbar, color.new(color.green, 0), label.style_arrowup, color.white, size.normal)
     alert("Bullish breakout: close boven Resistance + " + str.tostring(xTicks) + " ticks", alert.freq_once_per_bar_close)
+    if not na(longBreakLine)
+        line.delete(longBreakLine)
+    longBreakLine := line.new(bar_index, bullishLevel, bar_index + lineLen, bullishLevel, xloc.bar_index, extend.none, color.black, line.style_dashed, 1)
+    if not na(shortBreakLine)
+        line.delete(shortBreakLine)
+        shortBreakLine := na
 
 if bearishBreak
     lastShortSignalBar := bar_index
@@ -316,11 +330,27 @@ if bearishBreak
         label.delete(signalLabel)
     signalLabel := label.new(bar_index, high, "SHORT", xloc.bar_index, yloc.abovebar, color.new(color.red, 0), label.style_arrowdown, color.white, size.normal)
     alert("Bearish breakdown: close onder Support - " + str.tostring(xTicks) + " ticks", alert.freq_once_per_bar_close)
+    if not na(shortBreakLine)
+        line.delete(shortBreakLine)
+    shortBreakLine := line.new(bar_index, bearishLevel, bar_index + lineLen, bearishLevel, xloc.bar_index, extend.none, color.black, line.style_dashed, 1)
+    if not na(longBreakLine)
+        line.delete(longBreakLine)
+        longBreakLine := na
 
 // Actief zolang we binnen `slSignalWindow` candles zitten na het laatste
 // LONG/SHORT-signaal (de signaal-candle zelf telt mee als candle 1).
 longSignalActive  = not na(lastLongSignalBar) and (bar_index - lastLongSignalBar) < slSignalWindow
 shortSignalActive = not na(lastShortSignalBar) and (bar_index - lastShortSignalBar) < slSignalWindow
+
+// Break-lijnen verwijderen zodra het signaalvenster verloopt (zelfde
+// venster/instelling als de SL-lijnen hieronder gebruiken).
+if barstate.isconfirmed
+    if not longSignalActive and not na(longBreakLine)
+        line.delete(longBreakLine)
+        longBreakLine := na
+    if not shortSignalActive and not na(shortBreakLine)
+        line.delete(shortBreakLine)
+        shortBreakLine := na
 
 // ============================================================
 // SL-lijnen tekenen (zie voorwaarden in het commentaarblok bovenaan het

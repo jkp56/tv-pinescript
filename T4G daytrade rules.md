@@ -1,6 +1,6 @@
 # T4G Daytrade Rules
 
-Dit document beschrijft alle regels waaraan het Pine Script ("SL + S/R Signalen") moet voldoen.
+Dit document beschrijft alle regels waaraan het Pine Script `trade_lines.pine` ("Trade Lijnen (SL/S/R)") moet voldoen.
 
 ## Stop Loss lijnen
 

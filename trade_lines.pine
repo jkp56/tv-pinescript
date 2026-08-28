@@ -1,0 +1,384 @@
+//@version=6
+// Versie: 1.1.0 - zie CHANGELOG.md voor de wijzigingsgeschiedenis.
+indicator("Trade Lijnen (SL/S/R)", overlay=true, max_lines_count=30, max_labels_count=30)
+
+// ============================================================
+// STOP LOSS LIJNEN
+// - Long SL = low van laatst gesloten candle min x ticks (wick telt mee)
+// - Short SL = high van laatst gesloten candle plus x ticks (wick telt mee)
+// - Slechts 1 lijn tegelijk zichtbaar: Long SL alleen bij een bullish
+//   candle, Short SL alleen bij een bearish candle. Bij het tekenen
+//   van de ene lijn wordt de andere verwijderd.
+// - Bij een doji (close == open) wordt geen van beide bijgewerkt:
+//   normaal wordt bij een doji geen trade genomen, dus blijven beide
+//   SL's op hun laatst geldige niveau staan (tenzij het signaalvenster
+//   hieronder intussen verloopt, zie volgend punt).
+// - NIEUW: de SL-lijnen worden alleen daadwerkelijk getoond als, naast
+//   bovenstaande voorwaarden, de candle ook binnen het "signaalvenster"
+//   valt: er moet een LONG-signaal (voor Long SL) resp. SHORT-signaal
+//   (voor Short SL) zijn geweest binnen de laatste `slSignalWindow`
+//   candles (de signaal-candle zelf telt als candle 1 van het venster).
+//   Buiten dat venster wordt de betreffende lijn/label verwijderd, ook
+//   als er geen nieuwe bullish/bearish candle is (bv. tijdens een reeks
+//   doji's laat het venster gewoon aflopen).
+// ============================================================
+showSL         = input.bool(true, "Toon SL lijnen", group="Stop Loss lijnen")
+tickOffset     = input.int(50, "SL: aantal ticks van wick", minval=1, group="Stop Loss lijnen")
+lineLen        = input.int(20, "SL: lengte lijn (bars naar rechts)", minval=1, group="Stop Loss lijnen")
+slSignalWindow = input.int(5, "SL: lijn actief na signaal (aantal candles)", minval=1, group="Stop Loss lijnen")
+longColor      = input.color(color.new(color.green, 0), "Kleur Long SL", group="Stop Loss lijnen")
+shortColor     = input.color(color.new(color.red, 0), "Kleur Short SL", group="Stop Loss lijnen")
+
+// ============================================================
+// RESISTANCE / SUPPORT (volledig automatisch)
+// - Resistance: kijk terug (vanaf de laatst gesloten candle, de
+//   lopende candle telt niet mee als trigger) naar de meest recente
+//   overgang van een bullish candle naar een bearish candle. Het
+//   niveau = de BOVENKANT van de BODY van die bullish candle (dus
+//   nooit een wick). Geldig alleen als geen enkele candle daarna
+//   (incl. de lopende candle) met zijn BODY dat niveau raakt of
+//   doorbreekt. Wicks spelen geen rol - de lijn mag daar gewoon
+//   doorheen lopen. Zo niet geldig -> verder terugzoeken naar de
+//   vorige overgang.
+// - Support: spiegelbeeld (bearish -> bullish overgang, ONDERKANT
+//   van de body van de bearish candle).
+// - Target Resistance / Target Support: EIGEN, onafhankelijke zoektocht naar
+//   een bullish->bearish (resp. bearish->bullish) overgang, exact dezelfde
+//   soort patroondetectie als Resistance/Support (puur op BODY, wicks spelen
+//   geen rol bij het bepalen van de overgang). Het niveau = de BOVENKANT
+//   (resp. ONDERKANT) van de BODY van die pivot-candle - dus ook hier geen
+//   wick. Extra eis: het niveau moet minimaal `minTargetDistance` ticks boven
+//   Resistance / onder Support liggen.
+//   Geldigheid: ongeldig wordt het door (a) een latere candle waarvan de
+//   BODY het niveau raakt/doorbreekt, OF (b) de "gratieperiode"-wick-check:
+//   direct na de pivot geldt een gratieperiode zolang de candles in de
+//   "respecterende" richting blijven (bearish voor Target Resistance,
+//   bullish voor Target Support) - in die periode telt een wick-aanraking
+//   niet mee. Zodra de EERSTE candle in de "aanvallende" richting verschijnt
+//   (bullish resp. bearish), eindigt de gratieperiode blijvend: vanaf dat
+//   moment maakt elke wick daarna (ongeacht kleur) het niveau ongeldig.
+// De lijn begint exact bij de overgang-candle en loopt door naar
+// rechts. Alles wordt opnieuw bepaald en getekend bij elke candle
+// close.
+// Robuustheid: candles met een ongeldige waarde (open/close/high/low <= 0 -
+// dit komt soms voor als eerste bar bij weinig geladen historie, bv. direct
+// na het toevoegen van de indicator) worden overal genegeerd, zodat zo'n
+// kapotte bar niet per ongeluk Support/Resistance naar 0 trekt.
+// ============================================================
+maxScanBars      = input.int(250, "Max bars terugzoeken", minval=10, maxval=500, group="Support / Resistance")
+autoTargetTicks  = input.int(100, "Fallback afstand target lijnen (ticks, alleen als geen geldige overgang gevonden wordt)", minval=1, group="Support / Resistance")
+minTargetDistance = input.int(300, "Minimale afstand Target t.o.v. Resistance/Support (ticks)", minval=1, group="Support / Resistance")
+labelTextColor   = input.color(color.black, "Labelkleur (tekst)", group="Support / Resistance")
+
+tickSize = syminfo.mintick
+slOffset = tickOffset * tickSize
+
+max_bars_back(open, 500)
+max_bars_back(close, 500)
+max_bars_back(high, 500)
+max_bars_back(low, 500)
+
+f_bodyTop(i) => math.max(open[i], close[i])
+f_bodyBottom(i) => math.min(open[i], close[i])
+f_validBar(i) => open[i] > 0 and close[i] > 0 and high[i] > 0 and low[i] > 0
+
+// Veilige fallback-versies van ta.highest/ta.lowest die kapotte/placeholder-bars
+// (OHLC = 0, soms aanwezig als eerste bar bij weinig geladen historie) negeren.
+f_safeHighest(length) =>
+    float m = na
+    for i = 0 to length - 1
+        if f_validBar(i)
+            m := na(m) ? high[i] : math.max(m, high[i])
+    m
+
+f_safeLowest(length) =>
+    float m = na
+    for i = 0 to length - 1
+        if f_validBar(i)
+            m := na(m) ? low[i] : math.min(m, low[i])
+    m
+
+// Gratieperiode-check voor Target Resistance: vanaf direct na de pivot (offset
+// pivotOffset-1) tot nu (offset 0). Zolang de candles bearish blijven (de
+// "respecterende" richting) telt hun wick niet mee. Zodra de EERSTE bullish
+// candle (de "aanvallende" richting) verschijnt, is de gratieperiode voorbij:
+// vanaf dan telt elke wick (ongeacht kleur) mee. Een aanvallende candle telt
+// zijn eigen wick altijd mee, ook tijdens de gratieperiode.
+f_targetResistanceWickValid(pivotOffset, level) =>
+    bool valid = true
+    bool graceActive = true
+    for k = pivotOffset - 1 to 0
+        if f_validBar(k)
+            if close[k] > open[k]           // bullish = aanvallend voor Resistance
+                if high[k] >= level
+                    valid := false
+                    break
+                graceActive := false
+            else if close[k] < open[k]      // bearish = respecterend voor Resistance
+                if not graceActive and high[k] >= level
+                    valid := false
+                    break
+    valid
+
+// Spiegelbeeld voor Target Support.
+f_targetSupportWickValid(pivotOffset, level) =>
+    bool valid = true
+    bool graceActive = true
+    for k = pivotOffset - 1 to 0
+        if f_validBar(k)
+            if close[k] < open[k]           // bearish = aanvallend voor Support
+                if low[k] <= level
+                    valid := false
+                    break
+                graceActive := false
+            else if close[k] > open[k]      // bullish = respecterend voor Support
+                if not graceActive and low[k] <= level
+                    valid := false
+                    break
+    valid
+
+// Resistance: bullish -> bearish overgang, body-top, body-validatie
+f_autoResistance(maxScan) =>
+    float level = na
+    int pivotBar = na
+    float runningMaxTop = na
+    for i = 0 to maxScan - 2
+        if f_validBar(i)
+            runningMaxTop := na(runningMaxTop) ? f_bodyTop(i) : math.max(runningMaxTop, f_bodyTop(i))
+        if f_validBar(i) and f_validBar(i + 1) and close[i + 1] > open[i + 1] and close[i] < open[i]
+            candidate = f_bodyTop(i + 1)
+            if na(runningMaxTop) or runningMaxTop <= candidate
+                level := candidate
+                pivotBar := bar_index - (i + 1)
+                break
+    [level, pivotBar]
+
+// Support: bearish -> bullish overgang, body-bottom, body-validatie
+f_autoSupport(maxScan) =>
+    float level = na
+    int pivotBar = na
+    float runningMinBottom = na
+    for i = 0 to maxScan - 2
+        if f_validBar(i)
+            runningMinBottom := na(runningMinBottom) ? f_bodyBottom(i) : math.min(runningMinBottom, f_bodyBottom(i))
+        if f_validBar(i) and f_validBar(i + 1) and close[i + 1] < open[i + 1] and close[i] > open[i]
+            candidate = f_bodyBottom(i + 1)
+            if na(runningMinBottom) or runningMinBottom >= candidate
+                level := candidate
+                pivotBar := bar_index - (i + 1)
+                break
+    [level, pivotBar]
+
+// Target Resistance: EIGEN zoektocht (zelfde patroon als Resistance: bullish -> bearish
+// overgang op body-niveau), niveau = body-top, moet minimaal minDistance boven Resistance liggen.
+// Ongeldig door: (a) een latere candle waarvan de BODY het niveau raakt/doorbreekt, OF
+// (b) de gratieperiode-wick-check (zie f_targetResistanceWickValid hierboven), OF
+// (c) de afstand tot Resistance is kleiner dan minDistance.
+f_autoTargetResistance(maxScan, resistanceLevel, minDistance) =>
+    float level = na
+    int pivotBar = na
+    float runningMaxBodyTop = na
+    for i = 0 to maxScan - 2
+        if f_validBar(i)
+            runningMaxBodyTop := na(runningMaxBodyTop) ? f_bodyTop(i) : math.max(runningMaxBodyTop, f_bodyTop(i))
+        if f_validBar(i) and f_validBar(i + 1) and close[i + 1] > open[i + 1] and close[i] < open[i]
+            candidate = f_bodyTop(i + 1)
+            bodyValid = na(runningMaxBodyTop) or runningMaxBodyTop <= candidate
+            if bodyValid and (candidate - resistanceLevel) >= minDistance
+                if f_targetResistanceWickValid(i + 1, candidate)
+                    level := candidate
+                    pivotBar := bar_index - (i + 1)
+                    break
+    [level, pivotBar]
+
+// Target Support: spiegelbeeld van Target Resistance.
+f_autoTargetSupport(maxScan, supportLevel, minDistance) =>
+    float level = na
+    int pivotBar = na
+    float runningMinBodyBottom = na
+    for i = 0 to maxScan - 2
+        if f_validBar(i)
+            runningMinBodyBottom := na(runningMinBodyBottom) ? f_bodyBottom(i) : math.min(runningMinBodyBottom, f_bodyBottom(i))
+        if f_validBar(i) and f_validBar(i + 1) and close[i + 1] < open[i + 1] and close[i] > open[i]
+            candidate = f_bodyBottom(i + 1)
+            bodyValid = na(runningMinBodyBottom) or runningMinBodyBottom >= candidate
+            if bodyValid and (supportLevel - candidate) >= minDistance
+                if f_targetSupportWickValid(i + 1, candidate)
+                    level := candidate
+                    pivotBar := bar_index - (i + 1)
+                    break
+    [level, pivotBar]
+
+var line  rLine       = na
+var line  sLine       = na
+var line  trLine      = na
+var line  tsLine      = na
+var label rNameLabel  = na
+var label sNameLabel  = na
+var label trNameLabel = na
+var label tsNameLabel = na
+
+var float resistance       = na
+var float support          = na
+var float targetResistance = na
+var float targetSupport    = na
+var float prevResistance   = na
+var float prevSupport      = na
+
+if barstate.isconfirmed
+    // Eerst de "oude" waarden vastleggen (zoals ze golden t/m de vórige candle,
+    // dus de lijn zoals die stond vóórdat deze candle sloot) - hier wordt het
+    // breakout-signaal straks tegen getoetst, niet tegen de zo meteen
+    // herberekende nieuwe waarden.
+    prevResistance := resistance
+    prevSupport    := support
+
+    [rawResistance, resistancePivotBar] = f_autoResistance(maxScanBars)
+    [rawSupport, supportPivotBar]       = f_autoSupport(maxScanBars)
+
+    resistance := na(rawResistance) ? f_safeHighest(maxScanBars) : rawResistance
+    support    := na(rawSupport) ? f_safeLowest(maxScanBars) : rawSupport
+    rPivot = na(rawResistance) ? bar_index - maxScanBars : resistancePivotBar
+    sPivot = na(rawSupport) ? bar_index - maxScanBars : supportPivotBar
+
+    [rawTargetResistance, targetResistancePivotBar] = f_autoTargetResistance(maxScanBars, resistance, minTargetDistance * tickSize)
+    [rawTargetSupport, targetSupportPivotBar]       = f_autoTargetSupport(maxScanBars, support, minTargetDistance * tickSize)
+
+    fallbackTicks = math.max(autoTargetTicks, minTargetDistance)
+    targetResistance := na(rawTargetResistance) ? resistance + fallbackTicks * tickSize : rawTargetResistance
+    targetSupport    := na(rawTargetSupport) ? support - fallbackTicks * tickSize : rawTargetSupport
+    trPivot = na(rawTargetResistance) ? bar_index - maxScanBars : targetResistancePivotBar
+    tsPivot = na(rawTargetSupport) ? bar_index - maxScanBars : targetSupportPivotBar
+
+    if not na(rLine)
+        line.delete(rLine)
+    if not na(sLine)
+        line.delete(sLine)
+    if not na(trLine)
+        line.delete(trLine)
+    if not na(tsLine)
+        line.delete(tsLine)
+    if not na(rNameLabel)
+        label.delete(rNameLabel)
+    if not na(sNameLabel)
+        label.delete(sNameLabel)
+    if not na(trNameLabel)
+        label.delete(trNameLabel)
+    if not na(tsNameLabel)
+        label.delete(tsNameLabel)
+
+    rLine  := line.new(rPivot, resistance, bar_index, resistance, xloc.bar_index, extend.right, color.new(color.red, 0), line.style_solid, 2)
+    sLine  := line.new(sPivot, support, bar_index, support, xloc.bar_index, extend.right, color.new(color.green, 0), line.style_solid, 2)
+    trLine := line.new(trPivot, targetResistance, bar_index, targetResistance, xloc.bar_index, extend.right, color.new(color.red, 40), line.style_solid, 2)
+    tsLine := line.new(tsPivot, targetSupport, bar_index, targetSupport, xloc.bar_index, extend.right, color.new(color.green, 40), line.style_solid, 2)
+
+    rNameLabel  := label.new(bar_index, resistance, "Resistance" + (na(rawResistance) ? " [FALLBACK]" : " [pivot " + str.tostring(bar_index - rPivot) + " bars terug]"), xloc.bar_index, yloc.price, color.new(color.red, 100), label.style_label_left, labelTextColor, size.small)
+    sNameLabel  := label.new(bar_index, support, "Support" + (na(rawSupport) ? " [FALLBACK]" : " [pivot " + str.tostring(bar_index - sPivot) + " bars terug]"), xloc.bar_index, yloc.price, color.new(color.green, 100), label.style_label_left, labelTextColor, size.small)
+    trNameLabel := label.new(bar_index, targetResistance, "Target Resistance" + (na(rawTargetResistance) ? " [FALLBACK]" : " [pivot " + str.tostring(bar_index - trPivot) + " bars terug]"), xloc.bar_index, yloc.price, color.new(color.red, 100), label.style_label_left, labelTextColor, size.small)
+    tsNameLabel := label.new(bar_index, targetSupport, "Target Support" + (na(rawTargetSupport) ? " [FALLBACK]" : " [pivot " + str.tostring(bar_index - tsPivot) + " bars terug]"), xloc.bar_index, yloc.price, color.new(color.green, 100), label.style_label_left, labelTextColor, size.small)
+
+// ============================================================
+// SIGNALEN: close x ticks voorbij Resistance / Support
+// Belangrijk: het signaal wordt getoetst tegen de Resistance/Support-lijn
+// zoals die gold VOORDAT deze candle sloot (prevResistance/prevSupport),
+// niet tegen de lijn die na herberekening van déze candle ontstaat. Anders
+// zou een candle die de oude lijn doorbreekt zelf meteen een nieuwe
+// (verschoven) lijn veroorzaken, waardoor de doorbraak nooit gedetecteerd
+// wordt.
+// ============================================================
+xTicks  = input.int(10, "X: aantal ticks voorbij S/R voor signaal", minval=1, group="Signaal instellingen")
+xOffset = xTicks * tickSize
+
+bullishLevel = prevResistance + xOffset
+bearishLevel = prevSupport - xOffset
+
+bullishBreak = barstate.isconfirmed and not na(prevResistance) and close > bullishLevel and close[1] <= bullishLevel
+bearishBreak = barstate.isconfirmed and not na(prevSupport) and close < bearishLevel and close[1] >= bearishLevel
+
+var label signalLabel = na
+
+// Laatste bar-index waarop een LONG/SHORT-signaal optrad. Wordt gebruikt om
+// de SL-lijnen hieronder alleen te tonen binnen `slSignalWindow` candles na
+// zo'n signaal.
+var int lastLongSignalBar  = na
+var int lastShortSignalBar = na
+
+if bullishBreak
+    lastLongSignalBar := bar_index
+    if not na(signalLabel)
+        label.delete(signalLabel)
+    signalLabel := label.new(bar_index, low, "LONG", xloc.bar_index, yloc.belowbar, color.new(color.green, 0), label.style_arrowup, color.white, size.normal)
+    alert("Bullish breakout: close boven Resistance + " + str.tostring(xTicks) + " ticks", alert.freq_once_per_bar_close)
+
+if bearishBreak
+    lastShortSignalBar := bar_index
+    if not na(signalLabel)
+        label.delete(signalLabel)
+    signalLabel := label.new(bar_index, high, "SHORT", xloc.bar_index, yloc.abovebar, color.new(color.red, 0), label.style_arrowdown, color.white, size.normal)
+    alert("Bearish breakdown: close onder Support - " + str.tostring(xTicks) + " ticks", alert.freq_once_per_bar_close)
+
+// Actief zolang we binnen `slSignalWindow` candles zitten na het laatste
+// LONG/SHORT-signaal (de signaal-candle zelf telt mee als candle 1).
+longSignalActive  = not na(lastLongSignalBar) and (bar_index - lastLongSignalBar) < slSignalWindow
+shortSignalActive = not na(lastShortSignalBar) and (bar_index - lastShortSignalBar) < slSignalWindow
+
+// ============================================================
+// SL-lijnen tekenen (zie voorwaarden in het commentaarblok bovenaan het
+// script): setting aan + juiste candle-kleur + binnen het signaalvenster.
+// ============================================================
+var line  longLine   = na
+var line  shortLine  = na
+var label longLabel  = na
+var label shortLabel = na
+
+if showSL and barstate.isconfirmed
+    isBullish = close > open
+    isBearish = close < open
+
+    // Signaalvenster verlopen: lijn/label verwijderen, ook als er nu geen
+    // bullish/bearish candle is (bv. tijdens een reeks doji's).
+    if not longSignalActive and not na(longLine)
+        line.delete(longLine)
+        longLine := na
+    if not longSignalActive and not na(longLabel)
+        label.delete(longLabel)
+        longLabel := na
+    if not shortSignalActive and not na(shortLine)
+        line.delete(shortLine)
+        shortLine := na
+    if not shortSignalActive and not na(shortLabel)
+        label.delete(shortLabel)
+        shortLabel := na
+
+    if isBullish and longSignalActive
+        longSL = low - slOffset
+        if not na(longLine)
+            line.delete(longLine)
+        if not na(longLabel)
+            label.delete(longLabel)
+        if not na(shortLine)
+            line.delete(shortLine)
+            shortLine := na
+        if not na(shortLabel)
+            label.delete(shortLabel)
+            shortLabel := na
+        longLine  := line.new(bar_index, longSL, bar_index + lineLen, longSL, xloc.bar_index, extend.none, longColor, line.style_dashed, 2)
+        longLabel := label.new(bar_index + lineLen, longSL, "Long SL: " + str.tostring(longSL, format.mintick), xloc.bar_index, yloc.price, color.new(longColor, 80), label.style_label_left, longColor, size.small)
+
+    if isBearish and shortSignalActive
+        shortSL = high + slOffset
+        if not na(shortLine)
+            line.delete(shortLine)
+        if not na(shortLabel)
+            label.delete(shortLabel)
+        if not na(longLine)
+            line.delete(longLine)
+            longLine := na
+        if not na(longLabel)
+            label.delete(longLabel)
+            longLabel := na
+        shortLine  := line.new(bar_index, shortSL, bar_index + lineLen, shortSL, xloc.bar_index, extend.none, shortColor, line.style_dashed, 2)
+        shortLabel := label.new(bar_index + lineLen, shortSL, "Short SL: " + str.tostring(shortSL, format.mintick), xloc.bar_index, yloc.price, color.new(shortColor, 80), label.style_label_left, shortColor, size.small)
+    // Bij een doji (close == open) wordt geen van beide lijnen bijgewerkt,
+    // tenzij het signaalvenster net is verlopen (dan wordt de lijn hierboven
+    // al verwijderd, ongeacht candle-kleur).

@@ -3,6 +3,27 @@
 Alle noemenswaardige wijzigingen aan `trade_lines.pine` worden hier bijgehouden.
 Versienummering volgt [Semantic Versioning](https://semver.org/lang/nl/) (MAJOR.MINOR.PATCH).
 
+## [1.5.0]
+
+### Toegevoegd
+- Nieuwe (uit) instelling **"Support/Resistance: reversal-candle uitsluiten van eigen invalidatie"** (groep "Support / Resistance"). Dit is de fix die eerder werd getest in het losse `trade_lines_experimental.pine`-bestand, nu ingebouwd in `trade_lines.pine` zelf als schakelbare optie - dat experimentele bestand is hiermee overbodig geworden.
+- Achtergrond: in `f_autoResistance`, `f_autoSupport`, `f_autoTargetResistance` en `f_autoTargetSupport` telde de reversal-candle die een overgang bevestigt standaard ook mee in de check die bepaalt of het niveau nadien is doorbroken - waardoor die candle, bij een gap t.o.v. de pivot-candle, zijn eigen pivot kon afkeuren. Op sommige databronnen (waargenomen op Pepperstone, gaps van 35-41 ticks) zorgde dit voor onterechte FALLBACK-uitkomsten bij Support/Target Support, ook al was er een overduidelijke pivot.
+- Met de instelling AAN telt de reversal-candle niet meer mee voor de geldigheid van zijn eigen pivot (wel gewoon voor het beoordelen van oudere kandidaten verderop in de terugzoek-lus). De debug-toggle (`debugSupportPivot`) houdt hier ook rekening mee.
+- Standaard UIT, zodat het gedrag exact hetzelfde blijft als voorheen (o.a. voor de FXCM-feed, waar dit al goed werkte) totdat je 'm zelf aanzet.
+
+## [1.4.1]
+
+### Opgelost
+- Tekstkleur van de debug-labels was oranje op een (semi-transparante) oranje achtergrond en dus slecht leesbaar. Tekst staat nu in zwart, en het lettertype is een maatje groter (`size.small` i.p.v. `size.tiny`).
+
+## [1.4.0]
+
+### Toegevoegd
+- Nieuwe (uit) instelling **"Debug: toon eerste Support-kandidaat + reden verwerping"** (groep "Support / Resistance"), voor het vergelijken van Support-detectie tussen verschillende databronnen/brokers.
+- Zoekt onafhankelijk van de normale Support-logica de meest recente bearish->bullish overgang op en toont een oranje label op die kandidaat-candle, met `[GELDIG]` of `[VERWORPEN]`.
+- Bij een verworpen kandidaat: een tweede oranje label op de eerste latere candle die met zijn body het kandidaat-niveau doorbreekt/raakt - dat is de candle die de kandidaat ongeldig maakt.
+- Bedoeld als tijdelijk diagnosemiddel: door dezelfde instellingen op twee chart-databronnen (bv. Pepperstone vs. FXCM) te vergelijken, is te zien of ze dezelfde kandidaat-candle vinden en of dezelfde candle 'm afkeurt - zo niet, dan zit het verschil in de onderliggende koersdata van die bron, niet in de scriptlogica.
+
 ## [1.3.0]
 
 ### Toegevoegd

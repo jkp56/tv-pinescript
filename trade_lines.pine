@@ -409,7 +409,7 @@ if bullishBreak
     lastLongSignalBar := bar_index
     if not na(signalLabel)
         label.delete(signalLabel)
-    signalLabel := label.new(bar_index, low, "LONG", xloc.bar_index, yloc.belowbar, color.new(color.green, 0), label.style_arrowup, color.white, size.normal)
+    signalLabel := label.new(bar_index, low, "LONG", xloc.bar_index, yloc.belowbar, color.new(color.green, 0), label.style_arrowup, color.black, size.normal)
     alert("Bullish breakout: close boven Resistance + " + str.tostring(xTicks) + " ticks", alert.freq_once_per_bar_close)
     if not na(longBreakLine)
         line.delete(longBreakLine)
@@ -422,7 +422,7 @@ if bearishBreak
     lastShortSignalBar := bar_index
     if not na(signalLabel)
         label.delete(signalLabel)
-    signalLabel := label.new(bar_index, high, "SHORT", xloc.bar_index, yloc.abovebar, color.new(color.red, 0), label.style_arrowdown, color.white, size.normal)
+    signalLabel := label.new(bar_index, high, "SHORT", xloc.bar_index, yloc.abovebar, color.new(color.red, 0), label.style_arrowdown, color.black, size.normal)
     alert("Bearish breakdown: close onder Support - " + str.tostring(xTicks) + " ticks", alert.freq_once_per_bar_close)
     if not na(shortBreakLine)
         line.delete(shortBreakLine)

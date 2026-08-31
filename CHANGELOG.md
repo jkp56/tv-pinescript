@@ -3,6 +3,14 @@
 Alle noemenswaardige wijzigingen aan `trade_lines.pine` worden hier bijgehouden.
 Versienummering volgt [Semantic Versioning](https://semver.org/lang/nl/) (MAJOR.MINOR.PATCH).
 
+## [1.6.0]
+
+### Toegevoegd
+- Nieuwe sectie **"Trade Mogelijkheid"**: bij een LONG/SHORT-signaal wordt automatisch een Take Profit (TP) berekend op basis van een instelbare Risk/Reward-ratio (standaard 1.2). `R` = het verschil tussen de close van de signaal-candle en de waarde van de bijbehorende SL-lijn (Long: `low - x ticks`, Short: `high + x ticks`) - dezelfde formule als de bestaande Long/Short SL.
+- Extra haalbaarheidscheck: de beschikbare Range (Resistance -> Target Resistance bij Long, Support -> Target Support bij Short) moet minimaal een instelbare R/R-ruimte (standaard 1.5 x R) kunnen bevatten. Is die ruimte er niet, dan wordt geen TP-lijn getekend maar verschijnt in plaats daarvan een **"Trade niet mogelijk"**-label, met de gemeten Range en de benodigde afstand erbij.
+- Nieuwe instellingen (groep "Trade Mogelijkheid"): aan/uit-schakelaar, TP Risk/Reward-ratio, minimaal benodigde R/R-ruimte in de Range, kleur TP-lijn, kleur "Trade niet mogelijk"-label.
+- TP-lijn/labels volgen hetzelfde signaalvenster (`slSignalWindow`) en dezelfde exclusiviteitslogica (max. 1 tegelijk zichtbaar, nieuw signaal verwijdert meteen het vorige) als de bestaande SL-lijnen en break-lijn.
+
 ## [1.5.0]
 
 ### Toegevoegd

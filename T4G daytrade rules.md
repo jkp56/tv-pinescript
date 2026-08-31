@@ -79,3 +79,19 @@ Spiegelbeeld van het LONG signaal:
 3. Zelfde instelbare `x` (ticks) als bij het LONG signaal.
 4. Bij triggeren: rood label onder de candle met tekst "SHORT signaal / Close < Support -x ticks", plus alert.
 5. Vervangt eveneens het vorige signaallabel.
+
+## Trade Mogelijkheid (TP & Range-check)
+
+1. Wordt bepaald direct bij een LONG- of SHORT-signaal, op dezelfde candle-close als het signaal zelf.
+2. **R** = het verschil tussen de **close** van de signaal-candle en de waarde van de bijbehorende SL-lijn, met dezelfde formule als de Stop Loss-lijnen hierboven:
+   - Long: `SL = low van de signaal-candle − x ticks` → `R = close − SL`.
+   - Short: `SL = high van de signaal-candle + x ticks` → `R = SL − close`.
+3. **TP** = entry (= close van de signaal-candle) **plus** (Long) of **min** (Short) een instelbare Risk/Reward-ratio (`tpRR`, standaard **1.2**) maal R.
+4. **Range-check**: de beschikbare ruimte tussen de S/R-lijnen moet minimaal een instelbare Risk/Reward-ratio (`minRangeRR`, standaard **1.5**) maal R kunnen bevatten:
+   - Long: Range = **Target Resistance − Resistance**.
+   - Short: Range = **Support − Target Support**.
+   - Beide gebruiken de actuele waarden van die lijnen, zoals net herberekend op de signaal-candle.
+5. **Trade mogelijk** (Range ≥ `minRangeRR` × R): een blauwe stippellijn met de TP-waarde wordt getekend, met label "TP (1.2 R/R): ..." — zelfde stijl als de SL-lijn.
+6. **Trade niet mogelijk** (Range < `minRangeRR` × R): geen TP-lijn; in plaats daarvan verschijnt een label "Trade niet mogelijk" met de gemeten Range en de benodigde afstand erbij. De LONG/SHORT-alert wordt in dat geval **niet** onderdrukt — er wordt alleen visueel gesignaleerd dat de trade niet haalbaar is.
+7. TP-lijn/labels en het "niet mogelijk"-label volgen hetzelfde signaalvenster (`slSignalWindow`) als de SL-lijnen: ze verdwijnen zodra dat venster verloopt, en worden direct vervangen zodra het andere signaal (LONG of SHORT) optreedt — maximaal 1 tegelijk zichtbaar.
+8. Volledig aan/uit te zetten via de instelling "Toon TP-lijn en Trade-mogelijkheid check" (groep "Trade Mogelijkheid"). De beide R/R-ratio's en de kleuren zijn daar los instelbaar.

@@ -1,5 +1,5 @@
 //@version=6
-// Versie: 1.5.0 - zie CHANGELOG.md voor de wijzigingsgeschiedenis.
+// Versie: 1.6.0 - zie CHANGELOG.md voor de wijzigingsgeschiedenis.
 indicator("Trade Lijnen (SL/S/R)", overlay=true, max_lines_count=30, max_labels_count=30)
 
 // ============================================================
@@ -449,6 +449,87 @@ if barstate.isconfirmed
     if not longSignalActive and not shortSignalActive and not na(signalLabel)
         label.delete(signalLabel)
         signalLabel := na
+
+// ============================================================
+// TRADE MOGELIJKHEID: TP (bij ingestelde R/R) + Range-check
+// - R = verschil tussen de close van de signaal-candle en de waarde van de
+//   SL-lijn bij dat signaal (zelfde formule als de Long/Short SL hieronder):
+//     Long:  SL = low  van de signaal-candle - x ticks  ->  R = close - SL
+//     Short: SL = high van de signaal-candle + x ticks  ->  R = SL - close
+// - TP = entry (= close van de signaal-candle) +/- tpRR * R.
+// - Range = afstand tussen Resistance en Target Resistance (Long), resp.
+//   tussen Support en Target Support (Short) - de actuele waarden zoals
+//   hierboven al herberekend voor deze candle.
+// - Een trade is alleen mogelijk als die Range minimaal minRangeRR * R kan
+//   bevatten. Zo niet: geen TP-lijn, maar een "Trade niet mogelijk"-label
+//   met de gemeten en de benodigde afstand.
+// - TP-lijn/label en het "niet mogelijk"-label blijven zichtbaar binnen
+//   hetzelfde signaalvenster (`slSignalWindow`) als de SL-lijnen/break-lijn,
+//   en worden - net als die lijnen - direct vervangen zodra het andere
+//   signaal optreedt (max. 1 tegelijk zichtbaar).
+// ============================================================
+showTradeCheck = input.bool(true, "Toon TP-lijn en Trade-mogelijkheid check", group="Trade Mogelijkheid")
+tpRR           = input.float(1.2, "TP: Risk/Reward ratio", minval=0.01, step=0.1, group="Trade Mogelijkheid")
+minRangeRR     = input.float(1.5, "Minimaal benodigde R/R-ruimte in de Range", minval=0.01, step=0.1, group="Trade Mogelijkheid")
+tpColor        = input.color(color.new(color.blue, 0), "Kleur TP-lijn", group="Trade Mogelijkheid")
+noTradeColor   = input.color(color.new(color.orange, 0), "Kleur 'Trade niet mogelijk'-label", group="Trade Mogelijkheid")
+
+var line  tpLine       = na
+var label tpLabel      = na
+var label noTradeLabel = na
+
+if showTradeCheck and barstate.isconfirmed
+    if bullishBreak or bearishBreak
+        if not na(tpLine)
+            line.delete(tpLine)
+            tpLine := na
+        if not na(tpLabel)
+            label.delete(tpLabel)
+            tpLabel := na
+        if not na(noTradeLabel)
+            label.delete(noTradeLabel)
+            noTradeLabel := na
+
+    if bullishBreak and not na(resistance) and not na(targetResistance)
+        slAtSignal = low - slOffset
+        entryPrice = close
+        rValue     = entryPrice - slAtSignal
+        tpValue    = entryPrice + tpRR * rValue
+        rangeAvail = targetResistance - resistance
+        tradeOk    = rValue > 0 and rangeAvail >= minRangeRR * rValue
+
+        if tradeOk
+            tpLine  := line.new(bar_index, tpValue, bar_index + lineLen, tpValue, xloc.bar_index, extend.none, tpColor, line.style_dashed, 2)
+            tpLabel := label.new(bar_index + lineLen, tpValue, "TP (" + str.tostring(tpRR, "#.##") + " R/R): " + str.tostring(tpValue, format.mintick), xloc.bar_index, yloc.price, color.new(tpColor, 80), label.style_label_left, tpColor, size.small)
+        else
+            noTradeLabel := label.new(bar_index, high, "Trade niet mogelijk\nRange " + str.tostring(rangeAvail, format.mintick) + " < " + str.tostring(minRangeRR, "#.##") + "R (" + str.tostring(minRangeRR * rValue, format.mintick) + ")", xloc.bar_index, yloc.abovebar, color.new(noTradeColor, 0), label.style_label_down, color.white, size.small)
+
+    if bearishBreak and not na(support) and not na(targetSupport)
+        slAtSignal = high + slOffset
+        entryPrice = close
+        rValue     = slAtSignal - entryPrice
+        tpValue    = entryPrice - tpRR * rValue
+        rangeAvail = support - targetSupport
+        tradeOk    = rValue > 0 and rangeAvail >= minRangeRR * rValue
+
+        if tradeOk
+            tpLine  := line.new(bar_index, tpValue, bar_index + lineLen, tpValue, xloc.bar_index, extend.none, tpColor, line.style_dashed, 2)
+            tpLabel := label.new(bar_index + lineLen, tpValue, "TP (" + str.tostring(tpRR, "#.##") + " R/R): " + str.tostring(tpValue, format.mintick), xloc.bar_index, yloc.price, color.new(tpColor, 80), label.style_label_left, tpColor, size.small)
+        else
+            noTradeLabel := label.new(bar_index, low, "Trade niet mogelijk\nRange " + str.tostring(rangeAvail, format.mintick) + " < " + str.tostring(minRangeRR, "#.##") + "R (" + str.tostring(minRangeRR * rValue, format.mintick) + ")", xloc.bar_index, yloc.belowbar, color.new(noTradeColor, 0), label.style_label_up, color.white, size.small)
+
+    // Signaalvenster verlopen: TP-lijn en labels verwijderen (zelfde venster
+    // als de SL-lijnen en de break-lijn hierboven).
+    if not longSignalActive and not shortSignalActive
+        if not na(tpLine)
+            line.delete(tpLine)
+            tpLine := na
+        if not na(tpLabel)
+            label.delete(tpLabel)
+            tpLabel := na
+        if not na(noTradeLabel)
+            label.delete(noTradeLabel)
+            noTradeLabel := na
 
 // ============================================================
 // SL-lijnen tekenen (zie voorwaarden in het commentaarblok bovenaan het

@@ -3,6 +3,13 @@
 Alle noemenswaardige wijzigingen aan `trade_lines.pine` worden hier bijgehouden.
 Versienummering volgt [Semantic Versioning](https://semver.org/lang/nl/) (MAJOR.MINOR.PATCH).
 
+## [1.7.0]
+
+### Toegevoegd
+- Extra geldigheidsvoorwaarde bij de "Trade Mogelijkheid"-check (naast de Range-check): R (het verschil tussen de close van de signaal-candle en de SL-lijn) mag, uitgedrukt in ticks, niet groter zijn dan een instelbaar maximum (`maxRTicks`, standaard **1000 ticks**). Is R te groot, dan is de trade ook ongeldig, los van of de Range wel voldoende ruimte biedt.
+- Nieuwe instelling **"Maximaal toegestane R (ticks)"** (groep "Trade Mogelijkheid", default 1000).
+- Het "Trade niet mogelijk"-label toont nu per reden een eigen regel: als zowel de Range te klein is als R te groot, staan beide meldingen onder elkaar in hetzelfde label.
+
 ## [1.6.0]
 
 ### Toegevoegd

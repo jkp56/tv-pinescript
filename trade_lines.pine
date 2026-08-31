@@ -1,5 +1,5 @@
 //@version=6
-// Versie: 1.6.0 - zie CHANGELOG.md voor de wijzigingsgeschiedenis.
+// Versie: 1.7.0 - zie CHANGELOG.md voor de wijzigingsgeschiedenis.
 indicator("Trade Lijnen (SL/S/R)", overlay=true, max_lines_count=30, max_labels_count=30)
 
 // ============================================================
@@ -463,6 +463,10 @@ if barstate.isconfirmed
 // - Een trade is alleen mogelijk als die Range minimaal minRangeRR * R kan
 //   bevatten. Zo niet: geen TP-lijn, maar een "Trade niet mogelijk"-label
 //   met de gemeten en de benodigde afstand.
+// - Extra voorwaarde: R (uitgedrukt in ticks) mag niet groter zijn dan
+//   maxRTicks (standaard 1000 ticks). Is R te groot, dan is de trade ook
+//   niet geldig - los van de Range-check hierboven. Beide voorwaarden
+//   kunnen tegelijk gelden en worden dan allebei in het label getoond.
 // - TP-lijn/label en het "niet mogelijk"-label blijven zichtbaar binnen
 //   hetzelfde signaalvenster (`slSignalWindow`) als de SL-lijnen/break-lijn,
 //   en worden - net als die lijnen - direct vervangen zodra het andere
@@ -471,6 +475,7 @@ if barstate.isconfirmed
 showTradeCheck = input.bool(true, "Toon TP-lijn en Trade-mogelijkheid check", group="Trade Mogelijkheid")
 tpRR           = input.float(1.2, "TP: Risk/Reward ratio", minval=0.01, step=0.1, group="Trade Mogelijkheid")
 minRangeRR     = input.float(1.5, "Minimaal benodigde R/R-ruimte in de Range", minval=0.01, step=0.1, group="Trade Mogelijkheid")
+maxRTicks      = input.int(1000, "Maximaal toegestane R (ticks)", minval=1, group="Trade Mogelijkheid")
 tpColor        = input.color(color.new(color.blue, 0), "Kleur TP-lijn", group="Trade Mogelijkheid")
 noTradeColor   = input.color(color.new(color.orange, 0), "Kleur 'Trade niet mogelijk'-label", group="Trade Mogelijkheid")
 
@@ -494,29 +499,49 @@ if showTradeCheck and barstate.isconfirmed
         slAtSignal = low - slOffset
         entryPrice = close
         rValue     = entryPrice - slAtSignal
+        rTicks     = rValue / tickSize
         tpValue    = entryPrice + tpRR * rValue
         rangeAvail = targetResistance - resistance
-        tradeOk    = rValue > 0 and rangeAvail >= minRangeRR * rValue
+        rangeOk    = rangeAvail >= minRangeRR * rValue
+        rTooLarge  = rTicks > maxRTicks
+        tradeOk    = rValue > 0 and rangeOk and not rTooLarge
 
         if tradeOk
             tpLine  := line.new(bar_index, tpValue, bar_index + lineLen, tpValue, xloc.bar_index, extend.none, tpColor, line.style_dashed, 2)
             tpLabel := label.new(bar_index + lineLen, tpValue, "TP (" + str.tostring(tpRR, "#.##") + " R/R): " + str.tostring(tpValue, format.mintick), xloc.bar_index, yloc.price, color.new(tpColor, 80), label.style_label_left, tpColor, size.small)
         else
-            noTradeLabel := label.new(bar_index, high, "Trade niet mogelijk\nRange " + str.tostring(rangeAvail, format.mintick) + " < " + str.tostring(minRangeRR, "#.##") + "R (" + str.tostring(minRangeRR * rValue, format.mintick) + ")", xloc.bar_index, yloc.abovebar, color.new(noTradeColor, 0), label.style_label_down, color.white, size.small)
+            string reasonText = ""
+            if not rangeOk
+                reasonText := reasonText + "Range " + str.tostring(rangeAvail, format.mintick) + " < " + str.tostring(minRangeRR, "#.##") + "R (" + str.tostring(minRangeRR * rValue, format.mintick) + ")"
+            if rTooLarge
+                if reasonText != ""
+                    reasonText := reasonText + "\n"
+                reasonText := reasonText + "R " + str.tostring(rTicks, "#.##") + " ticks > max " + str.tostring(maxRTicks) + " ticks"
+            noTradeLabel := label.new(bar_index, high, "Trade niet mogelijk\n" + reasonText, xloc.bar_index, yloc.abovebar, color.new(noTradeColor, 0), label.style_label_down, color.white, size.small)
 
     if bearishBreak and not na(support) and not na(targetSupport)
         slAtSignal = high + slOffset
         entryPrice = close
         rValue     = slAtSignal - entryPrice
+        rTicks     = rValue / tickSize
         tpValue    = entryPrice - tpRR * rValue
         rangeAvail = support - targetSupport
-        tradeOk    = rValue > 0 and rangeAvail >= minRangeRR * rValue
+        rangeOk    = rangeAvail >= minRangeRR * rValue
+        rTooLarge  = rTicks > maxRTicks
+        tradeOk    = rValue > 0 and rangeOk and not rTooLarge
 
         if tradeOk
             tpLine  := line.new(bar_index, tpValue, bar_index + lineLen, tpValue, xloc.bar_index, extend.none, tpColor, line.style_dashed, 2)
             tpLabel := label.new(bar_index + lineLen, tpValue, "TP (" + str.tostring(tpRR, "#.##") + " R/R): " + str.tostring(tpValue, format.mintick), xloc.bar_index, yloc.price, color.new(tpColor, 80), label.style_label_left, tpColor, size.small)
         else
-            noTradeLabel := label.new(bar_index, low, "Trade niet mogelijk\nRange " + str.tostring(rangeAvail, format.mintick) + " < " + str.tostring(minRangeRR, "#.##") + "R (" + str.tostring(minRangeRR * rValue, format.mintick) + ")", xloc.bar_index, yloc.belowbar, color.new(noTradeColor, 0), label.style_label_up, color.white, size.small)
+            string reasonText = ""
+            if not rangeOk
+                reasonText := reasonText + "Range " + str.tostring(rangeAvail, format.mintick) + " < " + str.tostring(minRangeRR, "#.##") + "R (" + str.tostring(minRangeRR * rValue, format.mintick) + ")"
+            if rTooLarge
+                if reasonText != ""
+                    reasonText := reasonText + "\n"
+                reasonText := reasonText + "R " + str.tostring(rTicks, "#.##") + " ticks > max " + str.tostring(maxRTicks) + " ticks"
+            noTradeLabel := label.new(bar_index, low, "Trade niet mogelijk\n" + reasonText, xloc.bar_index, yloc.belowbar, color.new(noTradeColor, 0), label.style_label_up, color.white, size.small)
 
     // Signaalvenster verlopen: TP-lijn en labels verwijderen (zelfde venster
     // als de SL-lijnen en de break-lijn hierboven).

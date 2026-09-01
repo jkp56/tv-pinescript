@@ -3,6 +3,23 @@
 Alle noemenswaardige wijzigingen aan `trade_lines.pine` worden hier bijgehouden.
 Versienummering volgt [Semantic Versioning](https://semver.org/lang/nl/) (MAJOR.MINOR.PATCH).
 
+## [1.8.2]
+
+### Gewijzigd
+- Default van **"Max bars terugzoeken"** (`maxScanBars`, groep "Support / Resistance") gewijzigd van 250 naar **450**. Op XAUUSD werd anders niet ver genoeg teruggezocht naar een geldige Target Support/Resistance-pivot, waardoor die te vaak op de (te kleine) fallback-afstand terugviel - zie eerdere test met Range 3.00 - en de Range-check in "Trade Mogelijkheid" onterecht bijna altijd faalde.
+
+## [1.8.1]
+
+### Gewijzigd
+- De break-lijn (Resistance/Support-doorbraakniveau, zwart/dashed) loopt nu onbeperkt door naar links (`extend.left`) in plaats van pas te beginnen bij de signaal-candle, zodat het niveau makkelijk te herleiden is naar de candles ervoor. De marge naar rechts (`lineLen` bars) blijft ongewijzigd - de lijn loopt dus niet oneindig door naar rechts.
+
+## [1.8.0]
+
+### Toegevoegd
+- De break-lijn (het zwarte stippellijntje op het niveau van de doorbraak zelf) heeft nu een label met het exacte doorbroken niveau, plus of het om **Resistance** (bij LONG) of **Support** (bij SHORT) ging - bv. "Support doorbroken: 4429.10".
+- Reden: het signaal wordt getoetst tegen Resistance/Support zoals die golden VOORDAT de candle sloot (`prevResistance`/`prevSupport`). Zodra de candle die lijn doorbreekt, wordt die lijn zelf ongeldig en herberekent het script Resistance/Support naar het eerstvolgende geldige (verder terugliggende) niveau - dat is de lijn die je ná het signaal op de chart ziet. Zonder label was het gebroken niveau zelf nergens meer af te lezen, waardoor het leek alsof een signaal niet bij een "echte" doorbraak van de zichtbare S/R-lijn hoorde. Met dit label is elk signaal achteraf direct te verifiëren.
+- Break-labels volgen dezelfde levenscyclus als de break-lijnen zelf (signaalvenster `slSignalWindow`, max. 1 tegelijk zichtbaar per richting).
+
 ## [1.7.0]
 
 ### Toegevoegd

@@ -1,5 +1,5 @@
 //@version=6
-// Versie: 1.7.0 - zie CHANGELOG.md voor de wijzigingsgeschiedenis.
+// Versie: 1.8.2 - zie CHANGELOG.md voor de wijzigingsgeschiedenis.
 indicator("Trade Lijnen (SL/S/R)", overlay=true, max_lines_count=30, max_labels_count=30)
 
 // ============================================================
@@ -75,7 +75,7 @@ shortColor     = input.color(color.new(color.red, 0), "Kleur Short SL", group="S
 // na het toevoegen van de indicator) worden overal genegeerd, zodat zo'n
 // kapotte bar niet per ongeluk Support/Resistance naar 0 trekt.
 // ============================================================
-maxScanBars      = input.int(250, "Max bars terugzoeken", minval=10, maxval=500, group="Support / Resistance")
+maxScanBars      = input.int(450, "Max bars terugzoeken", minval=10, maxval=500, group="Support / Resistance")
 autoTargetTicks  = input.int(100, "Fallback afstand target lijnen (ticks, alleen als geen geldige overgang gevonden wordt)", minval=1, group="Support / Resistance")
 minTargetDistance = input.int(300, "Minimale afstand Target t.o.v. Resistance/Support (ticks)", minval=1, group="Support / Resistance")
 labelTextColor   = input.color(color.black, "Labelkleur (tekst)", group="Support / Resistance")
@@ -397,13 +397,22 @@ var label signalLabel = na
 var int lastLongSignalBar  = na
 var int lastShortSignalBar = na
 
-// Lijnstukje op het niveau van de break zelf (Resistance/Support + x ticks),
-// zwart/1px/dashed, zelfde lengte (`lineLen`) als de SL-lijnen. Blijft net
+// Lijn op het niveau van de break zelf (Resistance/Support + x ticks),
+// zwart/1px/dashed. Loopt onbeperkt door naar links (extend.left) zodat je
+// het niveau makkelijk kunt herleiden naar de candles die eraan voorafgingen,
+// en loopt naar rechts nog `lineLen` bars door (zelfde marge als de
+// SL-lijnen) - niet oneindig naar rechts. Blijft net
 // als de SL-lijnen staan binnen het signaalvenster (`slSignalWindow`). Net
 // als bij de SL-lijnen is er maar 1 tegelijk zichtbaar: een nieuw LONG- of
 // SHORT-signaal verwijdert meteen de break-lijn van de andere richting.
-var line longBreakLine  = na
-var line shortBreakLine = na
+// Elke break-lijn krijgt een label met het exacte doorbroken niveau EN of
+// dit Resistance (Long) of Support (Short) betrof - zo is elk signaal
+// achteraf direct te verifiëren, ook als Resistance/Support na deze candle
+// alweer zijn herberekend naar een ander (verder terugliggend) niveau.
+var line  longBreakLine   = na
+var line  shortBreakLine  = na
+var label longBreakLabel  = na
+var label shortBreakLabel = na
 
 if bullishBreak
     lastLongSignalBar := bar_index
@@ -413,10 +422,16 @@ if bullishBreak
     alert("Bullish breakout: close boven Resistance + " + str.tostring(xTicks) + " ticks", alert.freq_once_per_bar_close)
     if not na(longBreakLine)
         line.delete(longBreakLine)
-    longBreakLine := line.new(bar_index, bullishLevel, bar_index + lineLen, bullishLevel, xloc.bar_index, extend.none, color.black, line.style_dashed, 1)
+    longBreakLine := line.new(bar_index, bullishLevel, bar_index + lineLen, bullishLevel, xloc.bar_index, extend.left, color.black, line.style_dashed, 1)
+    if not na(longBreakLabel)
+        label.delete(longBreakLabel)
+    longBreakLabel := label.new(bar_index + lineLen, bullishLevel, "Resistance doorbroken: " + str.tostring(bullishLevel, format.mintick), xloc.bar_index, yloc.price, color.new(color.black, 100), label.style_label_left, labelTextColor, size.small)
     if not na(shortBreakLine)
         line.delete(shortBreakLine)
         shortBreakLine := na
+    if not na(shortBreakLabel)
+        label.delete(shortBreakLabel)
+        shortBreakLabel := na
 
 if bearishBreak
     lastShortSignalBar := bar_index
@@ -426,26 +441,38 @@ if bearishBreak
     alert("Bearish breakdown: close onder Support - " + str.tostring(xTicks) + " ticks", alert.freq_once_per_bar_close)
     if not na(shortBreakLine)
         line.delete(shortBreakLine)
-    shortBreakLine := line.new(bar_index, bearishLevel, bar_index + lineLen, bearishLevel, xloc.bar_index, extend.none, color.black, line.style_dashed, 1)
+    shortBreakLine := line.new(bar_index, bearishLevel, bar_index + lineLen, bearishLevel, xloc.bar_index, extend.left, color.black, line.style_dashed, 1)
+    if not na(shortBreakLabel)
+        label.delete(shortBreakLabel)
+    shortBreakLabel := label.new(bar_index + lineLen, bearishLevel, "Support doorbroken: " + str.tostring(bearishLevel, format.mintick), xloc.bar_index, yloc.price, color.new(color.black, 100), label.style_label_left, labelTextColor, size.small)
     if not na(longBreakLine)
         line.delete(longBreakLine)
         longBreakLine := na
+    if not na(longBreakLabel)
+        label.delete(longBreakLabel)
+        longBreakLabel := na
 
 // Actief zolang we binnen `slSignalWindow` candles zitten na het laatste
 // LONG/SHORT-signaal (de signaal-candle zelf telt mee als candle 1).
 longSignalActive  = not na(lastLongSignalBar) and (bar_index - lastLongSignalBar) < slSignalWindow
 shortSignalActive = not na(lastShortSignalBar) and (bar_index - lastShortSignalBar) < slSignalWindow
 
-// Break-lijnen en het LONG/SHORT-signaallabel verwijderen zodra het
-// signaalvenster verloopt (zelfde venster/instelling als de SL-lijnen
+// Break-lijnen, hun labels en het LONG/SHORT-signaallabel verwijderen zodra
+// het signaalvenster verloopt (zelfde venster/instelling als de SL-lijnen
 // hieronder gebruiken).
 if barstate.isconfirmed
     if not longSignalActive and not na(longBreakLine)
         line.delete(longBreakLine)
         longBreakLine := na
+    if not longSignalActive and not na(longBreakLabel)
+        label.delete(longBreakLabel)
+        longBreakLabel := na
     if not shortSignalActive and not na(shortBreakLine)
         line.delete(shortBreakLine)
         shortBreakLine := na
+    if not shortSignalActive and not na(shortBreakLabel)
+        label.delete(shortBreakLabel)
+        shortBreakLabel := na
     if not longSignalActive and not shortSignalActive and not na(signalLabel)
         label.delete(signalLabel)
         signalLabel := na

@@ -69,6 +69,7 @@ Spiegelbeeld van Target Resistance:
 3. `x` = instelbaar aantal ticks (standaard 10).
 4. Bij triggeren: groen label boven de candle met tekst "LONG signaal / Close > Resistance +x ticks", plus een alert.
 5. Het vorige signaallabel (long of short) wordt eerst verwijderd, zodat alleen het laatste signaal zichtbaar blijft.
+6. **Belangrijk voor verificatie**: het signaal wordt getoetst tegen Resistance zoals die gold vlak vóór deze candle - niet tegen de Resistance-lijn die je ná deze candle op de chart ziet. Zodra de candle die lijn doorbreekt, wordt ze zelf ongeldig en herberekent het script Resistance naar het eerstvolgende geldige (verder terugliggende) niveau. Om dit toch te kunnen controleren, krijgt de break-lijn (het zwarte stippellijntje op het doorbraakniveau) een label met het exacte doorbroken niveau: "Resistance doorbroken: [prijs]".
 
 ## SHORT signaal
 
@@ -79,6 +80,7 @@ Spiegelbeeld van het LONG signaal:
 3. Zelfde instelbare `x` (ticks) als bij het LONG signaal.
 4. Bij triggeren: rood label onder de candle met tekst "SHORT signaal / Close < Support -x ticks", plus alert.
 5. Vervangt eveneens het vorige signaallabel.
+6. **Belangrijk voor verificatie**: net als bij LONG wordt het signaal getoetst tegen Support zoals die gold vlak vóór deze candle, niet tegen de Support-lijn die je ná deze candle op de chart ziet - die kan intussen alweer (ver) terugliggend herberekend zijn. De break-lijn krijgt daarom een label met het exacte doorbroken niveau: "Support doorbroken: [prijs]".
 
 ## Trade Mogelijkheid (TP & Range-check)
 

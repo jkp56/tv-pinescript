@@ -1,5 +1,5 @@
 //@version=6
-// Versie: 1.9.1 - zie CHANGELOG.md voor de wijzigingsgeschiedenis.
+// Versie: 1.9.2 - zie CHANGELOG.md voor de wijzigingsgeschiedenis.
 //
 // NIEUW IN 1.9.0: alle berekeningen (Support/Resistance, Targets, LONG/SHORT
 // signalen, SL, TP + Range-check) draaien nu ALTIJD op het 30-minuten
@@ -96,6 +96,7 @@ max_bars_back(open, 500)
 max_bars_back(close, 500)
 max_bars_back(high, 500)
 max_bars_back(low, 500)
+max_bars_back(time, 500)
 
 // ============================================================
 // PURE HELPER FUNCTIES (ongewijzigde detectielogica t.o.v. v1.8.2).

@@ -3,6 +3,11 @@
 Alle noemenswaardige wijzigingen aan `trade_lines.pine` worden hier bijgehouden.
 Versienummering volgt [Semantic Versioning](https://semver.org/lang/nl/) (MAJOR.MINOR.PATCH).
 
+## [1.9.2]
+
+### Opgelost
+- Er werd helemaal geen enkele lijn/label meer getekend. Oorzaak: `rPivotTime`/`sPivotTime`/`trPivotTime`/`tsPivotTime` worden sinds v1.9.0 berekend via `time[rBarsBack]` (dynamische offset, tot 450 candles terug), maar alleen voor `open`/`close`/`high`/`low` was een `max_bars_back(..., 500)` gedeclareerd - niet voor `time`. Zonder die declaratie kon Pine de benodigde historische buffer voor `time` niet bepalen, bleven de pivot-tijden op `na` staan zodra de pivot verder dan de (te kleine) standaardbuffer terugligt, en crashte het script op `line.new()` met een `na` x1-coördinaat - waardoor er niets meer getekend werd. Opgelost door ook `max_bars_back(time, 500)` toe te voegen.
+
 ## [1.9.1]
 
 ### Opgelost

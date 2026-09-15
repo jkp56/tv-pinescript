@@ -3,6 +3,16 @@
 Alle noemenswaardige wijzigingen aan `trade_lines.pine` worden hier bijgehouden.
 Versienummering volgt [Semantic Versioning](https://semver.org/lang/nl/) (MAJOR.MINOR.PATCH).
 
+## [1.9.5]
+
+### Opgelost
+- Eindelijk de daadwerkelijke oorzaak van "geen enkele lijn" gevonden via het diagnosepaneel: op een ondersteund timeframe (30m) waren `calcBarTime`/`calcResistance`/`calcSupport` (afkomstig uit `request.security()`) wél gewoon gevuld, maar `lastDrawnBarTime` bleef voor altijd `na` staan, zodat `newData` nooit `true` werd. Oorzaak: `calcBarTime != lastDrawnBarTime` is onbetrouwbaar zolang `lastDrawnBarTime` nog `na` is - Pine's `==`/`!=`-operatoren gedragen zich niet zoals verwacht met een `na`-operand (de documentatie waarschuwt hier expliciet voor: gebruik `na()` i.p.v. `==`/`!=`). Hierdoor kon `newData` nooit voor de allereerste keer `true` worden: een permanente "kip-en-ei"-deadlock, aanwezig sinds de introductie van dit `newData`/`lastDrawnBarTime`-patroon in v1.9.0.
+- Dezelfde fout zat ook in de alert-conditie (`calcBreakTime != lastAlertedBreakTime`).
+- Beide condities expliciet gemaakt met `na(...) or ...`, bijvoorbeeld: `newData = isSupportedTF and not na(calcBarTime) and (na(lastDrawnBarTime) or calcBarTime != lastDrawnBarTime)`.
+
+### Toegevoegd
+- Instelling **"Debug: toon diagnosepaneel (calc*/newData-waarden)"** (groep "Support / Resistance", standaard uit) - het tijdelijke gele paneel uit v1.9.4 blijft in de code zitten, maar staat nu standaard uit en is met één vinkje weer aan te zetten mocht dat nog eens nodig zijn.
+
 ## [1.9.4] (diagnose-build)
 
 ### Toegevoegd

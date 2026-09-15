@@ -1,5 +1,5 @@
 //@version=6
-// Versie: 1.9.4 (DIAGNOSE-build) - zie CHANGELOG.md voor de wijzigingsgeschiedenis.
+// Versie: 1.9.5 - zie CHANGELOG.md voor de wijzigingsgeschiedenis.
 //
 // NIEUW IN 1.9.0: alle berekeningen (Support/Resistance, Targets, LONG/SHORT
 // signalen, SL, TP + Range-check) draaien nu ALTIJD op het 30-minuten
@@ -61,6 +61,7 @@ minTargetDistance = input.int(300, "Minimale afstand Target t.o.v. Resistance/Su
 labelTextColor   = input.color(color.black, "Labelkleur (tekst)", group="Support / Resistance")
 excludeReversalCandle = input.bool(false, "Support/Resistance: reversal-candle uitsluiten van eigen invalidatie", group="Support / Resistance")
 debugSupportPivot = input.bool(false, "Debug: toon eerste Support-kandidaat + reden verwerping (alleen op 30m-chart)", group="Support / Resistance")
+debugCalcPanel = input.bool(false, "Debug: toon diagnosepaneel (calc*/newData-waarden)", group="Support / Resistance")
 
 // ============================================================
 // SIGNAAL INSTELLINGEN
@@ -466,15 +467,15 @@ if barstate.islast
 // ongeacht of de chart zelf op 30m of 15m staat - dat is het moment waarop
 // alle lijnen/labels hieronder herbouwd worden.
 var int lastDrawnBarTime = na
-newData = isSupportedTF and not na(calcBarTime) and calcBarTime != lastDrawnBarTime
+newData = isSupportedTF and not na(calcBarTime) and (na(lastDrawnBarTime) or calcBarTime != lastDrawnBarTime)
 
 // ============================================================
-// TIJDELIJK DIAGNOSEPANEEL - verwijderen zodra het teken-probleem is
-// opgelost. Toont de kernwaarden die request.security() teruggeeft, zodat
-// zichtbaar is of calc* echt gevuld wordt en of newData ooit true wordt.
+// DIAGNOSEPANEEL (uit te zetten via de instelling hierboven). Toont de
+// kernwaarden die request.security() teruggeeft, zodat zichtbaar is of
+// calc* echt gevuld wordt en of newData ooit true wordt.
 // ============================================================
 var table dbgTable = table.new(position.top_right, 1, 1)
-if barstate.islast
+if debugCalcPanel and barstate.islast
     dbgText = "isSupportedTF=" + str.tostring(isSupportedTF) +
       "\ntimeframe.period=" + timeframe.period +
       "\ncalcBarTime=" + str.tostring(calcBarTime) +
@@ -484,6 +485,8 @@ if barstate.islast
       "\nlastDrawnBarTime=" + str.tostring(lastDrawnBarTime) +
       "\nbar_index=" + str.tostring(bar_index)
     table.cell(dbgTable, 0, 0, dbgText, bgcolor=color.new(color.yellow, 20), text_color=color.black, text_size=size.small)
+else if barstate.islast
+    table.cell(dbgTable, 0, 0, "")
 
 // ============================================================
 // Resistance / Support / Target-lijnen + labels.
@@ -671,7 +674,7 @@ if newData
 // chart voordat de bijgewerkte 30m-waarde binnenkomt).
 // ============================================================
 var int lastAlertedBreakTime = na
-if isSupportedTF and not na(calcBreakTime) and calcBreakTime != lastAlertedBreakTime
+if isSupportedTF and not na(calcBreakTime) and (na(lastAlertedBreakTime) or calcBreakTime != lastAlertedBreakTime)
     if calcLongActive and calcBreakSide
         alert("Bullish breakout: close boven Resistance + " + str.tostring(xTicks) + " ticks", alert.freq_once_per_bar_close)
         lastAlertedBreakTime := calcBreakTime

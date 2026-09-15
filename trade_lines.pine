@@ -1,5 +1,5 @@
 //@version=6
-// Versie: 1.9.0 - zie CHANGELOG.md voor de wijzigingsgeschiedenis.
+// Versie: 1.9.1 - zie CHANGELOG.md voor de wijzigingsgeschiedenis.
 //
 // NIEUW IN 1.9.0: alle berekeningen (Support/Resistance, Targets, LONG/SHORT
 // signalen, SL, TP + Range-check) draaien nu ALTIJD op het 30-minuten
@@ -314,10 +314,10 @@ f_calc30m() =>
     var float targetSupport    = na
     var float prevResistance   = na
     var float prevSupport      = na
-    var bool  rFallback  = na
-    var bool  sFallback  = na
-    var bool  trFallback = na
-    var bool  tsFallback = na
+    var rFallback  = bool(na)
+    var sFallback  = bool(na)
+    var trFallback = bool(na)
+    var tsFallback = bool(na)
     var int   rPivotTime  = na
     var int   sPivotTime  = na
     var int   trPivotTime = na
@@ -337,12 +337,12 @@ f_calc30m() =>
 
     var float longTrailSL  = na
     var float shortTrailSL = na
-    var bool  slSide       = na
+    var slSide             = bool(na)
 
     var float longBreakLevel  = na
     var float shortBreakLevel = na
     var int   breakTime       = na
-    var bool  breakSide       = na
+    var breakSide             = bool(na)
     var float breakLow        = na
     var float breakHigh       = na
 

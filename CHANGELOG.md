@@ -3,6 +3,11 @@
 Alle noemenswaardige wijzigingen aan `trade_lines.pine` worden hier bijgehouden.
 Versienummering volgt [Semantic Versioning](https://semver.org/lang/nl/) (MAJOR.MINOR.PATCH).
 
+## [1.9.1]
+
+### Opgelost
+- Compile-error "Cannot assign a value of the 'simple na' type ... The variable is declared with the 'const bool' type" bij `rFallback`/`sFallback`/`trFallback`/`tsFallback`/`slSide`/`breakSide` in `f_calc30m()`. Oorzaak: bij `var bool x = na` legt de Pine-compiler het qualifier van `x` vast op `const`, waardoor een latere `:=` met een series/simple bool-waarde niet meer is toegestaan. Opgelost door de expliciete `bool`-type-annotatie te vervangen door de typecast-vorm (`var x = bool(na)`), zodat het qualifier vrij kan meegroeien.
+
 ## [1.9.0]
 
 ### Gewijzigd

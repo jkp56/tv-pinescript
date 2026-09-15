@@ -1,5 +1,5 @@
 //@version=6
-// Versie: 1.9.2 - zie CHANGELOG.md voor de wijzigingsgeschiedenis.
+// Versie: 1.9.3 - zie CHANGELOG.md voor de wijzigingsgeschiedenis.
 //
 // NIEUW IN 1.9.0: alle berekeningen (Support/Resistance, Targets, LONG/SHORT
 // signalen, SL, TP + Range-check) draaien nu ALTIJD op het 30-minuten
@@ -260,47 +260,6 @@ f_autoTargetSupport(maxScan, supportLevel, minDistance, excludeReversal) =>
     [level, barsBack]
 
 // ============================================================
-// Verzamel-type voor alles wat op 30m wordt berekend en straks (op elk
-// ondersteund timeframe) getekend moet worden.
-// ============================================================
-type Calc30
-    float  resistance
-    float  support
-    float  targetResistance
-    float  targetSupport
-    bool   rFallback
-    bool   sFallback
-    bool   trFallback
-    bool   tsFallback
-    int    rPivotTime
-    int    sPivotTime
-    int    trPivotTime
-    int    tsPivotTime
-    int    rBarsBack
-    int    sBarsBack
-    int    trBarsBack
-    int    tsBarsBack
-    int    barTime
-    int    rightEdgeTime
-    bool   longActive
-    bool   shortActive
-    float  longTrailSL
-    float  shortTrailSL
-    bool   slSide
-    float  longBreakLevel
-    float  shortBreakLevel
-    int    breakTime
-    bool   breakSide
-    float  breakLow
-    float  breakHigh
-    bool   longTradeOk
-    float  longTP
-    string longReasonText
-    bool   shortTradeOk
-    float  shortTP
-    string shortReasonText
-
-// ============================================================
 // ALLE BEREKENINGEN: draait via request.security() altijd op het 30m-
 // timeframe, ook als de chart zelf op 15m staat. De "var" + barstate.
 // isconfirmed-combinatie zorgt ervoor dat er nooit in een nog lopende
@@ -471,20 +430,25 @@ f_calc30m() =>
                 reasonTextS := reasonTextS + "R " + str.tostring(rTicks, "#.##") + " ticks > max " + str.tostring(maxRTicks) + " ticks"
             shortReasonText := reasonTextS
 
-    Calc30.new(
-         resistance=resistance, support=support, targetResistance=targetResistance, targetSupport=targetSupport,
-         rFallback=rFallback, sFallback=sFallback, trFallback=trFallback, tsFallback=tsFallback,
-         rPivotTime=rPivotTime, sPivotTime=sPivotTime, trPivotTime=trPivotTime, tsPivotTime=tsPivotTime,
-         rBarsBack=rBarsBack, sBarsBack=sBarsBack, trBarsBack=trBarsBack, tsBarsBack=tsBarsBack,
-         barTime=barTime, rightEdgeTime=rightEdgeTime,
-         longActive=longActive, shortActive=shortActive,
-         longTrailSL=longTrailSL, shortTrailSL=shortTrailSL, slSide=slSide,
-         longBreakLevel=longBreakLevel, shortBreakLevel=shortBreakLevel, breakTime=breakTime, breakSide=breakSide,
-         breakLow=breakLow, breakHigh=breakHigh,
-         longTradeOk=longTradeOk, longTP=longTP, longReasonText=longReasonText,
-         shortTradeOk=shortTradeOk, shortTP=shortTP, shortReasonText=shortReasonText)
+    [resistance, support, targetResistance, targetSupport,
+     rFallback, sFallback, trFallback, tsFallback,
+     rPivotTime, sPivotTime, trPivotTime, tsPivotTime,
+     rBarsBack, sBarsBack, trBarsBack, tsBarsBack,
+     barTime, rightEdgeTime,
+     longActive, shortActive,
+     longTrailSL, shortTrailSL, slSide,
+     longBreakLevel, shortBreakLevel, breakTime, breakSide,
+     breakLow, breakHigh,
+     longTradeOk, longTP, longReasonText,
+     shortTradeOk, shortTP, shortReasonText]
 
-calc = request.security(syminfo.tickerid, calcTF, f_calc30m(), lookahead=barmerge.lookahead_off)
+// Let op: request.security() krijgt hier bewust een TUPLE van simpele
+// waarden terug (niet een object van een user-defined type). Dat is de
+// vorm die request.security() al sinds jaar en dag ondubbelzinnig
+// ondersteunt; een UDT-object teruggeven bleek in de praktijk niet
+// betrouwbaar te worden gevuld (alle velden bleven op hun startwaarde
+// staan, waardoor er nergens meer iets werd getekend).
+[calcResistance, calcSupport, calcTargetResistance, calcTargetSupport, calcRFallback, calcSFallback, calcTrFallback, calcTsFallback, calcRPivotTime, calcSPivotTime, calcTrPivotTime, calcTsPivotTime, calcRBarsBack, calcSBarsBack, calcTrBarsBack, calcTsBarsBack, calcBarTime, calcRightEdgeTime, calcLongActive, calcShortActive, calcLongTrailSL, calcShortTrailSL, calcSlSide, calcLongBreakLevel, calcShortBreakLevel, calcBreakTime, calcBreakSide, calcBreakLow, calcBreakHigh, calcLongTradeOk, calcLongTP, calcLongReasonText, calcShortTradeOk, calcShortTP, calcShortReasonText] = request.security(syminfo.tickerid, calcTF, f_calc30m(), lookahead=barmerge.lookahead_off)
 
 // ============================================================
 // Waarschuwing bij niet-ondersteund timeframe.
@@ -502,7 +466,7 @@ if barstate.islast
 // ongeacht of de chart zelf op 30m of 15m staat - dat is het moment waarop
 // alle lijnen/labels hieronder herbouwd worden.
 var int lastDrawnBarTime = na
-newData = isSupportedTF and not na(calc.barTime) and calc.barTime != lastDrawnBarTime
+newData = isSupportedTF and not na(calcBarTime) and calcBarTime != lastDrawnBarTime
 
 // ============================================================
 // Resistance / Support / Target-lijnen + labels.
@@ -516,7 +480,7 @@ var label sNameLabel  = na
 var label trNameLabel = na
 var label tsNameLabel = na
 
-if newData and not na(calc.resistance)
+if newData and not na(calcResistance)
     if not na(rLine)
         line.delete(rLine)
     if not na(sLine)
@@ -534,15 +498,15 @@ if newData and not na(calc.resistance)
     if not na(tsNameLabel)
         label.delete(tsNameLabel)
 
-    rLine  := line.new(calc.rPivotTime, calc.resistance, calc.barTime, calc.resistance, xloc.bar_time, extend.right, color.new(color.red, 0), line.style_solid, 2)
-    sLine  := line.new(calc.sPivotTime, calc.support, calc.barTime, calc.support, xloc.bar_time, extend.right, color.new(color.green, 0), line.style_solid, 2)
-    trLine := line.new(calc.trPivotTime, calc.targetResistance, calc.barTime, calc.targetResistance, xloc.bar_time, extend.right, color.new(color.red, 40), line.style_solid, 2)
-    tsLine := line.new(calc.tsPivotTime, calc.targetSupport, calc.barTime, calc.targetSupport, xloc.bar_time, extend.right, color.new(color.green, 40), line.style_solid, 2)
+    rLine  := line.new(calcRPivotTime, calcResistance, calcBarTime, calcResistance, xloc.bar_time, extend.right, color.new(color.red, 0), line.style_solid, 2)
+    sLine  := line.new(calcSPivotTime, calcSupport, calcBarTime, calcSupport, xloc.bar_time, extend.right, color.new(color.green, 0), line.style_solid, 2)
+    trLine := line.new(calcTrPivotTime, calcTargetResistance, calcBarTime, calcTargetResistance, xloc.bar_time, extend.right, color.new(color.red, 40), line.style_solid, 2)
+    tsLine := line.new(calcTsPivotTime, calcTargetSupport, calcBarTime, calcTargetSupport, xloc.bar_time, extend.right, color.new(color.green, 40), line.style_solid, 2)
 
-    rNameLabel  := label.new(calc.barTime, calc.resistance, "Resistance" + (calc.rFallback ? " [FALLBACK]" : " [pivot " + str.tostring(calc.rBarsBack) + " candles terug]"), xloc.bar_time, yloc.price, color.new(color.red, 100), label.style_label_left, labelTextColor, size.small)
-    sNameLabel  := label.new(calc.barTime, calc.support, "Support" + (calc.sFallback ? " [FALLBACK]" : " [pivot " + str.tostring(calc.sBarsBack) + " candles terug]"), xloc.bar_time, yloc.price, color.new(color.green, 100), label.style_label_left, labelTextColor, size.small)
-    trNameLabel := label.new(calc.barTime, calc.targetResistance, "Target Resistance" + (calc.trFallback ? " [FALLBACK]" : " [pivot " + str.tostring(calc.trBarsBack) + " candles terug]"), xloc.bar_time, yloc.price, color.new(color.red, 100), label.style_label_left, labelTextColor, size.small)
-    tsNameLabel := label.new(calc.barTime, calc.targetSupport, "Target Support" + (calc.tsFallback ? " [FALLBACK]" : " [pivot " + str.tostring(calc.tsBarsBack) + " candles terug]"), xloc.bar_time, yloc.price, color.new(color.green, 100), label.style_label_left, labelTextColor, size.small)
+    rNameLabel  := label.new(calcBarTime, calcResistance, "Resistance" + (calcRFallback ? " [FALLBACK]" : " [pivot " + str.tostring(calcRBarsBack) + " candles terug]"), xloc.bar_time, yloc.price, color.new(color.red, 100), label.style_label_left, labelTextColor, size.small)
+    sNameLabel  := label.new(calcBarTime, calcSupport, "Support" + (calcSFallback ? " [FALLBACK]" : " [pivot " + str.tostring(calcSBarsBack) + " candles terug]"), xloc.bar_time, yloc.price, color.new(color.green, 100), label.style_label_left, labelTextColor, size.small)
+    trNameLabel := label.new(calcBarTime, calcTargetResistance, "Target Resistance" + (calcTrFallback ? " [FALLBACK]" : " [pivot " + str.tostring(calcTrBarsBack) + " candles terug]"), xloc.bar_time, yloc.price, color.new(color.red, 100), label.style_label_left, labelTextColor, size.small)
+    tsNameLabel := label.new(calcBarTime, calcTargetSupport, "Target Support" + (calcTsFallback ? " [FALLBACK]" : " [pivot " + str.tostring(calcTsBarsBack) + " candles terug]"), xloc.bar_time, yloc.price, color.new(color.green, 100), label.style_label_left, labelTextColor, size.small)
 
 // ============================================================
 // Break-lijn + LONG/SHORT signaallabel.
@@ -554,43 +518,43 @@ var label shortBreakLabel = na
 var label signalLabel     = na
 
 if newData
-    if (not calc.longActive or not calc.breakSide) and not na(longBreakLine)
+    if (not calcLongActive or not calcBreakSide) and not na(longBreakLine)
         line.delete(longBreakLine)
         longBreakLine := na
-    if (not calc.longActive or not calc.breakSide) and not na(longBreakLabel)
+    if (not calcLongActive or not calcBreakSide) and not na(longBreakLabel)
         label.delete(longBreakLabel)
         longBreakLabel := na
-    if (not calc.shortActive or calc.breakSide) and not na(shortBreakLine)
+    if (not calcShortActive or calcBreakSide) and not na(shortBreakLine)
         line.delete(shortBreakLine)
         shortBreakLine := na
-    if (not calc.shortActive or calc.breakSide) and not na(shortBreakLabel)
+    if (not calcShortActive or calcBreakSide) and not na(shortBreakLabel)
         label.delete(shortBreakLabel)
         shortBreakLabel := na
-    if not calc.longActive and not calc.shortActive and not na(signalLabel)
+    if not calcLongActive and not calcShortActive and not na(signalLabel)
         label.delete(signalLabel)
         signalLabel := na
 
-    if calc.longActive and calc.breakSide
+    if calcLongActive and calcBreakSide
         if not na(longBreakLine)
             line.delete(longBreakLine)
-        longBreakLine := line.new(calc.breakTime, calc.longBreakLevel, calc.rightEdgeTime, calc.longBreakLevel, xloc.bar_time, extend.left, color.black, line.style_dashed, 1)
+        longBreakLine := line.new(calcBreakTime, calcLongBreakLevel, calcRightEdgeTime, calcLongBreakLevel, xloc.bar_time, extend.left, color.black, line.style_dashed, 1)
         if not na(longBreakLabel)
             label.delete(longBreakLabel)
-        longBreakLabel := label.new(calc.rightEdgeTime, calc.longBreakLevel, "Resistance doorbroken: " + str.tostring(calc.longBreakLevel, format.mintick), xloc.bar_time, yloc.price, color.new(color.black, 100), label.style_label_left, labelTextColor, size.small)
+        longBreakLabel := label.new(calcRightEdgeTime, calcLongBreakLevel, "Resistance doorbroken: " + str.tostring(calcLongBreakLevel, format.mintick), xloc.bar_time, yloc.price, color.new(color.black, 100), label.style_label_left, labelTextColor, size.small)
         if not na(signalLabel)
             label.delete(signalLabel)
-        signalLabel := label.new(calc.breakTime, calc.breakLow - 10 * tickSize, "LONG", xloc.bar_time, yloc.price, color.new(color.green, 0), label.style_arrowup, color.black, size.normal)
+        signalLabel := label.new(calcBreakTime, calcBreakLow - 10 * tickSize, "LONG", xloc.bar_time, yloc.price, color.new(color.green, 0), label.style_arrowup, color.black, size.normal)
 
-    if calc.shortActive and not calc.breakSide
+    if calcShortActive and not calcBreakSide
         if not na(shortBreakLine)
             line.delete(shortBreakLine)
-        shortBreakLine := line.new(calc.breakTime, calc.shortBreakLevel, calc.rightEdgeTime, calc.shortBreakLevel, xloc.bar_time, extend.left, color.black, line.style_dashed, 1)
+        shortBreakLine := line.new(calcBreakTime, calcShortBreakLevel, calcRightEdgeTime, calcShortBreakLevel, xloc.bar_time, extend.left, color.black, line.style_dashed, 1)
         if not na(shortBreakLabel)
             label.delete(shortBreakLabel)
-        shortBreakLabel := label.new(calc.rightEdgeTime, calc.shortBreakLevel, "Support doorbroken: " + str.tostring(calc.shortBreakLevel, format.mintick), xloc.bar_time, yloc.price, color.new(color.black, 100), label.style_label_left, labelTextColor, size.small)
+        shortBreakLabel := label.new(calcRightEdgeTime, calcShortBreakLevel, "Support doorbroken: " + str.tostring(calcShortBreakLevel, format.mintick), xloc.bar_time, yloc.price, color.new(color.black, 100), label.style_label_left, labelTextColor, size.small)
         if not na(signalLabel)
             label.delete(signalLabel)
-        signalLabel := label.new(calc.breakTime, calc.breakHigh + 10 * tickSize, "SHORT", xloc.bar_time, yloc.price, color.new(color.red, 0), label.style_arrowdown, color.black, size.normal)
+        signalLabel := label.new(calcBreakTime, calcBreakHigh + 10 * tickSize, "SHORT", xloc.bar_time, yloc.price, color.new(color.red, 0), label.style_arrowdown, color.black, size.normal)
 
 // ============================================================
 // SL-lijn (trailing binnen het signaalvenster).
@@ -601,34 +565,34 @@ var label longLabel  = na
 var label shortLabel = na
 
 if showSL and newData
-    if (not calc.longActive or not calc.slSide) and not na(longLine)
+    if (not calcLongActive or not calcSlSide) and not na(longLine)
         line.delete(longLine)
         longLine := na
-    if (not calc.longActive or not calc.slSide) and not na(longLabel)
+    if (not calcLongActive or not calcSlSide) and not na(longLabel)
         label.delete(longLabel)
         longLabel := na
-    if (not calc.shortActive or calc.slSide) and not na(shortLine)
+    if (not calcShortActive or calcSlSide) and not na(shortLine)
         line.delete(shortLine)
         shortLine := na
-    if (not calc.shortActive or calc.slSide) and not na(shortLabel)
+    if (not calcShortActive or calcSlSide) and not na(shortLabel)
         label.delete(shortLabel)
         shortLabel := na
 
-    if calc.longActive and calc.slSide and not na(calc.longTrailSL)
+    if calcLongActive and calcSlSide and not na(calcLongTrailSL)
         if not na(longLine)
             line.delete(longLine)
-        longLine := line.new(calc.barTime, calc.longTrailSL, calc.rightEdgeTime, calc.longTrailSL, xloc.bar_time, extend.none, longColor, line.style_dashed, 2)
+        longLine := line.new(calcBarTime, calcLongTrailSL, calcRightEdgeTime, calcLongTrailSL, xloc.bar_time, extend.none, longColor, line.style_dashed, 2)
         if not na(longLabel)
             label.delete(longLabel)
-        longLabel := label.new(calc.rightEdgeTime, calc.longTrailSL, "Long SL: " + str.tostring(calc.longTrailSL, format.mintick), xloc.bar_time, yloc.price, color.new(longColor, 80), label.style_label_left, longColor, size.small)
+        longLabel := label.new(calcRightEdgeTime, calcLongTrailSL, "Long SL: " + str.tostring(calcLongTrailSL, format.mintick), xloc.bar_time, yloc.price, color.new(longColor, 80), label.style_label_left, longColor, size.small)
 
-    if calc.shortActive and not calc.slSide and not na(calc.shortTrailSL)
+    if calcShortActive and not calcSlSide and not na(calcShortTrailSL)
         if not na(shortLine)
             line.delete(shortLine)
-        shortLine := line.new(calc.barTime, calc.shortTrailSL, calc.rightEdgeTime, calc.shortTrailSL, xloc.bar_time, extend.none, shortColor, line.style_dashed, 2)
+        shortLine := line.new(calcBarTime, calcShortTrailSL, calcRightEdgeTime, calcShortTrailSL, xloc.bar_time, extend.none, shortColor, line.style_dashed, 2)
         if not na(shortLabel)
             label.delete(shortLabel)
-        shortLabel := label.new(calc.rightEdgeTime, calc.shortTrailSL, "Short SL: " + str.tostring(calc.shortTrailSL, format.mintick), xloc.bar_time, yloc.price, color.new(shortColor, 80), label.style_label_left, shortColor, size.small)
+        shortLabel := label.new(calcRightEdgeTime, calcShortTrailSL, "Short SL: " + str.tostring(calcShortTrailSL, format.mintick), xloc.bar_time, yloc.price, color.new(shortColor, 80), label.style_label_left, shortColor, size.small)
 
 // ============================================================
 // TP-lijn + "Trade niet mogelijk"-label.
@@ -638,7 +602,7 @@ var label tpLabel      = na
 var label noTradeLabel = na
 
 if showTradeCheck and newData
-    if not calc.longActive and not calc.shortActive
+    if not calcLongActive and not calcShortActive
         if not na(tpLine)
             line.delete(tpLine)
             tpLine := na
@@ -649,7 +613,7 @@ if showTradeCheck and newData
             label.delete(noTradeLabel)
             noTradeLabel := na
 
-    if calc.longActive and calc.breakSide
+    if calcLongActive and calcBreakSide
         if not na(tpLine)
             line.delete(tpLine)
             tpLine := na
@@ -659,13 +623,13 @@ if showTradeCheck and newData
         if not na(noTradeLabel)
             label.delete(noTradeLabel)
             noTradeLabel := na
-        if calc.longTradeOk
-            tpLine  := line.new(calc.breakTime, calc.longTP, calc.rightEdgeTime, calc.longTP, xloc.bar_time, extend.none, tpColor, line.style_dashed, 2)
-            tpLabel := label.new(calc.rightEdgeTime, calc.longTP, "TP (" + str.tostring(tpRR, "#.##") + " R/R): " + str.tostring(calc.longTP, format.mintick), xloc.bar_time, yloc.price, color.new(tpColor, 80), label.style_label_left, tpColor, size.small)
+        if calcLongTradeOk
+            tpLine  := line.new(calcBreakTime, calcLongTP, calcRightEdgeTime, calcLongTP, xloc.bar_time, extend.none, tpColor, line.style_dashed, 2)
+            tpLabel := label.new(calcRightEdgeTime, calcLongTP, "TP (" + str.tostring(tpRR, "#.##") + " R/R): " + str.tostring(calcLongTP, format.mintick), xloc.bar_time, yloc.price, color.new(tpColor, 80), label.style_label_left, tpColor, size.small)
         else
-            noTradeLabel := label.new(calc.breakTime, calc.breakLow - 20 * tickSize, "Trade niet mogelijk\n" + calc.longReasonText, xloc.bar_time, yloc.price, color.new(noTradeColor, 0), label.style_label_down, color.white, size.small)
+            noTradeLabel := label.new(calcBreakTime, calcBreakLow - 20 * tickSize, "Trade niet mogelijk\n" + calcLongReasonText, xloc.bar_time, yloc.price, color.new(noTradeColor, 0), label.style_label_down, color.white, size.small)
 
-    if calc.shortActive and not calc.breakSide
+    if calcShortActive and not calcBreakSide
         if not na(tpLine)
             line.delete(tpLine)
             tpLine := na
@@ -675,14 +639,14 @@ if showTradeCheck and newData
         if not na(noTradeLabel)
             label.delete(noTradeLabel)
             noTradeLabel := na
-        if calc.shortTradeOk
-            tpLine  := line.new(calc.breakTime, calc.shortTP, calc.rightEdgeTime, calc.shortTP, xloc.bar_time, extend.none, tpColor, line.style_dashed, 2)
-            tpLabel := label.new(calc.rightEdgeTime, calc.shortTP, "TP (" + str.tostring(tpRR, "#.##") + " R/R): " + str.tostring(calc.shortTP, format.mintick), xloc.bar_time, yloc.price, color.new(tpColor, 80), label.style_label_left, tpColor, size.small)
+        if calcShortTradeOk
+            tpLine  := line.new(calcBreakTime, calcShortTP, calcRightEdgeTime, calcShortTP, xloc.bar_time, extend.none, tpColor, line.style_dashed, 2)
+            tpLabel := label.new(calcRightEdgeTime, calcShortTP, "TP (" + str.tostring(tpRR, "#.##") + " R/R): " + str.tostring(calcShortTP, format.mintick), xloc.bar_time, yloc.price, color.new(tpColor, 80), label.style_label_left, tpColor, size.small)
         else
-            noTradeLabel := label.new(calc.breakTime, calc.breakHigh + 20 * tickSize, "Trade niet mogelijk\n" + calc.shortReasonText, xloc.bar_time, yloc.price, color.new(noTradeColor, 0), label.style_label_up, color.white, size.small)
+            noTradeLabel := label.new(calcBreakTime, calcBreakHigh + 20 * tickSize, "Trade niet mogelijk\n" + calcShortReasonText, xloc.bar_time, yloc.price, color.new(noTradeColor, 0), label.style_label_up, color.white, size.small)
 
 if newData
-    lastDrawnBarTime := calc.barTime
+    lastDrawnBarTime := calcBarTime
 
 // ============================================================
 // Alerts - vuren éénmalig per nieuw 30m-signaal, ongeacht of je op 30m of
@@ -690,13 +654,13 @@ if newData
 // chart voordat de bijgewerkte 30m-waarde binnenkomt).
 // ============================================================
 var int lastAlertedBreakTime = na
-if isSupportedTF and not na(calc.breakTime) and calc.breakTime != lastAlertedBreakTime
-    if calc.longActive and calc.breakSide
+if isSupportedTF and not na(calcBreakTime) and calcBreakTime != lastAlertedBreakTime
+    if calcLongActive and calcBreakSide
         alert("Bullish breakout: close boven Resistance + " + str.tostring(xTicks) + " ticks", alert.freq_once_per_bar_close)
-        lastAlertedBreakTime := calc.breakTime
-    else if calc.shortActive and not calc.breakSide
+        lastAlertedBreakTime := calcBreakTime
+    else if calcShortActive and not calcBreakSide
         alert("Bearish breakdown: close onder Support - " + str.tostring(xTicks) + " ticks", alert.freq_once_per_bar_close)
-        lastAlertedBreakTime := calc.breakTime
+        lastAlertedBreakTime := calcBreakTime
 
 // ============================================================
 // DEBUG: alleen zichtbaar op de native 30m-chart (bar_index-gebaseerd,

@@ -3,6 +3,12 @@
 Alle noemenswaardige wijzigingen aan `trade_lines.pine` worden hier bijgehouden.
 Versienummering volgt [Semantic Versioning](https://semver.org/lang/nl/) (MAJOR.MINOR.PATCH).
 
+## [1.9.3]
+
+### Opgelost
+- Nog steeds geen enkele lijn/label zichtbaar, ook niet meer nadat 1.9.2 de `max_bars_back(time, 500)` had toegevoegd - en zonder foutmelding in de legenda (de losstaande debug-functionaliteit op de 30m-chart, die buiten `request.security()` om draait, werkte wél gewoon). Dit wijst erop dat het `Calc30`-object dat via `request.security()` werd opgehaald in de praktijk niet betrouwbaar gevuld werd (alle velden bleven op hun startwaarde `na` staan), ondanks dat `request.security()` in theorie objecten van een user-defined type ondersteunt.
+- `f_calc30m()` en de `request.security()`-aanroep geven/ontvangen de berekende waarden nu als gewone TUPLE van 35 simpele waarden (float/int/bool/string) in plaats van als `Calc30`-object. Dit is de vorm die `request.security()` al sinds jaar en dag zonder twijfel ondersteunt. Alle `calc.veldnaam`-verwijzingen zijn hernoemd naar losse `calcVeldnaam`-variabelen; het `type Calc30` is verwijderd.
+
 ## [1.9.2]
 
 ### Opgelost

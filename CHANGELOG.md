@@ -3,6 +3,15 @@
 Alle noemenswaardige wijzigingen aan `trade_lines.pine` worden hier bijgehouden.
 Versienummering volgt [Semantic Versioning](https://semver.org/lang/nl/) (MAJOR.MINOR.PATCH).
 
+## [1.9.0]
+
+### Gewijzigd
+- Alle berekeningen (Support/Resistance, Targets, LONG/SHORT-signalen, SL, TP + Range-check) draaien nu ALTIJD op het 30-minuten timeframe, ongeacht op welk timeframe de chart zelf staat. Dit gebeurt via `request.security()`, waarbij het volledige berekeningsresultaat als één user-defined type (`Calc30`) wordt opgehaald.
+- De indicator ondersteunt voortaan uitsluitend de timeframes 30m en 15m; op elk ander timeframe verschijnt een waarschuwingslabel en wordt er niets getekend.
+- Lijnen/labels worden getekend met tijd-gebaseerde coördinaten (`xloc.bar_time` i.p.v. `xloc.bar_index`), zodat ze exact hetzelfde prijsniveau tonen op zowel de 30m- als de 15m-chart.
+- Belangrijk gevolg: de lijnen/labels worden bijgewerkt op het moment dat een 30-minuten candle sluit - ook als de 15m-chart op dat moment bekeken wordt. Ze volgen dus de 30m-klok, niet de 15m-klok.
+- De debug-instelling "Debug: toon eerste Support-kandidaat + reden verwerping" blijft, zoals voorheen, alleen werkzaam op de native 30m-chart (bar_index-gebaseerd, buiten `request.security` om).
+
 ## [1.8.2]
 
 ### Gewijzigd

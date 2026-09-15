@@ -1,5 +1,5 @@
 //@version=6
-// Versie: 1.9.5 - zie CHANGELOG.md voor de wijzigingsgeschiedenis.
+// Versie: 1.9.8 - zie CHANGELOG.md voor de wijzigingsgeschiedenis.
 //
 // NIEUW IN 1.9.0: alle berekeningen (Support/Resistance, Targets, LONG/SHORT
 // signalen, SL, TP + Range-check) draaien nu ALTIJD op het 30-minuten
@@ -604,7 +604,10 @@ if showSL and newData
         longLine := line.new(calcBarTime, calcLongTrailSL, calcRightEdgeTime, calcLongTrailSL, xloc.bar_time, extend.none, longColor, line.style_dashed, 2)
         if not na(longLabel)
             label.delete(longLabel)
-        longLabel := label.new(calcRightEdgeTime, calcLongTrailSL, "Long SL: " + str.tostring(calcLongTrailSL, format.mintick), xloc.bar_time, yloc.price, color.new(longColor, 80), label.style_label_left, longColor, size.small)
+        longTradeBlocked = showTradeCheck and calcBreakSide and not calcLongTradeOk and calcLongReasonText != ""
+        longLabelText  = "Long SL: " + str.tostring(calcLongTrailSL, format.mintick) + (longTradeBlocked ? "\nTrade niet mogelijk: " + calcLongReasonText : "")
+        longLabelColor = longTradeBlocked ? noTradeColor : longColor
+        longLabel := label.new(calcRightEdgeTime, calcLongTrailSL, longLabelText, xloc.bar_time, yloc.price, color.new(longLabelColor, longTradeBlocked ? 0 : 80), label.style_label_left, longTradeBlocked ? color.black : longColor, size.small)
 
     if calcShortActive and not calcSlSide and not na(calcShortTrailSL)
         if not na(shortLine)
@@ -612,7 +615,10 @@ if showSL and newData
         shortLine := line.new(calcBarTime, calcShortTrailSL, calcRightEdgeTime, calcShortTrailSL, xloc.bar_time, extend.none, shortColor, line.style_dashed, 2)
         if not na(shortLabel)
             label.delete(shortLabel)
-        shortLabel := label.new(calcRightEdgeTime, calcShortTrailSL, "Short SL: " + str.tostring(calcShortTrailSL, format.mintick), xloc.bar_time, yloc.price, color.new(shortColor, 80), label.style_label_left, shortColor, size.small)
+        shortTradeBlocked = showTradeCheck and not calcBreakSide and not calcShortTradeOk and calcShortReasonText != ""
+        shortLabelText  = "Short SL: " + str.tostring(calcShortTrailSL, format.mintick) + (shortTradeBlocked ? "\nTrade niet mogelijk: " + calcShortReasonText : "")
+        shortLabelColor = shortTradeBlocked ? noTradeColor : shortColor
+        shortLabel := label.new(calcRightEdgeTime, calcShortTrailSL, shortLabelText, xloc.bar_time, yloc.price, color.new(shortLabelColor, shortTradeBlocked ? 0 : 80), label.style_label_left, shortTradeBlocked ? color.black : shortColor, size.small)
 
 // ============================================================
 // TP-lijn + "Trade niet mogelijk"-label.
@@ -646,8 +652,11 @@ if showTradeCheck and newData
         if calcLongTradeOk
             tpLine  := line.new(calcBreakTime, calcLongTP, calcRightEdgeTime, calcLongTP, xloc.bar_time, extend.none, tpColor, line.style_dashed, 2)
             tpLabel := label.new(calcRightEdgeTime, calcLongTP, "TP (" + str.tostring(tpRR, "#.##") + " R/R): " + str.tostring(calcLongTP, format.mintick), xloc.bar_time, yloc.price, color.new(tpColor, 80), label.style_label_left, tpColor, size.small)
-        else
-            noTradeLabel := label.new(calcBreakTime, calcBreakLow - 20 * tickSize, "Trade niet mogelijk\n" + calcLongReasonText, xloc.bar_time, yloc.price, color.new(noTradeColor, 0), label.style_label_down, color.white, size.small)
+        else if not showSL
+            // Alleen een los "Trade niet mogelijk"-label als de SL-lijn (die
+            // dezelfde info al toont) uitstaat - anders overlapt dit label
+            // met andere lijnen/labels op het chart.
+            noTradeLabel := label.new(calcRightEdgeTime, calcBreakLow - 20 * tickSize, "Trade niet mogelijk\n" + calcLongReasonText, xloc.bar_time, yloc.price, color.new(noTradeColor, 0), label.style_label_left, color.black, size.normal)
 
     if calcShortActive and not calcBreakSide
         if not na(tpLine)
@@ -662,8 +671,11 @@ if showTradeCheck and newData
         if calcShortTradeOk
             tpLine  := line.new(calcBreakTime, calcShortTP, calcRightEdgeTime, calcShortTP, xloc.bar_time, extend.none, tpColor, line.style_dashed, 2)
             tpLabel := label.new(calcRightEdgeTime, calcShortTP, "TP (" + str.tostring(tpRR, "#.##") + " R/R): " + str.tostring(calcShortTP, format.mintick), xloc.bar_time, yloc.price, color.new(tpColor, 80), label.style_label_left, tpColor, size.small)
-        else
-            noTradeLabel := label.new(calcBreakTime, calcBreakHigh + 20 * tickSize, "Trade niet mogelijk\n" + calcShortReasonText, xloc.bar_time, yloc.price, color.new(noTradeColor, 0), label.style_label_up, color.white, size.small)
+        else if not showSL
+            // Alleen een los "Trade niet mogelijk"-label als de SL-lijn (die
+            // dezelfde info al toont) uitstaat - anders overlapt dit label
+            // met andere lijnen/labels op het chart.
+            noTradeLabel := label.new(calcRightEdgeTime, calcBreakHigh + 20 * tickSize, "Trade niet mogelijk\n" + calcShortReasonText, xloc.bar_time, yloc.price, color.new(noTradeColor, 0), label.style_label_left, color.black, size.normal)
 
 if newData
     lastDrawnBarTime := calcBarTime

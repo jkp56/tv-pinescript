@@ -3,6 +3,21 @@
 Alle noemenswaardige wijzigingen aan `trade_lines.pine` worden hier bijgehouden.
 Versienummering volgt [Semantic Versioning](https://semver.org/lang/nl/) (MAJOR.MINOR.PATCH).
 
+## [1.9.8]
+
+### Gewijzigd
+- "Trade niet mogelijk"-label samengevoegd met de SL-label in plaats van als los label getoond: zolang de SL-lijn zichtbaar is (`showSL` aan), toont het SL-label zelf de reden ("Long/Short SL: ... \nTrade niet mogelijk: ...") in de oranje kleur, in plaats van een apart label dat elders op het chart met de Support/Resistance-lijnen kon overlappen. Het losse "Trade niet mogelijk"-label blijft alleen bestaan als fallback wanneer `showSL` uitstaat.
+
+## [1.9.7]
+
+### Gewijzigd
+- "Trade niet mogelijk"-label verplaatst van de signaalcandle (`calcBreakTime`) naar de rechterrand van de chart (`calcRightEdgeTime`), in dezelfde `label.style_label_left`-stijl als de SL/TP-labels. Voorheen stond het label bovenop de breakout-candle en overlapte het met de SL-lijn/label; nu staat het als aparte rij aan de rechterkant, net als de andere samenvattende labels.
+
+## [1.9.6]
+
+### Gewijzigd
+- "Trade niet mogelijk"-label beter leesbaar gemaakt: tekstkleur van wit naar zwart (veel hoger contrast op de oranje achtergrond) en tekstgrootte van `size.small` naar `size.normal`.
+
 ## [1.9.5]
 
 ### Opgelost

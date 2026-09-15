@@ -1,5 +1,5 @@
 //@version=6
-// Versie: 1.9.3 - zie CHANGELOG.md voor de wijzigingsgeschiedenis.
+// Versie: 1.9.4 (DIAGNOSE-build) - zie CHANGELOG.md voor de wijzigingsgeschiedenis.
 //
 // NIEUW IN 1.9.0: alle berekeningen (Support/Resistance, Targets, LONG/SHORT
 // signalen, SL, TP + Range-check) draaien nu ALTIJD op het 30-minuten
@@ -467,6 +467,23 @@ if barstate.islast
 // alle lijnen/labels hieronder herbouwd worden.
 var int lastDrawnBarTime = na
 newData = isSupportedTF and not na(calcBarTime) and calcBarTime != lastDrawnBarTime
+
+// ============================================================
+// TIJDELIJK DIAGNOSEPANEEL - verwijderen zodra het teken-probleem is
+// opgelost. Toont de kernwaarden die request.security() teruggeeft, zodat
+// zichtbaar is of calc* echt gevuld wordt en of newData ooit true wordt.
+// ============================================================
+var table dbgTable = table.new(position.top_right, 1, 1)
+if barstate.islast
+    dbgText = "isSupportedTF=" + str.tostring(isSupportedTF) +
+      "\ntimeframe.period=" + timeframe.period +
+      "\ncalcBarTime=" + str.tostring(calcBarTime) +
+      "\ncalcResistance=" + str.tostring(calcResistance) +
+      "\ncalcSupport=" + str.tostring(calcSupport) +
+      "\nnewData=" + str.tostring(newData) +
+      "\nlastDrawnBarTime=" + str.tostring(lastDrawnBarTime) +
+      "\nbar_index=" + str.tostring(bar_index)
+    table.cell(dbgTable, 0, 0, dbgText, bgcolor=color.new(color.yellow, 20), text_color=color.black, text_size=size.small)
 
 // ============================================================
 // Resistance / Support / Target-lijnen + labels.

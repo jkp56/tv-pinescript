@@ -3,6 +3,11 @@
 Alle noemenswaardige wijzigingen aan `trade_lines.pine` worden hier bijgehouden.
 Versienummering volgt [Semantic Versioning](https://semver.org/lang/nl/) (MAJOR.MINOR.PATCH).
 
+## [1.9.4] (diagnose-build)
+
+### Toegevoegd
+- Tijdelijk geel diagnosepaneel rechtsboven in de chart (via `table.new`), dat op elke realtime update `isSupportedTF`, `timeframe.period`, `calcBarTime`, `calcResistance`, `calcSupport`, `newData`, `lastDrawnBarTime` en `bar_index` toont. Ook na de v1.9.3-fix (tuple i.p.v. Calc30-object) werden nog steeds geen lijnen getekend, zonder foutmelding - dit paneel moet aantonen of `calc*` uit `request.security()` echt gevuld wordt en of `newData` ooit `true` wordt, zodat de volgende fix op feiten i.p.v. giswerk gebaseerd kan worden. Wordt verwijderd zodra het onderliggende probleem gevonden is.
+
 ## [1.9.3]
 
 ### Opgelost

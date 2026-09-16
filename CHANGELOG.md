@@ -3,6 +3,12 @@
 Alle noemenswaardige wijzigingen aan `trade_lines.pine` worden hier bijgehouden.
 Versienummering volgt [Semantic Versioning](https://semver.org/lang/nl/) (MAJOR.MINOR.PATCH).
 
+## [1.9.16]
+
+### Opgelost
+- `f_autoTargetResistance`/`f_autoTargetSupport` eisten ten onrechte wick-validiteit voordat een tussenliggend level als shift-level (het nieuwe Resistance/Support) mocht gelden. Resistance/Support zelf (`f_autoResistance`/`f_autoSupport`) hebben nooit een wick-check gehad - ze mogen best door latere candles met een wick geraakt worden. Hierdoor werd een geldig tussenliggend level soms volledig genegeerd (leek "overgeslagen") puur omdat een lateretere candle het al eens met een wick had aangeraakt.
+- De wick-check (`f_wickValidAboveLevel`/`f_wickValidBelowLevel`) geldt nu alleen nog voor het uiteindelijke Target-level zelf (dat moet nog "schoon"/ongeraakt zijn om als geldig doel te tellen); het shift-level (bodyValid, maar niet ver genoeg of met wick geraakt) hoeft dat niet meer te zijn.
+
 ## [1.9.15]
 
 ### Gewijzigd

@@ -1,5 +1,5 @@
 //@version=6
-// Versie: 1.9.8 - zie CHANGELOG.md voor de wijzigingsgeschiedenis.
+// Versie: 1.9.11 - zie CHANGELOG.md voor de wijzigingsgeschiedenis.
 //
 // NIEUW IN 1.9.0: alle berekeningen (Support/Resistance, Targets, LONG/SHORT
 // signalen, SL, TP + Range-check) draaien nu ALTIJD op het 30-minuten
@@ -15,6 +15,13 @@
 // 15m-chart aan het bekijken bent. Ze "springen" dus niet pas bij het
 // terugschakelen naar 30m; ze volgen de 30m-klok, niet de 15m-klok.
 indicator("Trade Lijnen (SL/S/R)", overlay=true, max_lines_count=30, max_labels_count=30)
+
+// ============================================================
+// FREEZE-TOGGLE: bovenaan geplaatst (eigen groep, los van "Trade
+// Mogelijkheid") zodat deze zonder scrollen als eerste item in het
+// Inputs-tabblad van de instellingen staat.
+// ============================================================
+freezeOnValidTrade = input.bool(false, "Lijnen bevriezen zodra een geldige trade ontstaat (handmatig uit/aan = reset)", group="Freeze")
 
 // Vast timeframe waarop alle berekeningen draaien. De indicator ondersteunt
 // alleen dit timeframe en het kortere "15" timeframe waarop de lijnen van
@@ -470,6 +477,21 @@ var int lastDrawnBarTime = na
 newData = isSupportedTF and not na(calcBarTime) and (na(lastDrawnBarTime) or calcBarTime != lastDrawnBarTime)
 
 // ============================================================
+// FREEZE: als "Lijnen bevriezen zodra een geldige trade ontstaat" aan staat,
+// blijven ALLE lijnen/labels precies staan zoals ze waren op het moment dat
+// er een geldige long/short trade ontstond (calcLongTradeOk/calcShortTradeOk
+// bij een actief signaal). Vanaf dat moment wordt er niet meer bijgewerkt,
+// ook niet bij volgende 30m-candles, totdat de gebruiker deze instelling
+// handmatig uit- en weer aanzet (dat "reset" de bevriezing, zodat de
+// volgende geldige trade opnieuw bevroren wordt).
+// ============================================================
+var bool linesFrozen = false
+if not freezeOnValidTrade
+    linesFrozen := false
+
+effectiveNewData = newData and not linesFrozen
+
+// ============================================================
 // DIAGNOSEPANEEL (uit te zetten via de instelling hierboven). Toont de
 // kernwaarden die request.security() teruggeeft, zodat zichtbaar is of
 // calc* echt gevuld wordt en of newData ooit true wordt.
@@ -482,6 +504,7 @@ if debugCalcPanel and barstate.islast
       "\ncalcResistance=" + str.tostring(calcResistance) +
       "\ncalcSupport=" + str.tostring(calcSupport) +
       "\nnewData=" + str.tostring(newData) +
+      "\nlinesFrozen=" + str.tostring(linesFrozen) +
       "\nlastDrawnBarTime=" + str.tostring(lastDrawnBarTime) +
       "\nbar_index=" + str.tostring(bar_index)
     table.cell(dbgTable, 0, 0, dbgText, bgcolor=color.new(color.yellow, 20), text_color=color.black, text_size=size.small)
@@ -500,7 +523,7 @@ var label sNameLabel  = na
 var label trNameLabel = na
 var label tsNameLabel = na
 
-if newData and not na(calcResistance)
+if effectiveNewData and not na(calcResistance)
     if not na(rLine)
         line.delete(rLine)
     if not na(sLine)
@@ -537,7 +560,7 @@ var label longBreakLabel  = na
 var label shortBreakLabel = na
 var label signalLabel     = na
 
-if newData
+if effectiveNewData
     if (not calcLongActive or not calcBreakSide) and not na(longBreakLine)
         line.delete(longBreakLine)
         longBreakLine := na
@@ -584,7 +607,7 @@ var line  shortLine  = na
 var label longLabel  = na
 var label shortLabel = na
 
-if showSL and newData
+if showSL and effectiveNewData
     if (not calcLongActive or not calcSlSide) and not na(longLine)
         line.delete(longLine)
         longLine := na
@@ -627,7 +650,7 @@ var line  tpLine       = na
 var label tpLabel      = na
 var label noTradeLabel = na
 
-if showTradeCheck and newData
+if showTradeCheck and effectiveNewData
     if not calcLongActive and not calcShortActive
         if not na(tpLine)
             line.delete(tpLine)
@@ -677,8 +700,17 @@ if showTradeCheck and newData
             // met andere lijnen/labels op het chart.
             noTradeLabel := label.new(calcRightEdgeTime, calcBreakHigh + 20 * tickSize, "Trade niet mogelijk\n" + calcShortReasonText, xloc.bar_time, yloc.price, color.new(noTradeColor, 0), label.style_label_left, color.black, size.normal)
 
-if newData
+if effectiveNewData
     lastDrawnBarTime := calcBarTime
+    // Pas NA het tekenen bevriezen, zodat de lijnen van de geldige trade
+    // zelf nog wel normaal getekend worden op de signaal-candle. Alleen op
+    // de actuele/laatste bar (barstate.islast) laten "vastklikken": anders
+    // zou het aanvinken van deze optie het script vanaf bar 0 laten
+    // herberekenen en al bij de EERSTE geldige trade ooit in de geschiedenis
+    // voorgoed bevriezen, ruim voordat het huidige chart-venster begint -
+    // met als zichtbaar gevolg dat alle lijnen leken te verdwijnen.
+    if freezeOnValidTrade and barstate.islast and ((calcLongActive and calcBreakSide and calcLongTradeOk) or (calcShortActive and not calcBreakSide and calcShortTradeOk))
+        linesFrozen := true
 
 // ============================================================
 // Alerts - vuren éénmalig per nieuw 30m-signaal, ongeacht of je op 30m of

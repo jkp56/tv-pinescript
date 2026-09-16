@@ -3,6 +3,23 @@
 Alle noemenswaardige wijzigingen aan `trade_lines.pine` worden hier bijgehouden.
 Versienummering volgt [Semantic Versioning](https://semver.org/lang/nl/) (MAJOR.MINOR.PATCH).
 
+## [1.9.11]
+
+### Gewijzigd
+- Instelling "Lijnen bevriezen zodra een geldige trade ontstaat" verplaatst naar een eigen groep "Freeze" bovenaan het Inputs-tabblad (was onderaan de groep "Trade Mogelijkheid"), zodat hij zonder scrollen als eerste item in de instellingen te vinden is.
+
+## [1.9.10]
+
+### Opgelost
+- Bug uit v1.9.9: het aanvinken van "Lijnen bevriezen zodra een geldige trade ontstaat" liet alle lijnen (inclusief Resistance/Support) direct verdwijnen. Oorzaak: het aanpassen van een input laat Pine Script het hele script herberekenen vanaf de allereerste candle in de geschiedenis; `linesFrozen` werd daardoor al bevroren bij de EERSTE geldige trade die ooit ergens diep in de geschiedenis voorkwam (ruim voor het huidige chart-venster) en bleef daarna voorgoed bevroren, waardoor er nooit meer iets bijgewerkt werd tot aan de huidige candle.
+- `linesFrozen` mag nu alleen nog op `true` gezet worden op de actuele/laatste bar (`barstate.islast`), niet tijdens het doorrekenen van de historische data. Hierdoor bevriest de instelling pas echt op het moment dat er nú (of vanaf nu) een geldige trade actief is, precies zoals bedoeld.
+
+## [1.9.9]
+
+### Toegevoegd
+- Instelling **"Lijnen bevriezen zodra een geldige trade ontstaat"** (groep "Trade Mogelijkheid", standaard uit). Staat deze aan, dan blijven zodra er een geldige LONG/SHORT-trade ontstaat (`calcLongTradeOk`/`calcShortTradeOk`) ALLE lijnen en labels (Resistance/Support, Target-lijnen, break-lijn, SL-lijn en TP-lijn) precies staan zoals ze op dat moment zijn - er wordt niet meer bijgewerkt, ook niet bij volgende 30m-candles of nieuwe signalen. De bevriezing wordt pas weer opgeheven door de instelling handmatig uit en weer aan te zetten ("resetten"), waarna de eerstvolgende geldige trade opnieuw bevriest. Staat de instelling uit, dan blijft alles werken zoals voorheen (lijnen worden elke 30m-candle bijgewerkt).
+- Geïmplementeerd via een nieuwe `effectiveNewData`-variabele (= `newData and not linesFrozen`) die overal de bestaande `newData`-check vervangt in de teken-blokken; de bevriezing zelf wordt pas gezet nadat de lijnen van de geldige trade zelf nog normaal getekend zijn, zodat die trade wel zichtbaar wordt.
+
 ## [1.9.8]
 
 ### Gewijzigd

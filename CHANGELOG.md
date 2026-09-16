@@ -3,6 +3,28 @@
 Alle noemenswaardige wijzigingen aan `trade_lines.pine` worden hier bijgehouden.
 Versienummering volgt [Semantic Versioning](https://semver.org/lang/nl/) (MAJOR.MINOR.PATCH).
 
+## [1.9.15]
+
+### Gewijzigd
+- Aanpak voor Support/Resistance vs. Target-lijnen herzien naar een duidelijker tweestaps-model:
+  1. Bepaal eerst Resistance/Support zoals voorheen (eerste geldige pivot-level, `f_autoResistance`/`f_autoSupport` - de "keten"-wijziging uit v1.9.14 is hierop teruggedraaid).
+  2. Zoek op basis daarvan het EERSTE geldige (bodyValid + wick-valid) Target-level dat ver genoeg ligt (`minTargetDistance`) - dat Target-level ligt vast.
+- Tijdens die Target-zoektocht wordt nu ook het laatste geldige (bodyValid + wick-valid) level bijgehouden dat wél gevonden werd maar niet ver genoeg lag (dus tussen Resistance/Support en het Target in). Bestaat zo'n tussenliggend level, dan verschuift Resistance/Support daar naartoe; bestaat het niet, dan blijven Resistance/Support en Target ongewijzigd.
+- `f_autoTargetResistance`/`f_autoTargetSupport` geven nu 4 waarden terug (`[level, barsBack, shiftLevel, shiftBarsBack]`) in plaats van 2.
+
+## [1.9.14]
+
+### Gewijzigd
+- Support/Resistance en de bijbehorende Target-lijnen gebruiken nu allemaal dezelfde keten-logica: vanaf de huidige candle wordt door opeenvolgende geldige (bodyValid + wick-valid) pivot-levels gelopen, waarbij het level steeds wordt bijgewerkt naar het diepste/verste nog geldige level; zodra een level ONGELDIG blijkt (al eerder met een wick geraakt), stopt de zoektocht en wordt het laatste nog geldige level gebruikt.
+- Voor de Target-lijnen (`f_autoTargetResistance`/`f_autoTargetSupport`) geldt dit met een extra afstandsfilter (`minTargetDistance`): levels die niet ver genoeg van Resistance/Support liggen tellen niet mee voor de keten (ze worden overgeslagen zonder de keten te breken), maar zodra een level dat wél ver genoeg ligt ongeldig blijkt, stopt de zoektocht daar. Hierdoor kan de Target-lijn wel degelijk dieper liggen dan het punt waar de Resistance/Support-keten zelf al eerder afbrak.
+- De wick-validatiefuncties zijn hernoemd naar `f_wickValidAboveLevel`/`f_wickValidBelowLevel` omdat ze nu door zowel Resistance/Support als de Target-lijnen gebruikt worden (was `f_targetResistanceWickValid`/`f_targetSupportWickValid`).
+
+## [1.9.13]
+
+### Opgelost
+- `f_autoTargetResistance`/`f_autoTargetSupport` sloegen geldige pivot-levels over: zodra een gevonden pivot niet ver genoeg lag (`minTargetDistance`), zocht de functie gewoon door naar een verder gelegen pivot, waardoor er tussenliggende geldige levels tussen Support/Resistance en de bijbehorende Target-lijn onopgemerkt bleven liggen.
+- De zoektocht stopt nu op het EERSTE geldige pivot-level (zelfde body-top/bottom- en wick-validatie als voorheen), ongeacht de afstand. De `minDistance`-instelling wordt pas achteraf gebruikt om te bepalen of dat gevonden level bruikbaar is als target; is het te dichtbij, dan valt de target terug op de bestaande ticks-fallback in plaats van door te zoeken naar een level verderop.
+
 ## [1.9.12]
 
 ### Opgelost

@@ -1,5 +1,5 @@
 //@version=6
-// Versie: 1.9.12 - zie CHANGELOG.md voor de wijzigingsgeschiedenis.
+// Versie: 1.9.15 - zie CHANGELOG.md voor de wijzigingsgeschiedenis.
 //
 // NIEUW IN 1.9.0: alle berekeningen (Support/Resistance, Targets, LONG/SHORT
 // signalen, SL, TP + Range-check) draaien nu ALTIJD op het 30-minuten
@@ -131,10 +131,11 @@ f_safeLowest(length) =>
             m := na(m) ? low[i] : math.min(m, low[i])
     m
 
-// Alleen de allereerste candle na de bearish/bullish-overgang mag het target
-// met een wick raken (gratie). Elke candle daarna - ongeacht kleur - maakt
-// het target ongeldig ("uitgenomen") zodra de wick het level raakt.
-f_targetResistanceWickValid(pivotOffset, level) =>
+// Generiek voor zowel Resistance/Support als de Target-lijnen: alleen de
+// allereerste candle na de bearish/bullish-overgang mag het level met een
+// wick raken (gratie). Elke candle daarna - ongeacht kleur - maakt het level
+// ongeldig ("uitgenomen") zodra de wick het raakt.
+f_wickValidAboveLevel(pivotOffset, level) =>
     bool valid = true
     bool graceActive = true
     for k = pivotOffset - 1 to 0
@@ -146,7 +147,7 @@ f_targetResistanceWickValid(pivotOffset, level) =>
                 break
     valid
 
-f_targetSupportWickValid(pivotOffset, level) =>
+f_wickValidBelowLevel(pivotOffset, level) =>
     bool valid = true
     bool graceActive = true
     for k = pivotOffset - 1 to 0
@@ -158,7 +159,11 @@ f_targetSupportWickValid(pivotOffset, level) =>
                 break
     valid
 
-// Resistance: bullish -> bearish overgang, body-top. Retourneert [level, barsBack].
+// Resistance: bullish -> bearish overgang, body-top. Eerste geldige
+// (bodyValid) pivot-level, ongeacht wicks - dit is puur de dichtstbijzijnde
+// aanzet; of dit level uiteindelijk het getoonde Resistance-level blijft of
+// verschuift naar een tussenliggend level hangt af van de Target-zoektocht
+// verderop (zie f_autoTargetResistance). Retourneert [level, barsBack].
 f_autoResistance(maxScan, excludeReversal) =>
     float level = na
     int barsBack = na
@@ -222,10 +227,20 @@ f_debugFirstSupportCandidate(maxScan, excludeReversal) =>
                 runningMinBottom := na(runningMinBottom) ? f_bodyBottom(i) : math.min(runningMinBottom, f_bodyBottom(i))
     [level, pivotBar, rejectBar, rejectLevel]
 
-// Target Resistance: EIGEN zoektocht. Retourneert [level, barsBack].
+// Target Resistance: EIGEN zoektocht. Zoekt het EERSTE geldige (bodyValid +
+// wick-valid) pivot-level dat ver genoeg (minDistance) van Resistance ligt -
+// dat wordt het Target, en de zoektocht stopt daar. Onderweg wordt ook het
+// LAATSTE geldige (bodyValid + wick-valid) level bijgehouden dat NIET ver
+// genoeg lag (dus tussen Resistance en het Target in) - dat is het level
+// waar Resistance eventueel naar verschuift (zie f_calc30m: alleen als er
+// een Target gevonden is EN er zo'n tussenliggend level bestaat; anders
+// blijven Resistance en Target zoals ze zijn). Retourneert
+// [level, barsBack, shiftLevel, shiftBarsBack].
 f_autoTargetResistance(maxScan, resistanceLevel, minDistance, excludeReversal) =>
     float level = na
     int barsBack = na
+    float shiftLevel = na
+    int shiftBarsBack = na
     float runningMaxBodyTop = na
     for i = 0 to maxScan - 2
         if not excludeReversal and f_validBar(i)
@@ -233,19 +248,24 @@ f_autoTargetResistance(maxScan, resistanceLevel, minDistance, excludeReversal) =
         if f_validBar(i) and f_validBar(i + 1) and close[i + 1] > open[i + 1] and close[i] < open[i]
             candidate = f_bodyTop(i + 1)
             bodyValid = na(runningMaxBodyTop) or runningMaxBodyTop <= candidate
-            if bodyValid and (candidate - resistanceLevel) >= minDistance
-                if f_targetResistanceWickValid(i + 1, candidate)
+            if bodyValid and f_wickValidAboveLevel(i + 1, candidate)
+                if (candidate - resistanceLevel) >= minDistance
                     level := candidate
                     barsBack := i + 1
                     break
+                else
+                    shiftLevel := candidate
+                    shiftBarsBack := i + 1
         if excludeReversal and f_validBar(i)
             runningMaxBodyTop := na(runningMaxBodyTop) ? f_bodyTop(i) : math.max(runningMaxBodyTop, f_bodyTop(i))
-    [level, barsBack]
+    [level, barsBack, shiftLevel, shiftBarsBack]
 
-// Target Support: spiegelbeeld. Retourneert [level, barsBack].
+// Target Support: spiegelbeeld. Retourneert [level, barsBack, shiftLevel, shiftBarsBack].
 f_autoTargetSupport(maxScan, supportLevel, minDistance, excludeReversal) =>
     float level = na
     int barsBack = na
+    float shiftLevel = na
+    int shiftBarsBack = na
     float runningMinBodyBottom = na
     for i = 0 to maxScan - 2
         if not excludeReversal and f_validBar(i)
@@ -253,14 +273,17 @@ f_autoTargetSupport(maxScan, supportLevel, minDistance, excludeReversal) =>
         if f_validBar(i) and f_validBar(i + 1) and close[i + 1] < open[i + 1] and close[i] > open[i]
             candidate = f_bodyBottom(i + 1)
             bodyValid = na(runningMinBodyBottom) or runningMinBodyBottom >= candidate
-            if bodyValid and (supportLevel - candidate) >= minDistance
-                if f_targetSupportWickValid(i + 1, candidate)
+            if bodyValid and f_wickValidBelowLevel(i + 1, candidate)
+                if (supportLevel - candidate) >= minDistance
                     level := candidate
                     barsBack := i + 1
                     break
+                else
+                    shiftLevel := candidate
+                    shiftBarsBack := i + 1
         if excludeReversal and f_validBar(i)
             runningMinBodyBottom := na(runningMinBodyBottom) ? f_bodyBottom(i) : math.min(runningMinBodyBottom, f_bodyBottom(i))
-    [level, barsBack]
+    [level, barsBack, shiftLevel, shiftBarsBack]
 
 // ============================================================
 // ALLE BEREKENINGEN: draait via request.security() altijd op het 30m-
@@ -334,11 +357,23 @@ f_calc30m() =>
         sFallback  := na(rawSupport)
         rBarsBack  := na(rawResistance) ? maxScanBars : rBack
         sBarsBack  := na(rawSupport) ? maxScanBars : sBack
+
+        [rawTargetResistance, trBack, rShiftLevel, rShiftBarsBack] = f_autoTargetResistance(maxScanBars, resistance, minTargetDistance * tickSize, excludeReversalCandle)
+        [rawTargetSupport, tsBack, sShiftLevel, sShiftBarsBack]    = f_autoTargetSupport(maxScanBars, support, minTargetDistance * tickSize, excludeReversalCandle)
+
+        // Resistance/Support verschuiven naar het laatste geldige tussenliggende
+        // level vóór het gevonden Target - maar alleen als er ook daadwerkelijk
+        // een Target gevonden is én er zo'n tussenliggend level bestaat. Is dat
+        // niet het geval, dan blijven Resistance/Support en Target ongewijzigd.
+        if not na(rawTargetResistance) and not na(rShiftLevel)
+            resistance := rShiftLevel
+            rBarsBack  := rShiftBarsBack
+        if not na(rawTargetSupport) and not na(sShiftLevel)
+            support    := sShiftLevel
+            sBarsBack  := sShiftBarsBack
+
         rPivotTime := time[rBarsBack]
         sPivotTime := time[sBarsBack]
-
-        [rawTargetResistance, trBack] = f_autoTargetResistance(maxScanBars, resistance, minTargetDistance * tickSize, excludeReversalCandle)
-        [rawTargetSupport, tsBack]    = f_autoTargetSupport(maxScanBars, support, minTargetDistance * tickSize, excludeReversalCandle)
 
         fallbackTicks = math.max(autoTargetTicks, minTargetDistance)
         targetResistance := na(rawTargetResistance) ? resistance + fallbackTicks * tickSize : rawTargetResistance

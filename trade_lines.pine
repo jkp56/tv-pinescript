@@ -1,5 +1,5 @@
 //@version=6
-// Versie: 1.9.11 - zie CHANGELOG.md voor de wijzigingsgeschiedenis.
+// Versie: 1.9.12 - zie CHANGELOG.md voor de wijzigingsgeschiedenis.
 //
 // NIEUW IN 1.9.0: alle berekeningen (Support/Resistance, Targets, LONG/SHORT
 // signalen, SL, TP + Range-check) draaien nu ALTIJD op het 30-minuten
@@ -131,20 +131,19 @@ f_safeLowest(length) =>
             m := na(m) ? low[i] : math.min(m, low[i])
     m
 
+// Alleen de allereerste candle na de bearish/bullish-overgang mag het target
+// met een wick raken (gratie). Elke candle daarna - ongeacht kleur - maakt
+// het target ongeldig ("uitgenomen") zodra de wick het level raakt.
 f_targetResistanceWickValid(pivotOffset, level) =>
     bool valid = true
     bool graceActive = true
     for k = pivotOffset - 1 to 0
         if f_validBar(k)
-            if close[k] > open[k]
-                if high[k] >= level
-                    valid := false
-                    break
+            if graceActive
                 graceActive := false
-            else if close[k] < open[k]
-                if not graceActive and high[k] >= level
-                    valid := false
-                    break
+            else if high[k] >= level
+                valid := false
+                break
     valid
 
 f_targetSupportWickValid(pivotOffset, level) =>
@@ -152,15 +151,11 @@ f_targetSupportWickValid(pivotOffset, level) =>
     bool graceActive = true
     for k = pivotOffset - 1 to 0
         if f_validBar(k)
-            if close[k] < open[k]
-                if low[k] <= level
-                    valid := false
-                    break
+            if graceActive
                 graceActive := false
-            else if close[k] > open[k]
-                if not graceActive and low[k] <= level
-                    valid := false
-                    break
+            else if low[k] <= level
+                valid := false
+                break
     valid
 
 // Resistance: bullish -> bearish overgang, body-top. Retourneert [level, barsBack].

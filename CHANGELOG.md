@@ -3,6 +3,11 @@
 Alle noemenswaardige wijzigingen aan `trade_lines.pine` worden hier bijgehouden.
 Versienummering volgt [Semantic Versioning](https://semver.org/lang/nl/) (MAJOR.MINOR.PATCH).
 
+## [1.9.12]
+
+### Opgelost
+- Target Resistance/Target Support werden ten onrechte niet ongeldig verklaard wanneer een reeks candles van dezelfde kleur na de bearish/bullish-overgang het target-level met een wick raakte: de gratieperiode bleef actief zolang de candles van gelijke kleur bleven, waardoor bijvoorbeeld de 2e candle nog steeds vrijuit ging. Nu geldt de gratie uitsluitend voor de allereerste candle na de overgang; elke candle daarna (ongeacht kleur) maakt het target level meteen ongeldig ("uitgenomen") zodra de wick het raakt.
+
 ## [1.9.11]
 
 ### Gewijzigd

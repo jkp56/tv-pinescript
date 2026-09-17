@@ -3,6 +3,11 @@
 Alle noemenswaardige wijzigingen aan `trade_lines.pine` worden hier bijgehouden.
 Versienummering volgt [Semantic Versioning](https://semver.org/lang/nl/) (MAJOR.MINOR.PATCH).
 
+## [1.9.17]
+
+### Toegevoegd
+- Versienummer staat nu bovenaan het Inputs-tabblad van de instellingen (groep "Info"), zodat de actieve versie direct zichtbaar is zonder in de code te hoeven kijken.
+
 ## [1.9.16]
 
 ### Opgelost

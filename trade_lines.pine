@@ -1,5 +1,5 @@
 //@version=6
-// Versie: 1.9.16 - zie CHANGELOG.md voor de wijzigingsgeschiedenis.
+// Versie: 1.9.17 - zie CHANGELOG.md voor de wijzigingsgeschiedenis.
 //
 // NIEUW IN 1.9.0: alle berekeningen (Support/Resistance, Targets, LONG/SHORT
 // signalen, SL, TP + Range-check) draaien nu ALTIJD op het 30-minuten
@@ -17,8 +17,15 @@
 indicator("Trade Lijnen (SL/S/R)", overlay=true, max_lines_count=30, max_labels_count=30)
 
 // ============================================================
-// FREEZE-TOGGLE: bovenaan geplaatst (eigen groep, los van "Trade
-// Mogelijkheid") zodat deze zonder scrollen als eerste item in het
+// VERSIE-INFO: bovenaan geplaatst zodat de huidige versie direct
+// zichtbaar is in het Inputs-tabblad van de instellingen, zonder in de
+// code te hoeven kijken. Zie CHANGELOG.md voor de wijzigingsgeschiedenis.
+// ============================================================
+scriptVersion = input.string("1.9.17", "Versie", options=["1.9.17"], group="Info")
+
+// ============================================================
+// FREEZE-TOGGLE: direct onder de versie-info geplaatst (eigen groep, los
+// van "Trade Mogelijkheid") zodat deze zonder scrollen bovenaan het
 // Inputs-tabblad van de instellingen staat.
 // ============================================================
 freezeOnValidTrade = input.bool(false, "Lijnen bevriezen zodra een geldige trade ontstaat (handmatig uit/aan = reset)", group="Freeze")
@@ -620,7 +627,7 @@ if effectiveNewData
         longBreakLabel := label.new(calcRightEdgeTime, calcLongBreakLevel, "Resistance doorbroken: " + str.tostring(calcLongBreakLevel, format.mintick), xloc.bar_time, yloc.price, color.new(color.black, 100), label.style_label_left, labelTextColor, size.small)
         if not na(signalLabel)
             label.delete(signalLabel)
-        signalLabel := label.new(calcBreakTime, calcBreakLow - 10 * tickSize, "LONG", xloc.bar_time, yloc.price, color.new(color.green, 0), label.style_arrowup, color.black, size.normal)
+        signalLabel := label.new(calcBreakTime, calcBreakLow - 10 * tickSize, "", xloc.bar_time, yloc.price, color.new(color.green, 0), label.style_arrowup, color.black, size.normal)
 
     if calcShortActive and not calcBreakSide
         if not na(shortBreakLine)
@@ -631,7 +638,7 @@ if effectiveNewData
         shortBreakLabel := label.new(calcRightEdgeTime, calcShortBreakLevel, "Support doorbroken: " + str.tostring(calcShortBreakLevel, format.mintick), xloc.bar_time, yloc.price, color.new(color.black, 100), label.style_label_left, labelTextColor, size.small)
         if not na(signalLabel)
             label.delete(signalLabel)
-        signalLabel := label.new(calcBreakTime, calcBreakHigh + 10 * tickSize, "SHORT", xloc.bar_time, yloc.price, color.new(color.red, 0), label.style_arrowdown, color.black, size.normal)
+        signalLabel := label.new(calcBreakTime, calcBreakHigh + 10 * tickSize, "", xloc.bar_time, yloc.price, color.new(color.red, 0), label.style_arrowdown, color.black, size.normal)
 
 // ============================================================
 // SL-lijn (trailing binnen het signaalvenster).

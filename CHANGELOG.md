@@ -3,6 +3,12 @@
 Alle noemenswaardige wijzigingen aan `trade_lines.pine` worden hier bijgehouden.
 Versienummering volgt [Semantic Versioning](https://semver.org/lang/nl/) (MAJOR.MINOR.PATCH).
 
+## [1.9.18]
+
+### Gewijzigd
+- `excludeReversalCandle` staat nu standaard op `true` in plaats van `false`. Zonder deze instelling telt de body van de candle die een bullish/bearish-overgang zelf afrondt mee in de invalidatie-check van die overgang; omdat de open van die candle nagenoeg gelijk is aan de close van de vorige candle (het candidate-niveau zelf), kan een verschil van een fractie van een tick tussen broker-feeds bepalen of de overgang wel of niet geldig blijft. Dit verklaarde waarom Resistance/Support bij dezelfde candle-patronen op de ene broker (bijv. FTMO) wél overgeslagen werden en op een andere broker niet. Met `excludeReversalCandle = true` telt alleen de candle zelf niet meer mee voor zijn eigen invalidatie; latere candles kunnen het level nog steeds legitiem doorbreken.
+- De TP-lijn vereist nu ook `showSL` ("Toon SL lijnen"), naast de bestaande `showTradeCheck`-instelling. Voorheen bleef de TP-lijn zichtbaar wanneer alleen de SL-lijnen werden uitgezet, terwijl de TP juist is afgeleid van de SL/R-berekening. De losse "Trade niet mogelijk"-label die voorheen verscheen wanneer showSL uitstond, is daarmee ook vervallen (die informatie stond toch al op de SL-lijn zelf wanneer showSL aanstaat).
+
 ## [1.9.17]
 
 ### Toegevoegd

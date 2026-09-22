@@ -1,5 +1,5 @@
 //@version=6
-// Versie: 1.9.17 - zie CHANGELOG.md voor de wijzigingsgeschiedenis.
+// Versie: 1.9.18 - zie CHANGELOG.md voor de wijzigingsgeschiedenis.
 //
 // NIEUW IN 1.9.0: alle berekeningen (Support/Resistance, Targets, LONG/SHORT
 // signalen, SL, TP + Range-check) draaien nu ALTIJD op het 30-minuten
@@ -21,7 +21,7 @@ indicator("Trade Lijnen (SL/S/R)", overlay=true, max_lines_count=30, max_labels_
 // zichtbaar is in het Inputs-tabblad van de instellingen, zonder in de
 // code te hoeven kijken. Zie CHANGELOG.md voor de wijzigingsgeschiedenis.
 // ============================================================
-scriptVersion = input.string("1.9.17", "Versie", options=["1.9.17"], group="Info")
+scriptVersion = input.string("1.9.18", "Versie", options=["1.9.18"], group="Info")
 
 // ============================================================
 // FREEZE-TOGGLE: direct onder de versie-info geplaatst (eigen groep, los
@@ -73,7 +73,7 @@ maxScanBars      = input.int(450, "Max bars terugzoeken", minval=10, maxval=500,
 autoTargetTicks  = input.int(100, "Fallback afstand target lijnen (ticks, alleen als geen geldige overgang gevonden wordt)", minval=1, group="Support / Resistance")
 minTargetDistance = input.int(300, "Minimale afstand Target t.o.v. Resistance/Support (ticks)", minval=1, group="Support / Resistance")
 labelTextColor   = input.color(color.black, "Labelkleur (tekst)", group="Support / Resistance")
-excludeReversalCandle = input.bool(false, "Support/Resistance: reversal-candle uitsluiten van eigen invalidatie", group="Support / Resistance")
+excludeReversalCandle = input.bool(true, "Support/Resistance: reversal-candle uitsluiten van eigen invalidatie", group="Support / Resistance")
 debugSupportPivot = input.bool(false, "Debug: toon eerste Support-kandidaat + reden verwerping (alleen op 30m-chart)", group="Support / Resistance")
 debugCalcPanel = input.bool(false, "Debug: toon diagnosepaneel (calc*/newData-waarden)", group="Support / Resistance")
 
@@ -685,13 +685,13 @@ if showSL and effectiveNewData
         shortLabel := label.new(calcRightEdgeTime, calcShortTrailSL, shortLabelText, xloc.bar_time, yloc.price, color.new(shortLabelColor, shortTradeBlocked ? 0 : 80), label.style_label_left, shortTradeBlocked ? color.black : shortColor, size.small)
 
 // ============================================================
-// TP-lijn + "Trade niet mogelijk"-label.
+// TP-lijn. Vereist zowel showSL als showTradeCheck: de TP is afgeleid van
+// de SL/R-berekening, dus zonder SL-lijn heeft een losse TP-lijn geen context.
 // ============================================================
 var line  tpLine       = na
 var label tpLabel      = na
-var label noTradeLabel = na
 
-if showTradeCheck and effectiveNewData
+if showSL and showTradeCheck and effectiveNewData
     if not calcLongActive and not calcShortActive
         if not na(tpLine)
             line.delete(tpLine)
@@ -699,9 +699,6 @@ if showTradeCheck and effectiveNewData
         if not na(tpLabel)
             label.delete(tpLabel)
             tpLabel := na
-        if not na(noTradeLabel)
-            label.delete(noTradeLabel)
-            noTradeLabel := na
 
     if calcLongActive and calcBreakSide
         if not na(tpLine)
@@ -710,17 +707,9 @@ if showTradeCheck and effectiveNewData
         if not na(tpLabel)
             label.delete(tpLabel)
             tpLabel := na
-        if not na(noTradeLabel)
-            label.delete(noTradeLabel)
-            noTradeLabel := na
         if calcLongTradeOk
             tpLine  := line.new(calcBreakTime, calcLongTP, calcRightEdgeTime, calcLongTP, xloc.bar_time, extend.none, tpColor, line.style_dashed, 2)
             tpLabel := label.new(calcRightEdgeTime, calcLongTP, "TP (" + str.tostring(tpRR, "#.##") + " R/R): " + str.tostring(calcLongTP, format.mintick), xloc.bar_time, yloc.price, color.new(tpColor, 80), label.style_label_left, tpColor, size.small)
-        else if not showSL
-            // Alleen een los "Trade niet mogelijk"-label als de SL-lijn (die
-            // dezelfde info al toont) uitstaat - anders overlapt dit label
-            // met andere lijnen/labels op het chart.
-            noTradeLabel := label.new(calcRightEdgeTime, calcBreakLow - 20 * tickSize, "Trade niet mogelijk\n" + calcLongReasonText, xloc.bar_time, yloc.price, color.new(noTradeColor, 0), label.style_label_left, color.black, size.normal)
 
     if calcShortActive and not calcBreakSide
         if not na(tpLine)
@@ -729,17 +718,9 @@ if showTradeCheck and effectiveNewData
         if not na(tpLabel)
             label.delete(tpLabel)
             tpLabel := na
-        if not na(noTradeLabel)
-            label.delete(noTradeLabel)
-            noTradeLabel := na
         if calcShortTradeOk
             tpLine  := line.new(calcBreakTime, calcShortTP, calcRightEdgeTime, calcShortTP, xloc.bar_time, extend.none, tpColor, line.style_dashed, 2)
             tpLabel := label.new(calcRightEdgeTime, calcShortTP, "TP (" + str.tostring(tpRR, "#.##") + " R/R): " + str.tostring(calcShortTP, format.mintick), xloc.bar_time, yloc.price, color.new(tpColor, 80), label.style_label_left, tpColor, size.small)
-        else if not showSL
-            // Alleen een los "Trade niet mogelijk"-label als de SL-lijn (die
-            // dezelfde info al toont) uitstaat - anders overlapt dit label
-            // met andere lijnen/labels op het chart.
-            noTradeLabel := label.new(calcRightEdgeTime, calcBreakHigh + 20 * tickSize, "Trade niet mogelijk\n" + calcShortReasonText, xloc.bar_time, yloc.price, color.new(noTradeColor, 0), label.style_label_left, color.black, size.normal)
 
 if effectiveNewData
     lastDrawnBarTime := calcBarTime

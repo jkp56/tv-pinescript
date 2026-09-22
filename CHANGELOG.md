@@ -3,6 +3,17 @@
 Alle noemenswaardige wijzigingen aan `trade_lines.pine` worden hier bijgehouden.
 Versienummering volgt [Semantic Versioning](https://semver.org/lang/nl/) (MAJOR.MINOR.PATCH).
 
+## [1.9.20]
+
+### Toegevoegd
+- Nieuwe instelling `trailSL` ("SL: trailing (bijwerken bij elke nieuwe candle in het venster)", groep "Stop Loss lijnen"), **default uit**. Voorheen werd de getoonde SL-lijn altijd bijgewerkt bij elke nieuwe candle van de juiste kleur binnen het signaalvenster (trailing gedrag), wat tijdens een sterke beweging kon overkomen als "verspringen" naar een andere candle. Met `trailSL = false` (default) wordt de SL, net als de TP-lijn, vastgezet op de signaal-candle zelf en blijft hij daarna ongewijzigd; met `trailSL = true` blijft het oude trailing-gedrag beschikbaar voor wie dat wil gebruiken.
+
+## [1.9.19]
+
+### Opgelost
+- `bullishBreakNow`/`bearishBreakNow` konden een tweede keer afvuren terwijl het vorige signaal in dezelfde richting nog actief was (binnen `slSignalWindow`), puur omdat Support/Resistance van candle op candle flink kan verspringen na een sterke beweging (het dichtstbijzijnde nog-niet-gebroken level verandert). Omdat de doorbraak-drempel (`bullishLevel`/`bearishLevel`) is afgeleid van deze steeds herberekende prevResistance/prevSupport, kon zo'n verschuiving een spurious tweede breakout veroorzaken - met een compleet nieuwe (vaak veel grotere) R, die dan de trade alsnog blokkeerde terwijl het eigenlijk om dezelfde, al gesignaleerde doorbraak ging.
+- Een nieuwe breakout telt nu alleen als er nog geen actief signaal in dezelfde richting loopt (`not wasLongActive` / `not wasShortActive`, gebaseerd op de originele `lastLongBar`/`lastShortBar` van vóór deze candle). Het eerste signaal (met de bijbehorende, correcte R) blijft zo leidend zolang het venster loopt.
+
 ## [1.9.18]
 
 ### Gewijzigd

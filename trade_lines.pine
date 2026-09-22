@@ -1,5 +1,5 @@
 //@version=6
-// Versie: 1.9.18 - zie CHANGELOG.md voor de wijzigingsgeschiedenis.
+// Versie: 1.9.20 - zie CHANGELOG.md voor de wijzigingsgeschiedenis.
 //
 // NIEUW IN 1.9.0: alle berekeningen (Support/Resistance, Targets, LONG/SHORT
 // signalen, SL, TP + Range-check) draaien nu ALTIJD op het 30-minuten
@@ -21,7 +21,7 @@ indicator("Trade Lijnen (SL/S/R)", overlay=true, max_lines_count=30, max_labels_
 // zichtbaar is in het Inputs-tabblad van de instellingen, zonder in de
 // code te hoeven kijken. Zie CHANGELOG.md voor de wijzigingsgeschiedenis.
 // ============================================================
-scriptVersion = input.string("1.9.18", "Versie", options=["1.9.18"], group="Info")
+scriptVersion = input.string("1.9.20", "Versie", options=["1.9.20"], group="Info")
 
 // ============================================================
 // FREEZE-TOGGLE: direct onder de versie-info geplaatst (eigen groep, los
@@ -55,6 +55,7 @@ isSupportedTF = timeframe.period == calcTF or timeframe.period == lowerTF
 //   candle zelf telt als candle 1 van het venster).
 // ============================================================
 showSL         = input.bool(true, "Toon SL lijnen", group="Stop Loss lijnen")
+trailSL        = input.bool(false, "SL: trailing (bijwerken bij elke nieuwe candle in het venster)", group="Stop Loss lijnen")
 tickOffset     = input.int(50, "SL: aantal ticks van wick", minval=1, group="Stop Loss lijnen")
 lineLen        = input.int(20, "SL: lengte lijn (aantal 30m-candles naar rechts)", minval=1, group="Stop Loss lijnen")
 slSignalWindow = input.int(2, "SL: lijn actief na signaal (aantal 30m-candles)", minval=1, group="Stop Loss lijnen")
@@ -400,8 +401,21 @@ f_calc30m() =>
         bullishLevel = prevResistance + xOffset
         bearishLevel = prevSupport - xOffset
 
-        bullishBreakNow = not na(prevResistance) and close > bullishLevel and close[1] <= bullishLevel
-        bearishBreakNow = not na(prevSupport) and close < bearishLevel and close[1] >= bearishLevel
+        // Was er al een actief signaal in dezelfde richting (op basis van de
+        // ORIGINELE lastLongBar/lastShortBar, dus vóór de eventuele update
+        // hieronder)? Zo ja, dan mag dit geen nieuwe break tellen: Support/
+        // Resistance kan van candle op candle flink verspringen (het dichtst-
+        // bijzijnde nog-niet-gebroken level verandert na een sterke beweging),
+        // waardoor prevSupport/prevResistance - en dus bullishLevel/bearish-
+        // Level - kan verschuiven zonder dat de markt echt opnieuw een level
+        // doorbreekt. Zonder deze check vuurt zo'n verschuiving een tweede
+        // (spurious) breakout af met een compleet andere, vaak veel grotere R,
+        // puur omdat de drempel zelf is bijgesteld.
+        wasLongActive  = not na(lastLongBar) and (bar_index - lastLongBar) < slSignalWindow
+        wasShortActive = not na(lastShortBar) and (bar_index - lastShortBar) < slSignalWindow
+
+        bullishBreakNow = not na(prevResistance) and close > bullishLevel and close[1] <= bullishLevel and not wasLongActive
+        bearishBreakNow = not na(prevSupport) and close < bearishLevel and close[1] >= bearishLevel and not wasShortActive
 
         if bullishBreakNow
             lastLongBar    := bar_index
@@ -420,14 +434,17 @@ f_calc30m() =>
         longActive  := not na(lastLongBar) and (bar_index - lastLongBar) < slSignalWindow
         shortActive := not na(lastShortBar) and (bar_index - lastShortBar) < slSignalWindow
 
-        // --- Trailing SL-weergave: elke candle van de "juiste" kleur binnen
-        // het venster werkt de getoonde SL bij (los van de vaste R hieronder) ---
+        // --- SL-weergave: op de signaal-candle zelf wordt de SL altijd gezet.
+        // Staat trailSL aan, dan werkt elke volgende candle van de "juiste"
+        // kleur binnen het venster de getoonde SL nog bij; staat trailSL uit
+        // (default), dan blijft de SL vanaf de signaal-candle vast staan -
+        // net als de TP-lijn (los van de vaste R hieronder). ---
         isBull = close > open
         isBear = close < open
-        if isBull and longActive
+        if isBull and longActive and (trailSL or bar_index == lastLongBar)
             longTrailSL := low - slOffset
             slSide      := true
-        if isBear and shortActive
+        if isBear and shortActive and (trailSL or bar_index == lastShortBar)
             shortTrailSL := high + slOffset
             slSide       := false
 

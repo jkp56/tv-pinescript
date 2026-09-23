@@ -1,5 +1,5 @@
 //@version=6
-// Versie: 1.9.23 - zie CHANGELOG.md voor de wijzigingsgeschiedenis.
+// Versie: 1.9.24 - zie CHANGELOG.md voor de wijzigingsgeschiedenis.
 //
 // NIEUW IN 1.9.0: alle berekeningen (Support/Resistance, Targets, LONG/SHORT
 // signalen, SL, TP + Range-check) draaien nu ALTIJD op het 30-minuten
@@ -21,7 +21,7 @@ indicator("Trade Lijnen (SL/S/R)", overlay=true, max_lines_count=30, max_labels_
 // zichtbaar is in het Inputs-tabblad van de instellingen, zonder in de
 // code te hoeven kijken. Zie CHANGELOG.md voor de wijzigingsgeschiedenis.
 // ============================================================
-scriptVersion = input.string("1.9.23", "Versie", options=["1.9.23"], group="Info")
+scriptVersion = input.string("1.9.24", "Versie", options=["1.9.24"], group="Info")
 
 // ============================================================
 // FREEZE-TOGGLE: direct onder de versie-info geplaatst (eigen groep, los
@@ -353,11 +353,15 @@ f_calc30m() =>
     var float  longTP         = na
     var string longReasonText = ""
     var float  longRangeRR    = na
+    var float  longEntry      = na
+    var float  longR          = na
 
     var bool   shortTradeOk    = false
     var float  shortTP         = na
     var string shortReasonText = ""
     var float  shortRangeRR    = na
+    var float  shortEntry      = na
+    var float  shortR          = na
 
     if barstate.isconfirmed
         barTime       := time
@@ -470,6 +474,8 @@ f_calc30m() =>
 
             longTP      := tpValue
             longRangeRR := rValue > 0 ? rangeAvail / rValue : na
+            longEntry   := entryPrice
+            longR       := rValue
             longTradeOk := rValue > 0 and rangeOk and not rTooLarge
 
             string reasonText = ""
@@ -494,6 +500,8 @@ f_calc30m() =>
 
             shortTP      := tpValue
             shortRangeRR := rValue > 0 ? rangeAvail / rValue : na
+            shortEntry   := entryPrice
+            shortR       := rValue
             shortTradeOk := rValue > 0 and rangeOk and not rTooLarge
 
             string reasonTextS = ""
@@ -514,8 +522,8 @@ f_calc30m() =>
      longTrailSL, shortTrailSL, slSide,
      longBreakLevel, shortBreakLevel, breakTime, breakSide,
      breakLow, breakHigh,
-     longTradeOk, longTP, longReasonText, longRangeRR,
-     shortTradeOk, shortTP, shortReasonText, shortRangeRR]
+     longTradeOk, longTP, longReasonText, longRangeRR, longEntry, longR,
+     shortTradeOk, shortTP, shortReasonText, shortRangeRR, shortEntry, shortR]
 
 // Let op: request.security() krijgt hier bewust een TUPLE van simpele
 // waarden terug (niet een object van een user-defined type). Dat is de
@@ -523,7 +531,7 @@ f_calc30m() =>
 // ondersteunt; een UDT-object teruggeven bleek in de praktijk niet
 // betrouwbaar te worden gevuld (alle velden bleven op hun startwaarde
 // staan, waardoor er nergens meer iets werd getekend).
-[calcResistance, calcSupport, calcTargetResistance, calcTargetSupport, calcRFallback, calcSFallback, calcTrFallback, calcTsFallback, calcRPivotTime, calcSPivotTime, calcTrPivotTime, calcTsPivotTime, calcRBarsBack, calcSBarsBack, calcTrBarsBack, calcTsBarsBack, calcBarTime, calcRightEdgeTime, calcLongActive, calcShortActive, calcLongTrailSL, calcShortTrailSL, calcSlSide, calcLongBreakLevel, calcShortBreakLevel, calcBreakTime, calcBreakSide, calcBreakLow, calcBreakHigh, calcLongTradeOk, calcLongTP, calcLongReasonText, calcLongRangeRR, calcShortTradeOk, calcShortTP, calcShortReasonText, calcShortRangeRR] = request.security(syminfo.tickerid, calcTF, f_calc30m(), lookahead=barmerge.lookahead_off)
+[calcResistance, calcSupport, calcTargetResistance, calcTargetSupport, calcRFallback, calcSFallback, calcTrFallback, calcTsFallback, calcRPivotTime, calcSPivotTime, calcTrPivotTime, calcTsPivotTime, calcRBarsBack, calcSBarsBack, calcTrBarsBack, calcTsBarsBack, calcBarTime, calcRightEdgeTime, calcLongActive, calcShortActive, calcLongTrailSL, calcShortTrailSL, calcSlSide, calcLongBreakLevel, calcShortBreakLevel, calcBreakTime, calcBreakSide, calcBreakLow, calcBreakHigh, calcLongTradeOk, calcLongTP, calcLongReasonText, calcLongRangeRR, calcLongEntry, calcLongR, calcShortTradeOk, calcShortTP, calcShortReasonText, calcShortRangeRR, calcShortEntry, calcShortR] = request.security(syminfo.tickerid, calcTF, f_calc30m(), lookahead=barmerge.lookahead_off)
 
 // ============================================================
 // Waarschuwing bij niet-ondersteund timeframe.
@@ -735,7 +743,7 @@ if showSL and showTradeCheck and effectiveNewData
             tpLabel := na
         if calcLongTradeOk
             tpLine  := line.new(calcBreakTime, calcLongTP, calcRightEdgeTime, calcLongTP, xloc.bar_time, extend.none, tpColor, line.style_dashed, 2)
-            tpLabel := label.new(calcRightEdgeTime, calcLongTP, "TP (" + str.tostring(tpRR, "#.##") + " R/R): " + str.tostring(calcLongTP, format.mintick) + " · Range " + f_fmtRR(calcLongRangeRR) + "R", xloc.bar_time, yloc.price, color.new(tpColor, 80), label.style_label_left, tpColor, size.small)
+            tpLabel := label.new(calcRightEdgeTime, calcLongTP, "TP (" + str.tostring(tpRR, "#.##") + " R/R): " + str.tostring(calcLongTP, format.mintick) + " · Entry " + str.tostring(calcLongEntry, format.mintick) + " · R " + str.tostring(calcLongR, format.mintick) + " · Range " + f_fmtRR(calcLongRangeRR) + "R", xloc.bar_time, yloc.price, color.new(tpColor, 80), label.style_label_left, tpColor, size.small)
 
     if calcShortActive and not calcBreakSide
         if not na(tpLine)
@@ -746,7 +754,7 @@ if showSL and showTradeCheck and effectiveNewData
             tpLabel := na
         if calcShortTradeOk
             tpLine  := line.new(calcBreakTime, calcShortTP, calcRightEdgeTime, calcShortTP, xloc.bar_time, extend.none, tpColor, line.style_dashed, 2)
-            tpLabel := label.new(calcRightEdgeTime, calcShortTP, "TP (" + str.tostring(tpRR, "#.##") + " R/R): " + str.tostring(calcShortTP, format.mintick) + " · Range " + f_fmtRR(calcShortRangeRR) + "R", xloc.bar_time, yloc.price, color.new(tpColor, 80), label.style_label_left, tpColor, size.small)
+            tpLabel := label.new(calcRightEdgeTime, calcShortTP, "TP (" + str.tostring(tpRR, "#.##") + " R/R): " + str.tostring(calcShortTP, format.mintick) + " · Entry " + str.tostring(calcShortEntry, format.mintick) + " · R " + str.tostring(calcShortR, format.mintick) + " · Range " + f_fmtRR(calcShortRangeRR) + "R", xloc.bar_time, yloc.price, color.new(tpColor, 80), label.style_label_left, tpColor, size.small)
 
 if effectiveNewData
     lastDrawnBarTime := calcBarTime

@@ -3,6 +3,11 @@
 Alle noemenswaardige wijzigingen aan `trade_lines.pine` worden hier bijgehouden.
 Versienummering volgt [Semantic Versioning](https://semver.org/lang/nl/) (MAJOR.MINOR.PATCH).
 
+## [1.9.24]
+
+### Toegevoegd
+- Het TP-label toont nu ook de entry (close van de signaal-candle) en R (SL-afstand in prijs), bijv. `TP (1.2 R/R): 4279.86 · Entry 4284.16 · R 3.58 · Range 1.50R`. Zo staan alle getallen die nodig zijn om de trade in een externe position sizer (bijv. MT5 Position Sizer) in te voeren direct in beeld.
+
 ## [1.9.23]
 
 ### Gewijzigd

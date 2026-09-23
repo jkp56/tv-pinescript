@@ -3,6 +3,12 @@
 Alle noemenswaardige wijzigingen aan `trade_lines.pine` worden hier bijgehouden.
 Versienummering volgt [Semantic Versioning](https://semver.org/lang/nl/) (MAJOR.MINOR.PATCH).
 
+## [1.9.23]
+
+### Gewijzigd
+- Default van `minRangeRR` ("Minimaal benodigde R/R-ruimte in de Range") verlaagd van **1.5** naar **1.0**. De trades liggen rond een TP van 1.2R, dus 1.5R ruimte eisen was strenger dan nodig; de Range hoeft slechts ongeveer 1R te bevatten. Het voorbeeld uit v1.9.22 (FTMO_OANDA 1.46R, FXCM 1.50R) is daarmee op beide brokers een geldige trade.
+- Let op: heb je `minRangeRR` op de chart ooit handmatig aangepast, dan blijft die eigen waarde staan; zet hem dan zelf op 1.0 (of klik "Reset settings").
+
 ## [1.9.22]
 
 ### Toegevoegd

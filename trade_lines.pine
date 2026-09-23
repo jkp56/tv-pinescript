@@ -1,5 +1,5 @@
 //@version=6
-// Versie: 1.9.22 - zie CHANGELOG.md voor de wijzigingsgeschiedenis.
+// Versie: 1.9.23 - zie CHANGELOG.md voor de wijzigingsgeschiedenis.
 //
 // NIEUW IN 1.9.0: alle berekeningen (Support/Resistance, Targets, LONG/SHORT
 // signalen, SL, TP + Range-check) draaien nu ALTIJD op het 30-minuten
@@ -21,7 +21,7 @@ indicator("Trade Lijnen (SL/S/R)", overlay=true, max_lines_count=30, max_labels_
 // zichtbaar is in het Inputs-tabblad van de instellingen, zonder in de
 // code te hoeven kijken. Zie CHANGELOG.md voor de wijzigingsgeschiedenis.
 // ============================================================
-scriptVersion = input.string("1.9.22", "Versie", options=["1.9.22"], group="Info")
+scriptVersion = input.string("1.9.23", "Versie", options=["1.9.23"], group="Info")
 
 // ============================================================
 // FREEZE-TOGGLE: direct onder de versie-info geplaatst (eigen groep, los
@@ -99,7 +99,7 @@ xTicks  = input.int(10, "X: aantal ticks voorbij S/R voor signaal", minval=1, gr
 // ============================================================
 showTradeCheck = input.bool(true, "Toon TP-lijn en Trade-mogelijkheid check", group="Trade Mogelijkheid")
 tpRR           = input.float(1.2, "TP: Risk/Reward ratio", minval=0.01, step=0.1, group="Trade Mogelijkheid")
-minRangeRR     = input.float(1.5, "Minimaal benodigde R/R-ruimte in de Range", minval=0.01, step=0.1, group="Trade Mogelijkheid")
+minRangeRR     = input.float(1.0, "Minimaal benodigde R/R-ruimte in de Range", minval=0.01, step=0.1, group="Trade Mogelijkheid")
 maxRTicks      = input.int(1000, "Maximaal toegestane R (ticks)", minval=1, group="Trade Mogelijkheid")
 tpColor        = input.color(color.new(color.blue, 0), "Kleur TP-lijn", group="Trade Mogelijkheid")
 noTradeColor   = input.color(color.new(color.orange, 0), "Kleur 'Trade niet mogelijk'-label", group="Trade Mogelijkheid")
@@ -109,7 +109,7 @@ slOffset = tickOffset * tickSize
 xOffset  = xTicks * tickSize
 
 // Range uitgedrukt in R, naar beneden afgerond op 2 decimalen: zo toont een
-// net-niet-gehaalde check (bijv. 1.497R) nooit misleidend "1.5R < 1.5R".
+// net-niet-gehaalde check (bijv. 0.997R) nooit misleidend "1R < 1R".
 f_fmtRR(float x) =>
     na(x) ? "-" : str.tostring(math.floor(x * 100) / 100, "0.00")
 

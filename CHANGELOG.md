@@ -3,6 +3,14 @@
 Alle noemenswaardige wijzigingen aan `trade_lines.pine` worden hier bijgehouden.
 Versienummering volgt [Semantic Versioning](https://semver.org/lang/nl/) (MAJOR.MINOR.PATCH).
 
+## [1.9.22]
+
+### Toegevoegd
+- De Range in de Trade-mogelijkheid-check wordt nu ook uitgedrukt in R (Range ÷ R, naar beneden afgerond op 2 decimalen) en altijd getoond:
+  - Trade mogelijk: TP-label toont nu `TP (1.2 R/R): 4279.86 · Range 1.62R`.
+  - Trade niet mogelijk: reden toont nu `Range 1.46R < 1.5R (5.57 < 5.70)` in plaats van alleen de prijsafstanden.
+- Aanleiding: op FTMO_OANDA faalde een short-trade net (Range 5.57 < 5.70 benodigd), terwijl dezelfde trade op FXCM wél geldig was doordat close/high van de signaal-candle iets afweken (R 3.80 vs 3.58). Omdat de 1.5R-grens een marge is boven de ~1.2R TP en geen harde eis, maakt het tonen van de Range in R zulke grensgevallen direct herkenbaar, op beide brokers.
+
 ## [1.9.21]
 
 ### Opgelost

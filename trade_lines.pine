@@ -1,5 +1,5 @@
 //@version=6
-// Versie: 1.9.20 - zie CHANGELOG.md voor de wijzigingsgeschiedenis.
+// Versie: 1.9.21 - zie CHANGELOG.md voor de wijzigingsgeschiedenis.
 //
 // NIEUW IN 1.9.0: alle berekeningen (Support/Resistance, Targets, LONG/SHORT
 // signalen, SL, TP + Range-check) draaien nu ALTIJD op het 30-minuten
@@ -21,7 +21,7 @@ indicator("Trade Lijnen (SL/S/R)", overlay=true, max_lines_count=30, max_labels_
 // zichtbaar is in het Inputs-tabblad van de instellingen, zonder in de
 // code te hoeven kijken. Zie CHANGELOG.md voor de wijzigingsgeschiedenis.
 // ============================================================
-scriptVersion = input.string("1.9.20", "Versie", options=["1.9.20"], group="Info")
+scriptVersion = input.string("1.9.21", "Versie", options=["1.9.21"], group="Info")
 
 // ============================================================
 // FREEZE-TOGGLE: direct onder de versie-info geplaatst (eigen groep, los
@@ -682,7 +682,7 @@ if showSL and effectiveNewData
     if calcLongActive and calcSlSide and not na(calcLongTrailSL)
         if not na(longLine)
             line.delete(longLine)
-        longLine := line.new(calcBarTime, calcLongTrailSL, calcRightEdgeTime, calcLongTrailSL, xloc.bar_time, extend.none, longColor, line.style_dashed, 2)
+        longLine := line.new(calcBreakTime, calcLongTrailSL, calcRightEdgeTime, calcLongTrailSL, xloc.bar_time, extend.none, longColor, line.style_dashed, 2)
         if not na(longLabel)
             label.delete(longLabel)
         longTradeBlocked = showTradeCheck and calcBreakSide and not calcLongTradeOk and calcLongReasonText != ""
@@ -693,7 +693,7 @@ if showSL and effectiveNewData
     if calcShortActive and not calcSlSide and not na(calcShortTrailSL)
         if not na(shortLine)
             line.delete(shortLine)
-        shortLine := line.new(calcBarTime, calcShortTrailSL, calcRightEdgeTime, calcShortTrailSL, xloc.bar_time, extend.none, shortColor, line.style_dashed, 2)
+        shortLine := line.new(calcBreakTime, calcShortTrailSL, calcRightEdgeTime, calcShortTrailSL, xloc.bar_time, extend.none, shortColor, line.style_dashed, 2)
         if not na(shortLabel)
             label.delete(shortLabel)
         shortTradeBlocked = showTradeCheck and not calcBreakSide and not calcShortTradeOk and calcShortReasonText != ""

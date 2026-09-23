@@ -3,6 +3,11 @@
 Alle noemenswaardige wijzigingen aan `trade_lines.pine` worden hier bijgehouden.
 Versienummering volgt [Semantic Versioning](https://semver.org/lang/nl/) (MAJOR.MINOR.PATCH).
 
+## [1.9.21]
+
+### Opgelost
+- De SL-lijn begon nog steeds bij `calcBarTime` (de meest recent gesloten 30m-candle op het moment van tekenen) in plaats van bij de signaal-candle. Bij elke nieuwe candle binnen het signaalvenster werd de lijn dus opnieuw getekend met een later startpunt, terwijl de TP-lijn sinds v1.9.18/1.9.20 wel al vanaf `calcBreakTime` (de signaal-candle) begint. Hierdoor leken SL en TP niet bij dezelfde candle te beginnen. De SL-lijn start nu ook vanaf `calcBreakTime`, net als de TP-lijn en de break-lijn.
+
 ## [1.9.20]
 
 ### Toegevoegd

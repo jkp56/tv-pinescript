@@ -3,6 +3,15 @@
 Alle noemenswaardige wijzigingen aan `trade_lines.pine` worden hier bijgehouden.
 Versienummering volgt [Semantic Versioning](https://semver.org/lang/nl/) (MAJOR.MINOR.PATCH).
 
+## [1.9.26]
+
+### Toegevoegd
+- Nieuwe instellingen **"Body-tolerantie voor candle na de overgang"** (standaard **uit**) en **"Body-tolerantie (ticks)"** (standaard 50) in de groep "Support / Resistance".
+- Staat de tolerantie aan, dan mag de candle **direct na** de reversal-candle met zijn body maximaal het ingestelde aantal ticks door het level gaan zonder het ongeldig te maken, **mits die candle in de respecterende richting sluit**: bullish bij Support/Target Support, bearish bij Resistance/Target Resistance. Alle andere candles, en een candle in de aanvallende richting, blijven de strikte body-check volgen.
+- Geldt voor alle vier de S/R-lijnen. De wick-check van de Target-lijnen is ongewijzigd. Het debug-label voor de Support-kandidaat houdt ook rekening met de tolerantie.
+- Aanleiding: op XAUUSD (16/17-09) was het Support-level 4260.04 op FXCM geldig, maar op FTMO_OANDA niet: de bullish candle na de overgang opende daar 35 ticks onder het level en sloot er ruim boven. Dat verschil is feed-ruis, geen echte doorbraak.
+- Staat de instelling uit, dan werkt alles exact als in 1.9.25.
+
 ## [1.9.25]
 
 ### Gewijzigd

@@ -19,8 +19,9 @@ Dit document beschrijft alle regels waaraan het Pine Script `trade_lines.pine` (
 2. Zoek de **meest recente overgang** van een **bullish candle** gevolgd door een **bearish candle**.
 3. Het niveau = de **bovenkant van de body** van die bullish candle (`max(open, close)`).
 4. **Geldigheidscheck (alleen body)**: dit niveau is alleen geldig als geen enkele candle daarna (inclusief de nu lopende candle) met zijn **body** dat niveau raakt of doorbreekt.
-5. **Wicks spelen voor Resistance geen rol** — de lijn mag gewoon door wicks van candles heen lopen, dat maakt het niveau niet ongeldig.
-6. Zo niet geldig (body-doorbraak) → zoek verder terug naar de vórige bullish→bearish overgang, en herhaal de check.
+5. **Optionele body-tolerantie** (instelling, standaard uit): de candle **direct na** de reversal-candle mag met zijn body maximaal een instelbaar aantal ticks (standaard 50) boven het level komen zonder het ongeldig te maken, **mits die candle bearish is** (de respecterende richting). Een bullish candle daar, en elke latere candle, blijft strikt. Geldt ook voor Target Resistance.
+6. **Wicks spelen voor Resistance geen rol** — de lijn mag gewoon door wicks van candles heen lopen, dat maakt het niveau niet ongeldig.
+7. Zo niet geldig (body-doorbraak) → zoek verder terug naar de vórige bullish→bearish overgang, en herhaal de check.
 
 ## Support
 
@@ -29,7 +30,8 @@ Spiegelbeeld van Resistance:
 1. Meest recente overgang van een **bearish candle** gevolgd door een **bullish candle**.
 2. Niveau = **onderkant van de body** van die bearish candle (`min(open, close)`).
 3. Geldigheidscheck (alleen body): geldig alleen als geen enkele candle daarna (incl. lopende candle) met zijn **body** dat niveau raakt/doorbreekt.
-4. **Wicks spelen voor Support geen rol** — de lijn mag door wicks heen lopen.
+4. **Optionele body-tolerantie**: spiegelbeeld van Resistance. De candle direct na de reversal-candle mag met zijn body maximaal het ingestelde aantal ticks onder het level komen, **mits die candle bullish is**. Geldt ook voor Target Support.
+5. **Wicks spelen voor Support geen rol** — de lijn mag door wicks heen lopen.
 
 ## Target Resistance
 

@@ -1,5 +1,5 @@
 //@version=6
-// Versie: 1.9.25 - zie CHANGELOG.md voor de wijzigingsgeschiedenis.
+// Versie: 1.9.26 - zie CHANGELOG.md voor de wijzigingsgeschiedenis.
 //
 // NIEUW IN 1.9.0: alle berekeningen (Support/Resistance, Targets, LONG/SHORT
 // signalen, SL, TP + Range-check) draaien nu ALTIJD op het 30-minuten
@@ -21,7 +21,7 @@ indicator("Trade Lijnen (SL/S/R)", overlay=true, max_lines_count=30, max_labels_
 // zichtbaar is in het Inputs-tabblad van de instellingen, zonder in de
 // code te hoeven kijken. Zie CHANGELOG.md voor de wijzigingsgeschiedenis.
 // ============================================================
-scriptVersion = input.string("1.9.25", "Versie", options=["1.9.25"], group="Info")
+scriptVersion = input.string("1.9.26", "Versie", options=["1.9.26"], group="Info")
 
 // ============================================================
 // FREEZE-TOGGLE: direct onder de versie-info geplaatst (eigen groep, los
@@ -75,6 +75,8 @@ autoTargetTicks  = input.int(100, "Fallback afstand target lijnen (ticks, alleen
 minTargetDistance = input.int(300, "Minimale afstand Target t.o.v. Resistance/Support (ticks)", minval=1, group="Support / Resistance")
 labelTextColor   = input.color(color.black, "Labelkleur (tekst)", group="Support / Resistance")
 excludeReversalCandle = input.bool(true, "Support/Resistance: reversal-candle uitsluiten van eigen invalidatie", group="Support / Resistance")
+bodyTolEnabled   = input.bool(false, "Body-tolerantie voor candle na de overgang", group="Support / Resistance")
+bodyTolTicks     = input.int(50, "Body-tolerantie (ticks)", minval=1, group="Support / Resistance")
 debugSupportPivot = input.bool(false, "Debug: toon eerste Support-kandidaat + reden verwerping (alleen op 30m-chart)", group="Support / Resistance")
 debugCalcPanel = input.bool(false, "Debug: toon diagnosepaneel (calc*/newData-waarden)", group="Support / Resistance")
 
@@ -113,6 +115,7 @@ noTradeColor   = input.color(color.new(color.orange, 0), "Kleur 'Trade niet moge
 tickSize = syminfo.mintick
 slOffset = tickOffset * tickSize
 xOffset  = xTicks * tickSize
+bodyTol  = bodyTolTicks * tickSize
 
 // Range uitgedrukt in R, naar beneden afgerond op 2 decimalen: zo toont een
 // net-niet-gehaalde check (bijv. 0.997R) nooit misleidend "1R < 1R".
@@ -150,6 +153,38 @@ f_safeLowest(length) =>
             m := na(m) ? low[i] : math.min(m, low[i])
     m
 
+// Body-geldigheid van een Support-kandidaat (pivot op offset i+1, reversal-
+// candle op offset i). minTo1 = laagste body-onderkant van candles 0..i-1,
+// minTo2 = idem van candles 0..i-2 (dus zonder de candle direct na de
+// reversal-candle). Strikt: geen enkele latere body onder het level.
+// Body-tolerantie (optioneel): de candle direct na de reversal-candle mag met
+// zijn body maximaal bodyTol onder het level komen, mits die candle zelf
+// bullish is (de respecterende richting voor Support) - zo'n candle opent
+// net iets lager maar sluit erboven. Alle overige candles blijven strikt.
+f_supportBodyValid(i, candidate, minTo1, minTo2, excludeReversal) =>
+    bottomI = f_bodyBottom(i)
+    fullMin = excludeReversal ? minTo1 : (na(minTo1) ? bottomI : math.min(minTo1, bottomI))
+    bool valid = na(fullMin) or fullMin >= candidate
+    if not valid and bodyTolEnabled and i >= 1
+        k = i - 1
+        restMin = excludeReversal ? minTo2 : (na(minTo2) ? bottomI : math.min(minTo2, bottomI))
+        if f_validBar(k) and close[k] > open[k] and f_bodyBottom(k) >= candidate - bodyTol and (na(restMin) or restMin >= candidate)
+            valid := true
+    valid
+
+// Spiegelbeeld voor Resistance: maxTo1/maxTo2 = hoogste body-bovenkant, de
+// candle na de reversal-candle moet bearish zijn om de tolerantie te krijgen.
+f_resistanceBodyValid(i, candidate, maxTo1, maxTo2, excludeReversal) =>
+    topI = f_bodyTop(i)
+    fullMax = excludeReversal ? maxTo1 : (na(maxTo1) ? topI : math.max(maxTo1, topI))
+    bool valid = na(fullMax) or fullMax <= candidate
+    if not valid and bodyTolEnabled and i >= 1
+        k = i - 1
+        restMax = excludeReversal ? maxTo2 : (na(maxTo2) ? topI : math.max(maxTo2, topI))
+        if f_validBar(k) and close[k] < open[k] and f_bodyTop(k) <= candidate + bodyTol and (na(restMax) or restMax <= candidate)
+            valid := true
+    valid
+
 // Generiek voor zowel Resistance/Support als de Target-lijnen: alleen de
 // allereerste candle na de bearish/bullish-overgang mag het level met een
 // wick raken (gratie). Elke candle daarna - ongeacht kleur - maakt het level
@@ -186,36 +221,36 @@ f_wickValidBelowLevel(pivotOffset, level) =>
 f_autoResistance(maxScan, excludeReversal) =>
     float level = na
     int barsBack = na
-    float runningMaxTop = na
+    float maxTo1 = na
+    float maxTo2 = na
     for i = 0 to maxScan - 2
-        if not excludeReversal and f_validBar(i)
-            runningMaxTop := na(runningMaxTop) ? f_bodyTop(i) : math.max(runningMaxTop, f_bodyTop(i))
         if f_validBar(i) and f_validBar(i + 1) and close[i + 1] > open[i + 1] and close[i] < open[i]
             candidate = f_bodyTop(i + 1)
-            if na(runningMaxTop) or runningMaxTop <= candidate
+            if f_resistanceBodyValid(i, candidate, maxTo1, maxTo2, excludeReversal)
                 level := candidate
                 barsBack := i + 1
                 break
-        if excludeReversal and f_validBar(i)
-            runningMaxTop := na(runningMaxTop) ? f_bodyTop(i) : math.max(runningMaxTop, f_bodyTop(i))
+        maxTo2 := maxTo1
+        if f_validBar(i)
+            maxTo1 := na(maxTo1) ? f_bodyTop(i) : math.max(maxTo1, f_bodyTop(i))
     [level, barsBack]
 
 // Support: spiegelbeeld van Resistance. Retourneert [level, barsBack].
 f_autoSupport(maxScan, excludeReversal) =>
     float level = na
     int barsBack = na
-    float runningMinBottom = na
+    float minTo1 = na
+    float minTo2 = na
     for i = 0 to maxScan - 2
-        if not excludeReversal and f_validBar(i)
-            runningMinBottom := na(runningMinBottom) ? f_bodyBottom(i) : math.min(runningMinBottom, f_bodyBottom(i))
         if f_validBar(i) and f_validBar(i + 1) and close[i + 1] < open[i + 1] and close[i] > open[i]
             candidate = f_bodyBottom(i + 1)
-            if na(runningMinBottom) or runningMinBottom >= candidate
+            if f_supportBodyValid(i, candidate, minTo1, minTo2, excludeReversal)
                 level := candidate
                 barsBack := i + 1
                 break
-        if excludeReversal and f_validBar(i)
-            runningMinBottom := na(runningMinBottom) ? f_bodyBottom(i) : math.min(runningMinBottom, f_bodyBottom(i))
+        minTo2 := minTo1
+        if f_validBar(i)
+            minTo1 := na(minTo1) ? f_bodyBottom(i) : math.min(minTo1, f_bodyBottom(i))
     [level, barsBack]
 
 // DEBUG (alleen gebruikt op de native 30m-chart, buiten request.security om -
@@ -225,25 +260,29 @@ f_debugFirstSupportCandidate(maxScan, excludeReversal) =>
     int pivotBar = na
     int rejectBar = na
     float rejectLevel = na
-    float runningMinBottom = na
+    float minTo1 = na
+    float minTo2 = na
     bool found = false
     for i = 0 to maxScan - 2
         if not found
-            if not excludeReversal and f_validBar(i)
-                runningMinBottom := na(runningMinBottom) ? f_bodyBottom(i) : math.min(runningMinBottom, f_bodyBottom(i))
             if f_validBar(i) and f_validBar(i + 1) and close[i + 1] < open[i + 1] and close[i] > open[i]
                 candidate = f_bodyBottom(i + 1)
                 level := candidate
                 pivotBar := bar_index - (i + 1)
                 found := true
-                if not (na(runningMinBottom) or runningMinBottom >= candidate)
-                    for k = 0 to i - 1
-                        if f_validBar(k) and f_bodyBottom(k) < candidate
+                if not f_supportBodyValid(i, candidate, minTo1, minTo2, excludeReversal)
+                    // Als de candle na de reversal-candle binnen de tolerantie
+                    // valt, is die niet de oorzaak: zoek dan de andere candle.
+                    afterTolerated = bodyTolEnabled and i >= 1 and f_validBar(i - 1) and close[i - 1] > open[i - 1] and f_bodyBottom(i - 1) >= candidate - bodyTol
+                    lastK = excludeReversal ? i - 1 : i
+                    for k = 0 to lastK
+                        if f_validBar(k) and f_bodyBottom(k) < candidate and not (afterTolerated and k == i - 1)
                             rejectBar := bar_index - k
                             rejectLevel := f_bodyBottom(k)
                             break
-            if excludeReversal and f_validBar(i)
-                runningMinBottom := na(runningMinBottom) ? f_bodyBottom(i) : math.min(runningMinBottom, f_bodyBottom(i))
+            minTo2 := minTo1
+            if f_validBar(i)
+                minTo1 := na(minTo1) ? f_bodyBottom(i) : math.min(minTo1, f_bodyBottom(i))
     [level, pivotBar, rejectBar, rejectLevel]
 
 // Target Resistance: EIGEN zoektocht. Zoekt het EERSTE bodyValid pivot-level
@@ -262,13 +301,12 @@ f_autoTargetResistance(maxScan, resistanceLevel, minDistance, excludeReversal) =
     int barsBack = na
     float shiftLevel = na
     int shiftBarsBack = na
-    float runningMaxBodyTop = na
+    float maxTo1 = na
+    float maxTo2 = na
     for i = 0 to maxScan - 2
-        if not excludeReversal and f_validBar(i)
-            runningMaxBodyTop := na(runningMaxBodyTop) ? f_bodyTop(i) : math.max(runningMaxBodyTop, f_bodyTop(i))
         if f_validBar(i) and f_validBar(i + 1) and close[i + 1] > open[i + 1] and close[i] < open[i]
             candidate = f_bodyTop(i + 1)
-            bodyValid = na(runningMaxBodyTop) or runningMaxBodyTop <= candidate
+            bodyValid = f_resistanceBodyValid(i, candidate, maxTo1, maxTo2, excludeReversal)
             if bodyValid
                 if (candidate - resistanceLevel) >= minDistance and f_wickValidAboveLevel(i + 1, candidate)
                     level := candidate
@@ -277,8 +315,9 @@ f_autoTargetResistance(maxScan, resistanceLevel, minDistance, excludeReversal) =
                 else
                     shiftLevel := candidate
                     shiftBarsBack := i + 1
-        if excludeReversal and f_validBar(i)
-            runningMaxBodyTop := na(runningMaxBodyTop) ? f_bodyTop(i) : math.max(runningMaxBodyTop, f_bodyTop(i))
+        maxTo2 := maxTo1
+        if f_validBar(i)
+            maxTo1 := na(maxTo1) ? f_bodyTop(i) : math.max(maxTo1, f_bodyTop(i))
     [level, barsBack, shiftLevel, shiftBarsBack]
 
 // Target Support: spiegelbeeld van f_autoTargetResistance. Support vereist
@@ -289,13 +328,12 @@ f_autoTargetSupport(maxScan, supportLevel, minDistance, excludeReversal) =>
     int barsBack = na
     float shiftLevel = na
     int shiftBarsBack = na
-    float runningMinBodyBottom = na
+    float minTo1 = na
+    float minTo2 = na
     for i = 0 to maxScan - 2
-        if not excludeReversal and f_validBar(i)
-            runningMinBodyBottom := na(runningMinBodyBottom) ? f_bodyBottom(i) : math.min(runningMinBodyBottom, f_bodyBottom(i))
         if f_validBar(i) and f_validBar(i + 1) and close[i + 1] < open[i + 1] and close[i] > open[i]
             candidate = f_bodyBottom(i + 1)
-            bodyValid = na(runningMinBodyBottom) or runningMinBodyBottom >= candidate
+            bodyValid = f_supportBodyValid(i, candidate, minTo1, minTo2, excludeReversal)
             if bodyValid
                 if (supportLevel - candidate) >= minDistance and f_wickValidBelowLevel(i + 1, candidate)
                     level := candidate
@@ -304,8 +342,9 @@ f_autoTargetSupport(maxScan, supportLevel, minDistance, excludeReversal) =>
                 else
                     shiftLevel := candidate
                     shiftBarsBack := i + 1
-        if excludeReversal and f_validBar(i)
-            runningMinBodyBottom := na(runningMinBodyBottom) ? f_bodyBottom(i) : math.min(runningMinBodyBottom, f_bodyBottom(i))
+        minTo2 := minTo1
+        if f_validBar(i)
+            minTo1 := na(minTo1) ? f_bodyBottom(i) : math.min(minTo1, f_bodyBottom(i))
     [level, barsBack, shiftLevel, shiftBarsBack]
 
 // ============================================================

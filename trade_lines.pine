@@ -1,5 +1,5 @@
 //@version=6
-// Versie: 1.9.24 - zie CHANGELOG.md voor de wijzigingsgeschiedenis.
+// Versie: 1.9.25 - zie CHANGELOG.md voor de wijzigingsgeschiedenis.
 //
 // NIEUW IN 1.9.0: alle berekeningen (Support/Resistance, Targets, LONG/SHORT
 // signalen, SL, TP + Range-check) draaien nu ALTIJD op het 30-minuten
@@ -21,7 +21,7 @@ indicator("Trade Lijnen (SL/S/R)", overlay=true, max_lines_count=30, max_labels_
 // zichtbaar is in het Inputs-tabblad van de instellingen, zonder in de
 // code te hoeven kijken. Zie CHANGELOG.md voor de wijzigingsgeschiedenis.
 // ============================================================
-scriptVersion = input.string("1.9.24", "Versie", options=["1.9.24"], group="Info")
+scriptVersion = input.string("1.9.25", "Versie", options=["1.9.25"], group="Info")
 
 // ============================================================
 // FREEZE-TOGGLE: direct onder de versie-info geplaatst (eigen groep, los
@@ -90,9 +90,15 @@ xTicks  = input.int(10, "X: aantal ticks voorbij S/R voor signaal", minval=1, gr
 //     Long:  SL = low  van de signaal-candle - x ticks  ->  R = close - SL
 //     Short: SL = high van de signaal-candle + x ticks  ->  R = SL - close
 // - TP = entry (= close van de signaal-candle) +/- tpRR * R.
-// - Range = afstand tussen Resistance en Target Resistance (Long), resp.
-//   tussen Support en Target Support (Short) - de waarden zoals herberekend
-//   op de signaal-candle zelf.
+// - Range = vrije ruimte voor de trade: afstand tussen entry en Target
+//   Resistance (Long), resp. tussen entry en Target Support (Short) - het
+//   Target zoals het op de chart stond op het moment van de break (de
+//   PRE-update waarde, net als de doorbroken Resistance/Support zelf), dus
+//   niet zoals het op de signaal-candle of daarna opnieuw getekend wordt.
+//   Bewust NIET gemeten
+//   vanaf het (verschoven) Resistance/Support-level: dat kan vlak bij het
+//   Target liggen, waardoor de Range kunstmatig klein wordt terwijl de
+//   trade zelf ruim baan heeft.
 // - Trade alleen mogelijk als die Range minimaal minRangeRR * R kan bevatten
 //   EN R (in ticks) niet groter is dan maxRTicks. Zo niet: geen TP-lijn,
 //   maar een "Trade niet mogelijk"-label met de reden(en).
@@ -317,6 +323,8 @@ f_calc30m() =>
     var float targetSupport    = na
     var float prevResistance   = na
     var float prevSupport      = na
+    var float prevTargetResistance = na
+    var float prevTargetSupport    = na
     var rFallback  = bool(na)
     var sFallback  = bool(na)
     var trFallback = bool(na)
@@ -370,6 +378,8 @@ f_calc30m() =>
         // --- Resistance / Support / Targets ---
         prevResistance := resistance
         prevSupport    := support
+        prevTargetResistance := targetResistance
+        prevTargetSupport    := targetSupport
 
         [rawResistance, rBack] = f_autoResistance(maxScanBars, excludeReversalCandle)
         [rawSupport, sBack]    = f_autoSupport(maxScanBars, excludeReversalCandle)
@@ -461,13 +471,13 @@ f_calc30m() =>
 
         // --- Trade Mogelijkheid: TP + Range-check, vast bepaald op de
         // signaal-candle zelf, blijft ongewijzigd zolang het venster loopt ---
-        if bullishBreakNow and not na(resistance) and not na(targetResistance)
+        if bullishBreakNow and not na(prevTargetResistance)
             slAtSignal  = low - slOffset
             entryPrice  = close
             rValue      = entryPrice - slAtSignal
             rTicks      = rValue / tickSize
             tpValue     = entryPrice + tpRR * rValue
-            rangeAvail  = targetResistance - resistance
+            rangeAvail  = prevTargetResistance - entryPrice
             rangeNeeded = minRangeRR * rValue
             rangeOk     = rangeAvail >= rangeNeeded
             rTooLarge   = rTicks > maxRTicks
@@ -487,13 +497,13 @@ f_calc30m() =>
                 reasonText := reasonText + "R " + str.tostring(rTicks, "#.##") + " ticks > max " + str.tostring(maxRTicks) + " ticks"
             longReasonText := reasonText
 
-        if bearishBreakNow and not na(support) and not na(targetSupport)
+        if bearishBreakNow and not na(prevTargetSupport)
             slAtSignal  = high + slOffset
             entryPrice  = close
             rValue      = slAtSignal - entryPrice
             rTicks      = rValue / tickSize
             tpValue     = entryPrice - tpRR * rValue
-            rangeAvail  = support - targetSupport
+            rangeAvail  = entryPrice - prevTargetSupport
             rangeNeeded = minRangeRR * rValue
             rangeOk     = rangeAvail >= rangeNeeded
             rTooLarge   = rTicks > maxRTicks

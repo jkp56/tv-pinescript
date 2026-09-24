@@ -3,6 +3,13 @@
 Alle noemenswaardige wijzigingen aan `trade_lines.pine` worden hier bijgehouden.
 Versienummering volgt [Semantic Versioning](https://semver.org/lang/nl/) (MAJOR.MINOR.PATCH).
 
+## [1.9.25]
+
+### Gewijzigd
+- De Range in de Trade-mogelijkheid-check wordt nu gemeten vanaf de **entry** (close van de signaal-candle) tot de Target-lijn: `Target Resistance − entry` (Long) resp. `entry − Target Support` (Short). Voorheen was dit de afstand tussen het (verschoven) Resistance/Support-level en de Target-lijn.
+- Daarbij wordt de Target-lijn gebruikt zoals die op de chart stond **op het moment van de break** (de waarde van vóór de signaal-candle, net als de doorbroken Resistance/Support in de breakout-check). Voorheen gebruikte de check de Target-waarde zoals die op de signaal-candle zelf opnieuw werd berekend, dus al ná de break.
+- Aanleiding: bij een short op XAUUSD (24-09) koos FXCM als verschoven Support een tussenliggend level op 4260 (pivot 249), slechts twee candles na het Target Support op 4253.4 (pivot 251); FTMO_OANDA koos 4271.5 (pivot 244). Daardoor gaf FXCM "Range 0.85R < 1R" en FTMO_OANDA een geldige trade, terwijl de trade op beide feeds vrij baan had van entry (~4276.3) richting het Target. Omdat de shift-logica Support/Resistance naar het level het dichtst bij het Target verschuift, kon één candle-detail vlak bij het Target de Range kunstmatig klein maken. De Support/Resistance-lijnen en de shift zelf zijn ongewijzigd; alleen de Range-check (en de "Range xR"-tekst in de labels) is aangepast.
+
 ## [1.9.24]
 
 ### Toegevoegd

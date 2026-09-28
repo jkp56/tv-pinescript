@@ -1,6 +1,6 @@
 # Handleiding – Trade Lijnen (SL/S/R)
 
-Gebruikershandleiding voor `trade_lines.pine`, versie **1.9.20**. Voor de technische wijzigingsgeschiedenis zie [CHANGELOG.md](CHANGELOG.md); voor de exacte detectielogica zie [T4G daytrade rules.md](T4G%20daytrade%20rules.md). Dit document beschrijft hoe je het script gebruikt en wat elke instelling in het Inputs-tabblad wel en niet doet.
+Gebruikershandleiding voor `trade_lines.pine`, versie **1.9.29**. Voor de technische wijzigingsgeschiedenis zie [CHANGELOG.md](CHANGELOG.md); voor de exacte detectielogica zie [T4G daytrade rules.md](T4G%20daytrade%20rules.md). Dit document beschrijft hoe je het script gebruikt en wat elke instelling in het Inputs-tabblad wel en niet doet.
 
 ## 1. Wat doet dit script
 
@@ -31,10 +31,10 @@ Alle berekeningen draaien **altijd op de 30-minuten candles**, ongeacht op welk 
 | Support-lijn | Groen, doorlopend | Spiegelbeeld van Resistance. |
 | Target Resistance-lijn | Rood, lichter/transparanter | Verder gelegen niveau boven Resistance; bepaalt de beschikbare "ruimte" voor een Long-trade. |
 | Target Support-lijn | Groen, lichter/transparanter | Spiegelbeeld van Target Resistance, voor Short-trades. |
-| Zwarte stippellijn + label "Resistance/Support doorbroken: …" | Zwart, gestippeld | Toont het exacte prijsniveau waarop het LONG/SHORT-signaal getriggerd is. Nodig omdat Resistance/Support na de doorbraak zelf herberekend wordt en dus kan verschuiven — deze lijn/label blijft het originele doorbroken niveau tonen. |
+| Zwarte stippellijn + label "Resistance/Support doorbroken: …" | Zwart, gestippeld | Toont het exacte prijsniveau waarop het LONG/SHORT-signaal getriggerd is. Nodig omdat Resistance/Support na de doorbraak zelf herberekend wordt en dus kan verschuiven — deze lijn/label blijft het originele doorbroken niveau tonen. Alleen zichtbaar als *Toon SL lijnen* aan staat (sinds v1.9.29); de signaalpijl blijft altijd zichtbaar. |
 | Groene pijl omhoog / rode pijl omlaag | Groen/rood | LONG- resp. SHORT-signaallabel op de doorbraak-candle. Er is maximaal 1 signaallabel tegelijk zichtbaar; een nieuw signaal vervangt het vorige. |
 | SL-lijn | Groen (Long) / rood (Short), gestippeld | Stop loss van het actieve signaal, inclusief prijswaarde in het label. Als de trade niet mogelijk is (zie Trade Mogelijkheid), verschijnt de reden in hetzelfde label en verandert de kleur naar de "niet mogelijk"-kleur (default oranje). |
-| TP-lijn | Blauw, gestippeld | Take-profit niveau, alleen zichtbaar als de trade wél mogelijk is. |
+| TP-lijn | Blauw, gestippeld | Take-profit niveau, alleen zichtbaar als de trade wél mogelijk is. Het label toont ook entry, R, Range en (sinds v1.9.28) de lotgrootte met het bijbehorende risico in $. |
 | Rood waarschuwingslabel | Rood | Verschijnt alleen op een niet-ondersteund timeframe (zie §2). |
 | Geel diagnosepaneel | Geel | Alleen zichtbaar met de debug-instelling `debugCalcPanel` aan; toont interne rekenwaarden voor troubleshooting. |
 
@@ -58,7 +58,7 @@ Elke alert vuurt **precies één keer per nieuw 30m-signaal**, ongeacht of je op
 
 | Instelling | Default | Wat het doet | Wat het niet doet |
 |---|---|---|---|
-| Versie | `1.9.20` | Puur informatief: toont de actieve scriptversie boven in de instellingen, zodat je niet in de code hoeft te kijken. | Heeft geen enkele invloed op de berekeningen of weergave; er is ook maar 1 optie beschikbaar. |
+| Versie | `1.9.28` | Puur informatief: toont de actieve scriptversie boven in de instellingen, zodat je niet in de code hoeft te kijken. | Heeft geen enkele invloed op de berekeningen of weergave; er is ook maar 1 optie beschikbaar. |
 
 ### Groep "Freeze"
 
@@ -70,7 +70,7 @@ Elke alert vuurt **precies één keer per nieuw 30m-signaal**, ongeacht of je op
 
 | Instelling | Default | Wat het doet | Wat het niet doet |
 |---|---|---|---|
-| Toon SL lijnen (`showSL`) | Aan | Schakelt de SL-lijn/label volledig in of uit. | Als je dit uitzet, verdwijnt **ook** de TP-lijn (die vereist `showSL` én `showTradeCheck` samen) — het zet dus niet alleen de SL-weergave uit. |
+| Toon SL lijnen (`showSL`) | Aan | Schakelt de SL-lijn/label volledig in of uit. | Als je dit uitzet, verdwijnen **ook** de TP-lijn (die vereist `showSL` én `showTradeCheck` samen) en de zwarte "Resistance/Support doorbroken"-lijn met label (sinds v1.9.29) — het zet dus niet alleen de SL-weergave uit. De signaalpijl blijft staan. |
 | SL: trailing (`trailSL`) | Uit | Als aan: de getoonde SL wordt bijgewerkt bij élke nieuwe candle van de juiste kleur binnen het signaalvenster (kan tijdens een sterke beweging "verspringen"). Als uit (default): de SL wordt eenmalig vastgezet op de signaal-candle zelf en blijft daarna ongewijzigd, net als de TP-lijn. | Heeft geen invloed op de TP-waarde of de Range-check — die blijven altijd vast op de signaal-candle, ongeacht deze instelling. |
 | SL: aantal ticks van wick (`tickOffset`) | 50 | Afstand in ticks tussen de wick (low bij Long, high bij Short) van de signaal-/laatste candle en de SL-lijn. | Verandert niets aan hóe de SL bepaald wordt (nog steeds op basis van de wick), alleen de marge eromheen. |
 | SL: lengte lijn (`lineLen`) | 20 | Hoeveel 30m-candles de SL-, TP- en break-lijnen naar rechts doorlopen. | Heeft **geen** effect op de Resistance/Support/Target-lijnen — die lopen altijd onbeperkt door naar rechts, ongeacht deze waarde. |
@@ -108,6 +108,18 @@ Elke alert vuurt **precies één keer per nieuw 30m-signaal**, ongeacht of je op
 | Maximaal toegestane R (ticks) (`maxRTicks`) | 1000 | Als het risico R (in ticks) groter is dan deze waarde, is de trade sowieso "niet mogelijk", ongeacht de Range-check. | **Let op:** deze default (1000 ticks = 100 pips / $10 SL) is specifiek afgestemd op **XAUUSD** (tick-grootte 0,01). Op een ander symbool of een andere tick-grootte moet je deze waarde zelf opnieuw bepalen — het script doet dat niet automatisch. |
 | Kleur TP-lijn (`tpColor`) | Blauw | Kleur van de TP-lijn/label wanneer de trade mogelijk is. | — |
 | Kleur 'Trade niet mogelijk'-label (`noTradeColor`) | Oranje | Kleur van de SL-lijn/label wanneer de trade **niet** mogelijk is (de reden wordt dan in het SL-label getoond). | Er is geen apart losstaand "niet mogelijk"-label meer (sinds v1.9.18) — de reden staat in het SL-label zelf, dus zonder `showSL` zie je deze melding niet. |
+
+### Groep "Lotgrootte"
+
+| Instelling | Default | Wat het doet | Wat het niet doet |
+|---|---|---|---|
+| Toon lotgrootte in TP-label (`showLots`) | Aan | Voegt bij een geldige trade een regel toe aan het TP-label: `Lot 0.27 · risico $98.76 (0.99%)`. Berekening: `account × risico% / (R × contractgrootte × koers-naar-USD + commissie per lot)`, naar beneden afgerond op 0.01 lot. | Verschijnt niet bij een "niet mogelijke" trade (daar is geen TP-label). Spread en swap zijn niet meegerekend. |
+| Accountgrootte ($) (`accountSize`) | 10000 | Basis voor het risicobedrag. Accountvaluta is USD. | Leest je werkelijke accountsaldo niet uit; pas dit zelf aan. |
+| Risico per trade (%) (`riskPct`) | 1.0 | Percentage van de accountgrootte dat je per trade riskeert. | — |
+| Contractgrootte (`contractSize`) | 100 | Aantal eenheden per lot (XAUUSD = 100 oz). | Wordt niet automatisch per symbool bepaald; controleer dit bij een ander instrument. |
+| Commissie per lot ($) (`commPerLot`) | 6 | Wordt per lot bij het risico opgeteld, zodat SL-verlies + commissie samen binnen je risico blijven. | — |
+
+De lotgrootte wordt berekend met de R van de feed waarop het script draait. Op FXCM en FTMO_OANDA kan die dus iets verschillen.
 
 ## 7. Veelgestelde vragen
 

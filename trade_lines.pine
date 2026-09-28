@@ -1,5 +1,5 @@
 //@version=6
-// Versie: 1.9.27 - zie CHANGELOG.md voor de wijzigingsgeschiedenis.
+// Versie: 1.9.29 - zie CHANGELOG.md voor de wijzigingsgeschiedenis.
 //
 // NIEUW IN 1.9.0: alle berekeningen (Support/Resistance, Targets, LONG/SHORT
 // signalen, SL, TP + Range-check) draaien nu ALTIJD op het 30-minuten
@@ -21,7 +21,7 @@ indicator("Trade Lijnen (SL/S/R)", overlay=true, max_lines_count=30, max_labels_
 // zichtbaar is in het Inputs-tabblad van de instellingen, zonder in de
 // code te hoeven kijken. Zie CHANGELOG.md voor de wijzigingsgeschiedenis.
 // ============================================================
-scriptVersion = input.string("1.9.27", "Versie", options=["1.9.27"], group="Info")
+scriptVersion = input.string("1.9.29", "Versie", options=["1.9.29"], group="Info")
 
 // ============================================================
 // FREEZE-TOGGLE: direct onder de versie-info geplaatst (eigen groep, los
@@ -114,11 +114,40 @@ maxRTicks      = input.int(1000, "Maximaal toegestane R (ticks)", minval=1, grou
 tpColor        = input.color(color.new(color.blue, 0), "Kleur TP-lijn", group="Trade Mogelijkheid")
 noTradeColor   = input.color(color.new(color.orange, 0), "Kleur 'Trade niet mogelijk'-label", group="Trade Mogelijkheid")
 
+// ============================================================
+// LOTGROOTTE: bij een geldige trade toont het TP-label ook de lotgrootte,
+// zelfde formule als de Lotcalculator:
+//   lot = (account * risico%) / (R * contractgrootte * koers-naar-USD + commissie per lot)
+// naar beneden afgerond op 0.01 lot (minimaal 0.01). Accountvaluta is USD.
+// R is de vaste R van de signaal-candle (zelfde als in het TP-label).
+// ============================================================
+showLots     = input.bool(true, "Toon lotgrootte in TP-label", group="Lotgrootte")
+accountSize  = input.float(10000, "Accountgrootte ($)", minval=1, group="Lotgrootte")
+riskPct      = input.float(1.0, "Risico per trade (%)", minval=0.01, step=0.1, group="Lotgrootte")
+contractSize = input.float(100, "Contractgrootte (eenheden per lot, XAUUSD = 100)", minval=0.000001, group="Lotgrootte")
+commPerLot   = input.float(6, "Commissie per lot ($)", minval=0, step=0.5, group="Lotgrootte")
+
 tickSize = syminfo.mintick
 slOffset = tickOffset * tickSize
 xOffset  = xTicks * tickSize
 bodyTol  = bodyTolTicks * tickSize
 laterTol = laterTolEnabled ? laterTolTicks * tickSize : 0.0
+
+// Omrekenkoers van de noteringsvaluta naar USD (1 voor XAUUSD en andere
+// xxxUSD-symbolen).
+fxRate     = request.currency_rate(syminfo.currency, "USD", ignore_invalid_currency=true)
+quoteToUsd = syminfo.currency == "USD" ? 1.0 : nz(fxRate, 1.0)
+
+// Lotgrootte + werkelijk risico in $ bij een gegeven R (prijsafstand).
+f_lots(float r) =>
+    perLot = r * contractSize * quoteToUsd + commPerLot
+    exact  = perLot > 0 ? accountSize * riskPct / 100 / perLot : na
+    lots   = math.max(math.floor(exact * 100 + 1e-9) / 100, 0.01)
+    [lots, lots * perLot, exact < 0.01]
+
+f_lotText(float r) =>
+    [lots, riskUsd, tooSmall] = f_lots(r)
+    "\nLot " + str.tostring(lots, "0.00") + " · risico $" + str.tostring(riskUsd, "0.00") + " (" + str.tostring(riskUsd / accountSize * 100, "0.00") + "%)" + (tooSmall ? " · min. lot, boven je risico!" : "")
 
 // Range uitgedrukt in R, naar beneden afgerond op 2 decimalen: zo toont een
 // net-niet-gehaalde check (bijv. 0.997R) nooit misleidend "1R < 1R".
@@ -710,23 +739,25 @@ if effectiveNewData
         signalLabel := na
 
     if calcLongActive and calcBreakSide
-        if not na(longBreakLine)
-            line.delete(longBreakLine)
-        longBreakLine := line.new(calcBreakTime, calcLongBreakLevel, calcRightEdgeTime, calcLongBreakLevel, xloc.bar_time, extend.left, color.black, line.style_dashed, 1)
-        if not na(longBreakLabel)
-            label.delete(longBreakLabel)
-        longBreakLabel := label.new(calcRightEdgeTime, calcLongBreakLevel, "Resistance doorbroken: " + str.tostring(calcLongBreakLevel, format.mintick), xloc.bar_time, yloc.price, color.new(color.black, 100), label.style_label_left, labelTextColor, size.small)
+        if showSL
+            if not na(longBreakLine)
+                line.delete(longBreakLine)
+            longBreakLine := line.new(calcBreakTime, calcLongBreakLevel, calcRightEdgeTime, calcLongBreakLevel, xloc.bar_time, extend.left, color.black, line.style_dashed, 1)
+            if not na(longBreakLabel)
+                label.delete(longBreakLabel)
+            longBreakLabel := label.new(calcRightEdgeTime, calcLongBreakLevel, "Resistance doorbroken: " + str.tostring(calcLongBreakLevel, format.mintick), xloc.bar_time, yloc.price, color.new(color.black, 100), label.style_label_left, labelTextColor, size.small)
         if not na(signalLabel)
             label.delete(signalLabel)
         signalLabel := label.new(calcBreakTime, calcBreakLow - 10 * tickSize, "", xloc.bar_time, yloc.price, color.new(color.green, 0), label.style_arrowup, color.black, size.normal)
 
     if calcShortActive and not calcBreakSide
-        if not na(shortBreakLine)
-            line.delete(shortBreakLine)
-        shortBreakLine := line.new(calcBreakTime, calcShortBreakLevel, calcRightEdgeTime, calcShortBreakLevel, xloc.bar_time, extend.left, color.black, line.style_dashed, 1)
-        if not na(shortBreakLabel)
-            label.delete(shortBreakLabel)
-        shortBreakLabel := label.new(calcRightEdgeTime, calcShortBreakLevel, "Support doorbroken: " + str.tostring(calcShortBreakLevel, format.mintick), xloc.bar_time, yloc.price, color.new(color.black, 100), label.style_label_left, labelTextColor, size.small)
+        if showSL
+            if not na(shortBreakLine)
+                line.delete(shortBreakLine)
+            shortBreakLine := line.new(calcBreakTime, calcShortBreakLevel, calcRightEdgeTime, calcShortBreakLevel, xloc.bar_time, extend.left, color.black, line.style_dashed, 1)
+            if not na(shortBreakLabel)
+                label.delete(shortBreakLabel)
+            shortBreakLabel := label.new(calcRightEdgeTime, calcShortBreakLevel, "Support doorbroken: " + str.tostring(calcShortBreakLevel, format.mintick), xloc.bar_time, yloc.price, color.new(color.black, 100), label.style_label_left, labelTextColor, size.small)
         if not na(signalLabel)
             label.delete(signalLabel)
         signalLabel := label.new(calcBreakTime, calcBreakHigh + 10 * tickSize, "", xloc.bar_time, yloc.price, color.new(color.red, 0), label.style_arrowdown, color.black, size.normal)
@@ -800,7 +831,7 @@ if showSL and showTradeCheck and effectiveNewData
             tpLabel := na
         if calcLongTradeOk
             tpLine  := line.new(calcBreakTime, calcLongTP, calcRightEdgeTime, calcLongTP, xloc.bar_time, extend.none, tpColor, line.style_dashed, 2)
-            tpLabel := label.new(calcRightEdgeTime, calcLongTP, "TP (" + str.tostring(tpRR, "#.##") + " R/R): " + str.tostring(calcLongTP, format.mintick) + " · Entry " + str.tostring(calcLongEntry, format.mintick) + " · R " + str.tostring(calcLongR, format.mintick) + " · Range " + f_fmtRR(calcLongRangeRR) + "R", xloc.bar_time, yloc.price, color.new(tpColor, 80), label.style_label_left, tpColor, size.small)
+            tpLabel := label.new(calcRightEdgeTime, calcLongTP, "TP (" + str.tostring(tpRR, "#.##") + " R/R): " + str.tostring(calcLongTP, format.mintick) + " · Entry " + str.tostring(calcLongEntry, format.mintick) + " · R " + str.tostring(calcLongR, format.mintick) + " · Range " + f_fmtRR(calcLongRangeRR) + "R" + (showLots ? f_lotText(calcLongR) : ""), xloc.bar_time, yloc.price, color.new(tpColor, 80), label.style_label_left, tpColor, size.small)
 
     if calcShortActive and not calcBreakSide
         if not na(tpLine)
@@ -811,7 +842,7 @@ if showSL and showTradeCheck and effectiveNewData
             tpLabel := na
         if calcShortTradeOk
             tpLine  := line.new(calcBreakTime, calcShortTP, calcRightEdgeTime, calcShortTP, xloc.bar_time, extend.none, tpColor, line.style_dashed, 2)
-            tpLabel := label.new(calcRightEdgeTime, calcShortTP, "TP (" + str.tostring(tpRR, "#.##") + " R/R): " + str.tostring(calcShortTP, format.mintick) + " · Entry " + str.tostring(calcShortEntry, format.mintick) + " · R " + str.tostring(calcShortR, format.mintick) + " · Range " + f_fmtRR(calcShortRangeRR) + "R", xloc.bar_time, yloc.price, color.new(tpColor, 80), label.style_label_left, tpColor, size.small)
+            tpLabel := label.new(calcRightEdgeTime, calcShortTP, "TP (" + str.tostring(tpRR, "#.##") + " R/R): " + str.tostring(calcShortTP, format.mintick) + " · Entry " + str.tostring(calcShortEntry, format.mintick) + " · R " + str.tostring(calcShortR, format.mintick) + " · Range " + f_fmtRR(calcShortRangeRR) + "R" + (showLots ? f_lotText(calcShortR) : ""), xloc.bar_time, yloc.price, color.new(tpColor, 80), label.style_label_left, tpColor, size.small)
 
 if effectiveNewData
     lastDrawnBarTime := calcBarTime

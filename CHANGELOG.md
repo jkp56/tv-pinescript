@@ -3,6 +3,19 @@
 Alle noemenswaardige wijzigingen aan `trade_lines.pine` worden hier bijgehouden.
 Versienummering volgt [Semantic Versioning](https://semver.org/lang/nl/) (MAJOR.MINOR.PATCH).
 
+## [1.9.29]
+
+### Gewijzigd
+- De zwarte stippellijn met het label "Resistance doorbroken: …" / "Support doorbroken: …" wordt alleen nog getekend als **Toon SL lijnen** aan staat. De signaalpijl (groen omhoog / rood omlaag) blijft altijd zichtbaar.
+
+## [1.9.28]
+
+### Toegevoegd
+- Nieuwe groep **"Lotgrootte"** met de instellingen *Toon lotgrootte in TP-label* (standaard aan), *Accountgrootte ($)* (10000), *Risico per trade (%)* (1.0), *Contractgrootte* (100, XAUUSD) en *Commissie per lot ($)* (6).
+- Bij een geldige trade staat onder het TP-label nu de lotgrootte en het werkelijke risico, bijv. `Lot 0.27 · risico $98.76 (0.99%)`. Formule (zelfde als de Lotcalculator): `lot = account × risico% / (R × contractgrootte × koers-naar-USD + commissie per lot)`, naar beneden afgerond op 0.01 lot. R is de vaste R van de signaal-candle.
+- Is de stop te ruim voor het ingestelde risico, dan toont het label de minimale 0.01 lot met de melding "min. lot, boven je risico!".
+- Voor symbolen die niet in USD genoteerd zijn wordt via `request.currency_rate` omgerekend naar USD.
+
 ## [1.9.27]
 
 ### Toegevoegd

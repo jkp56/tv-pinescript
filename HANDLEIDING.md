@@ -1,6 +1,6 @@
 # Handleiding – Trade Lijnen (SL/S/R)
 
-Gebruikershandleiding voor `trade_lines.pine`, versie **1.9.30**. Voor de technische wijzigingsgeschiedenis zie [CHANGELOG.md](CHANGELOG.md); voor de exacte detectielogica zie [T4G daytrade rules.md](T4G%20daytrade%20rules.md). Dit document beschrijft hoe je het script gebruikt en wat elke instelling in het Inputs-tabblad wel en niet doet.
+Gebruikershandleiding voor `trade_lines.pine`, versie **1.9.31**. Voor de technische wijzigingsgeschiedenis zie [CHANGELOG.md](CHANGELOG.md); voor de exacte detectielogica zie [T4G daytrade rules.md](T4G%20daytrade%20rules.md). Dit document beschrijft hoe je het script gebruikt en wat elke instelling in het Inputs-tabblad wel en niet doet.
 
 ## 1. Wat doet dit script
 
@@ -58,7 +58,14 @@ Elke alert vuurt **precies één keer per nieuw 30m-signaal**, ongeacht of je op
 
 | Instelling | Default | Wat het doet | Wat het niet doet |
 |---|---|---|---|
-| Versie | `1.9.28` | Puur informatief: toont de actieve scriptversie boven in de instellingen, zodat je niet in de code hoeft te kijken. | Heeft geen enkele invloed op de berekeningen of weergave; er is ook maar 1 optie beschikbaar. |
+| Versie | `1.9.31` | Puur informatief: toont de actieve scriptversie boven in de instellingen, zodat je niet in de code hoeft te kijken. | Heeft geen enkele invloed op de berekeningen of weergave; er is ook maar 1 optie beschikbaar. |
+
+### Groep "Rekenfeed"
+
+| Instelling | Default | Wat het doet | Wat het niet doet |
+|---|---|---|---|
+| Berekeningen op andere feed dan de chart (`useSourceFeed`) | Aan | Alle berekeningen (Resistance/Support, Targets, signalen, SL/TP, Range-/R-check, lotgrootte) draaien op de rekenfeed in plaats van op de chart-feed. Op een FTMO_OANDA-chart zie je dan de beslissing van FXCM. In de labels staat de feed erbij, bijv. `Long SL (FXCM): …`. | Rekent de prijzen niet om naar de chart-feed: SL, TP en levels zijn de FXCM-prijzen en kunnen een paar tienden afwijken van de OANDA-candles. Het debug-label van de Support-kandidaat gebruikt nog steeds de chart-feed. |
+| Exchange-prefix van de rekenfeed (`sourceExchange`) | `FX` | De exchange die voor de ticker van de chart wordt gezet. TradingView gebruikt voor FXCM de prefix `FX`, dus `FX` → `FX:XAUUSD` (in de labels staat dan "FXCM"). `FXCM` werkt niet: dat geeft "Invalid symbol". | Is de prefix gelijk aan die van de chart, of leeg, dan rekent het script gewoon op de chart-feed. Het symbool moet op die exchange onder dezelfde naam bestaan. |
 
 ### Groep "Freeze"
 
@@ -120,7 +127,7 @@ Elke alert vuurt **precies één keer per nieuw 30m-signaal**, ongeacht of je op
 | Contractgrootte (`contractSize`) | 100 | Aantal eenheden per lot (XAUUSD = 100 oz). | Wordt niet automatisch per symbool bepaald; controleer dit bij een ander instrument. |
 | Commissie per lot ($) (`commPerLot`) | 6 | Wordt per lot bij het risico opgeteld, zodat SL-verlies + commissie samen binnen je risico blijven. | — |
 
-De lotgrootte wordt berekend met de R van de feed waarop het script draait. Op FXCM en FTMO_OANDA kan die dus iets verschillen.
+De lotgrootte wordt berekend met de R van de rekenfeed (standaard FXCM, zie groep "Rekenfeed"). Staat de rekenfeed uit, dan kan de lotgrootte op FXCM en FTMO_OANDA iets verschillen.
 
 ## 7. Veelgestelde vragen
 

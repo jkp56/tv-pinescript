@@ -3,6 +3,16 @@
 Alle noemenswaardige wijzigingen aan `trade_lines.pine` worden hier bijgehouden.
 Versienummering volgt [Semantic Versioning](https://semver.org/lang/nl/) (MAJOR.MINOR.PATCH).
 
+## [1.9.31]
+
+### Toegevoegd
+- Nieuwe groep **"Rekenfeed"** met *Berekeningen op andere feed dan de chart* (standaard **aan**) en *Exchange-prefix van de rekenfeed* (standaard `FX`, de prefix die TradingView voor FXCM gebruikt).
+- Alle berekeningen draaien op `<prefix>:<ticker>` van de chart, bijv. `FX:XAUUSD` (FXCM) op een `FTMO_OANDA:XAUUSD`-chart. Dat zijn Resistance/Support, de Targets, de breakout-signalen, SL/TP, de Range-/R-check en de lotgrootte. De beslissing is dan op FTMO_OANDA dezelfde als op FXCM. De lijnen staan op de FXCM-prijzen.
+- Komen de waarden van een andere feed, dan staat die in de labels, bijv. `Resistance (FXCM) [pivot 46 candles terug]`, `Long SL (FXCM): …` en `TP (FXCM) (1.2 R/R): …`.
+- Het diagnosepaneel toont nu ook `calcTicker`.
+- Aanleiding: XAUUSD op 29-09. Op FTMO_OANDA brak Resistance 4141.94 al op de 11:30-candle, met "Trade niet mogelijk: Range 0.12R". Op FXCM lag Resistance op 4146.49 en kwam de break pas op de 12:00-candle. Op beide feeds was dat dezelfde pivot, maar op FTMO_OANDA had die de rol van Target en op FXCM de rol van Resistance.
+- Op de FXCM-chart zelf, of met de instelling uit, werkt alles exact als in 1.9.30.
+
 ## [1.9.30]
 
 ### Toegevoegd

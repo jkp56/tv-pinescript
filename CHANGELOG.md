@@ -3,6 +3,21 @@
 Alle noemenswaardige wijzigingen aan `trade_lines.pine` worden hier bijgehouden.
 Versienummering volgt [Semantic Versioning](https://semver.org/lang/nl/) (MAJOR.MINOR.PATCH).
 
+## [1.9.32]
+
+### Opgelost
+- Op de signaal-candle wordt de SL nu **altijd** gezet, ook als die candle niet de "juiste" kleur heeft. Na een gap (dagsluiting/weekend) kan een break-candle boven Resistance sluiten en toch bearish zijn, of andersom bij Support. In 1.9.31 bleef de SL-lijn dan op de waarde van een eerder signaal staan, terwijl de Range-/R-check met de low/high van de break-candle rekende. Met *SL: trailing* aan werken daarna, net als voorheen, alleen candles van de juiste kleur de SL bij.
+
+### Verwijderd
+- De debug-instellingen **"Debug: toon eerste Support-kandidaat + reden verwerping"** en **"Debug: toon diagnosepaneel"**. De eerste werkte alleen voor Support, bouwde de geldigheidscheck in een eigen kopie na en keek sinds 1.9.31 naar de chart-feed in plaats van de rekenfeed. Het diagnosepaneel was bedoeld voor een opgelost probleem met `request.security`.
+
+### Gewijzigd (intern, geen verschil op de chart)
+- De Range-/R-check staat in één functie (`f_tradeCheck`) voor Long en Short.
+- Break-lijn, SL-lijn en TP-lijn gebruiken elk één set lijn/label voor Long en Short. Er is immers maar één signaal tegelijk actief.
+- Overbodige `if not na(...)`-controles rond `line.delete`/`label.delete` en dubbele deletes weggehaald.
+- Verouderd commentaar ("ongewijzigd t.o.v. v1.8.2", uitleg van 1.9.0) bijgewerkt.
+- Het script is van 926 naar 759 regels gegaan.
+
 ## [1.9.31]
 
 ### Toegevoegd

@@ -7,8 +7,8 @@ Dit document beschrijft alle regels waaraan het Pine Script `trade_lines.pine` (
 1. Bij het sluiten van elke candle wordt gekeken naar de **wick** (high/low) van die laatst gesloten candle — hier tellen wicks wél mee.
 2. **Long SL** = `low` van de laatst gesloten candle **min** `x` ticks (instelbaar, standaard 50).
 3. **Short SL** = `high` van de laatst gesloten candle **plus** `x` ticks (standaard 50).
-4. Er is altijd maar **één SL-lijn tegelijk zichtbaar**: **Long SL** wordt alleen getekend/bijgewerkt als de laatst gesloten candle **bullish** is, **Short SL** alleen als die **bearish** is. Zodra de ene lijn wordt getekend, wordt de andere (indien aanwezig) verwijderd.
-5. **Doji-uitzondering**: bij een doji (close == open) wordt geen van beide lijnen bijgewerkt of verwijderd — ze blijven op hun laatst geldige niveau staan. Reden: bij een doji wordt normaal geen trade genomen, dus is er ook geen aanleiding om de SL te herzien.
+4. Er is altijd maar **één SL-lijn tegelijk zichtbaar**. Op de **signaal-candle** wordt de SL altijd gezet, ongeacht de kleur van die candle (na een gap kan een break-candle boven Resistance toch bearish zijn). Met trailing aan werkt daarna alleen een **bullish** candle de **Long SL** bij en alleen een **bearish** candle de **Short SL**. Zodra de ene lijn wordt getekend, wordt de andere (indien aanwezig) verwijderd.
+5. **Doji-uitzondering** (alleen bij trailing): een doji (close == open) werkt geen van beide lijnen bij — ze blijven op hun laatst geldige niveau staan. Reden: bij een doji wordt normaal geen trade genomen, dus is er ook geen aanleiding om de SL te herzien.
 6. De lijn loopt een instelbaar aantal bars (`lineLen`, standaard 20) naar rechts, niet oneindig door — in dit opzicht anders dan de S/R-lijnen, die wél doorlopen naar rechts.
 7. Kleur: groen voor Long SL, rood voor Short SL. Getoond met een label met de exacte prijswaarde erbij.
 8. Kan volledig aan/uit gezet worden via de instelling "Toon SL lijnen".

@@ -1,6 +1,6 @@
 # Handleiding – Trade Lijnen (SL/S/R)
 
-Gebruikershandleiding voor `trade_lines.pine`, versie **1.9.31**. Voor de technische wijzigingsgeschiedenis zie [CHANGELOG.md](CHANGELOG.md); voor de exacte detectielogica zie [T4G daytrade rules.md](T4G%20daytrade%20rules.md). Dit document beschrijft hoe je het script gebruikt en wat elke instelling in het Inputs-tabblad wel en niet doet.
+Gebruikershandleiding voor `trade_lines.pine`, versie **1.9.32**. Voor de technische wijzigingsgeschiedenis zie [CHANGELOG.md](CHANGELOG.md); voor de exacte detectielogica zie [T4G daytrade rules.md](T4G%20daytrade%20rules.md). Dit document beschrijft hoe je het script gebruikt en wat elke instelling in het Inputs-tabblad wel en niet doet.
 
 ## 1. Wat doet dit script
 
@@ -36,7 +36,6 @@ Alle berekeningen draaien **altijd op de 30-minuten candles**, ongeacht op welk 
 | SL-lijn | Groen (Long) / rood (Short), gestippeld | Stop loss van het actieve signaal, inclusief prijswaarde in het label. Als de trade niet mogelijk is (zie Trade Mogelijkheid), verschijnt de reden in hetzelfde label en verandert de kleur naar de "niet mogelijk"-kleur (default oranje). |
 | TP-lijn | Blauw, gestippeld | Take-profit niveau, alleen zichtbaar als de trade wél mogelijk is. Het label toont ook entry, R, Range en (sinds v1.9.28) de lotgrootte met het bijbehorende risico in $. |
 | Rood waarschuwingslabel | Rood | Verschijnt alleen op een niet-ondersteund timeframe (zie §2). |
-| Geel diagnosepaneel | Geel | Alleen zichtbaar met de debug-instelling `debugCalcPanel` aan; toont interne rekenwaarden voor troubleshooting. |
 
 ## 4. Wanneer wordt er bijgewerkt?
 
@@ -58,13 +57,13 @@ Elke alert vuurt **precies één keer per nieuw 30m-signaal**, ongeacht of je op
 
 | Instelling | Default | Wat het doet | Wat het niet doet |
 |---|---|---|---|
-| Versie | `1.9.31` | Puur informatief: toont de actieve scriptversie boven in de instellingen, zodat je niet in de code hoeft te kijken. | Heeft geen enkele invloed op de berekeningen of weergave; er is ook maar 1 optie beschikbaar. |
+| Versie | `1.9.32` | Puur informatief: toont de actieve scriptversie boven in de instellingen, zodat je niet in de code hoeft te kijken. | Heeft geen enkele invloed op de berekeningen of weergave; er is ook maar 1 optie beschikbaar. |
 
 ### Groep "Rekenfeed"
 
 | Instelling | Default | Wat het doet | Wat het niet doet |
 |---|---|---|---|
-| Berekeningen op andere feed dan de chart (`useSourceFeed`) | Aan | Alle berekeningen (Resistance/Support, Targets, signalen, SL/TP, Range-/R-check, lotgrootte) draaien op de rekenfeed in plaats van op de chart-feed. Op een FTMO_OANDA-chart zie je dan de beslissing van FXCM. In de labels staat de feed erbij, bijv. `Long SL (FXCM): …`. | Rekent de prijzen niet om naar de chart-feed: SL, TP en levels zijn de FXCM-prijzen en kunnen een paar tienden afwijken van de OANDA-candles. Het debug-label van de Support-kandidaat gebruikt nog steeds de chart-feed. |
+| Berekeningen op andere feed dan de chart (`useSourceFeed`) | Aan | Alle berekeningen (Resistance/Support, Targets, signalen, SL/TP, Range-/R-check, lotgrootte) draaien op de rekenfeed in plaats van op de chart-feed. Op een FTMO_OANDA-chart zie je dan de beslissing van FXCM. In de labels staat de feed erbij, bijv. `Long SL (FXCM): …`. | Rekent de prijzen niet om naar de chart-feed: SL, TP en levels zijn de FXCM-prijzen en kunnen een paar tienden afwijken van de OANDA-candles. |
 | Exchange-prefix van de rekenfeed (`sourceExchange`) | `FX` | De exchange die voor de ticker van de chart wordt gezet. TradingView gebruikt voor FXCM de prefix `FX`, dus `FX` → `FX:XAUUSD` (in de labels staat dan "FXCM"). `FXCM` werkt niet: dat geeft "Invalid symbol". | Is de prefix gelijk aan die van de chart, of leeg, dan rekent het script gewoon op de chart-feed. Het symbool moet op die exchange onder dezelfde naam bestaan. |
 
 ### Groep "Freeze"
@@ -97,8 +96,6 @@ Elke alert vuurt **precies één keer per nieuw 30m-signaal**, ongeacht of je op
 | Body-tolerantie voor candle na de overgang (`bodyTolEnabled`) + Body-tolerantie (ticks) (`bodyTolTicks`) | Uit / 50 | Staat deze aan, dan mag de candle **direct na** de reversal-candle met zijn body maximaal `bodyTolTicks` door het level gaan zonder het ongeldig te maken, mits die candle in de respecterende richting sluit (bullish bij Support/Target Support, bearish bij Resistance/Target Resistance). Voorkomt dat een paar tienden verschil tussen broker-feeds (bijv. FTMO_OANDA vs FXCM) een level laat vervallen. Op XAUUSD (tick 0.01) is 50 ticks = 0.50. | Geldt niet voor latere candles en niet voor een candle in de aanvallende richting: die blijven strikt. Verandert niets aan de wick-check van de Target-lijnen. |
 | Body-tolerantie voor alle latere candles (`laterTolEnabled`) + Body-tolerantie latere candles (ticks) (`laterTolTicks`) | Uit / 50 | Staat deze aan, dan mag **elke** candle na de overgang, ongeacht kleur, met zijn body maximaal `laterTolTicks` door het level gaan zonder het ongeldig te maken. Voorkomt dat bijv. een break-candle die op de ene feed net onder en op de andere net boven het level sluit, het level op één broker laat vervallen. Op XAUUSD (tick 0.01) is 50 ticks = 0.50. | Een body die verder dan de tolerantie doorgaat maakt het level nog steeds ongeldig. Verandert niets aan de wick-check van de Target-lijnen. Is de tolerantie groter dan `xTicks`, dan kan een close tussen die twee grenzen een breakout-signaal geven terwijl het level blijft staan. |
 | Overgang over dagsluiting/weekend: level = open van de reversal-candle (`sessionGapOpen`) | Aan | Ligt er tussen de pivot-candle en de reversal-candle een tijdsgat (dagsluiting of weekend), dan wordt het level de **open van de reversal-candle**, de eerste prijs na de gap, in plaats van de close van de pivot-candle. Geldt bij gap up én gap down, voor Support, Resistance en beide Target-lijnen. De close vlak voor de dagsluiting is door dunne handel en brede spread per broker onbetrouwbaar (bijv. FTMO_OANDA vs FXCM). | Verandert niets aan overgangen zonder tijdsgat. Het label blijft het aantal candles tot de pivot-candle tonen en de lijn begint daar ook. |
-| Debug: toon eerste Support-kandidaat + reden verwerping (`debugSupportPivot`) | Uit | Alleen bedoeld voor troubleshooting/vergelijking tussen databronnen. Toont een label op de allereerste Support-kandidaat en, indien afgekeurd, waar deze precies "breekt". | Werkt **uitsluitend op de native 30m-chart** (niet op 15m) en heeft geen invloed op de daadwerkelijk getekende Support-lijn — puur ter controle. |
-| Debug: toon diagnosepaneel (`debugCalcPanel`) | Uit | Toont een geel paneel rechtsboven met interne rekenwaarden (o.a. of `calc*`-waarden gevuld worden en of er nieuwe data binnenkomt). Bedoeld om te controleren of het script correct doorrekent. | Heeft geen invloed op de berekeningen zelf, alleen op de weergave van een diagnosepaneel. Laat dit voor normaal gebruik uit. |
 
 ### Groep "Signaal instellingen"
 

@@ -1,5 +1,5 @@
 //@version=6
-// Versie: 1.9.29 - zie CHANGELOG.md voor de wijzigingsgeschiedenis.
+// Versie: 1.9.30 - zie CHANGELOG.md voor de wijzigingsgeschiedenis.
 //
 // NIEUW IN 1.9.0: alle berekeningen (Support/Resistance, Targets, LONG/SHORT
 // signalen, SL, TP + Range-check) draaien nu ALTIJD op het 30-minuten
@@ -21,7 +21,7 @@ indicator("Trade Lijnen (SL/S/R)", overlay=true, max_lines_count=30, max_labels_
 // zichtbaar is in het Inputs-tabblad van de instellingen, zonder in de
 // code te hoeven kijken. Zie CHANGELOG.md voor de wijzigingsgeschiedenis.
 // ============================================================
-scriptVersion = input.string("1.9.29", "Versie", options=["1.9.29"], group="Info")
+scriptVersion = input.string("1.9.30", "Versie", options=["1.9.30"], group="Info")
 
 // ============================================================
 // FREEZE-TOGGLE: direct onder de versie-info geplaatst (eigen groep, los
@@ -79,6 +79,7 @@ bodyTolEnabled   = input.bool(false, "Body-tolerantie voor candle na de overgang
 bodyTolTicks     = input.int(50, "Body-tolerantie (ticks)", minval=1, group="Support / Resistance")
 laterTolEnabled  = input.bool(false, "Body-tolerantie voor alle latere candles", group="Support / Resistance")
 laterTolTicks    = input.int(50, "Body-tolerantie latere candles (ticks)", minval=1, group="Support / Resistance")
+sessionGapOpen   = input.bool(true, "Overgang over dagsluiting/weekend: level = open van de reversal-candle", group="Support / Resistance")
 debugSupportPivot = input.bool(false, "Debug: toon eerste Support-kandidaat + reden verwerping (alleen op 30m-chart)", group="Support / Resistance")
 debugCalcPanel = input.bool(false, "Debug: toon diagnosepaneel (calc*/newData-waarden)", group="Support / Resistance")
 
@@ -171,6 +172,16 @@ f_bodyTop(i) => math.max(open[i], close[i])
 f_bodyBottom(i) => math.min(open[i], close[i])
 f_validBar(i) => open[i] > 0 and close[i] > 0 and high[i] > 0 and low[i] > 0
 
+// Ligt er tussen de pivot-candle (offset i+1) en de reversal-candle (offset
+// i) een tijdsgat (dagsluiting of weekend)? Dan is de close van de pivot-
+// candle geen betrouwbaar level: die valt vlak voor de sluiting (dunne
+// handel, brede spread) en kan per broker flink verschillen. Het level wordt
+// dan de open van de reversal-candle - de eerste prijs na de gap - zowel bij
+// een gap up als een gap down. Zonder tijdsgat: gewoon de body van de pivot.
+f_sessionGap(i) => sessionGapOpen and time[i] - time[i + 1] > timeframe.in_seconds(calcTF) * 1000
+f_supportLevel(i) => f_sessionGap(i) ? open[i] : f_bodyBottom(i + 1)
+f_resistanceLevel(i) => f_sessionGap(i) ? open[i] : f_bodyTop(i + 1)
+
 f_safeHighest(length) =>
     float m = na
     for i = 0 to length - 1
@@ -262,7 +273,7 @@ f_autoResistance(maxScan, excludeReversal) =>
     float maxTo2 = na
     for i = 0 to maxScan - 2
         if f_validBar(i) and f_validBar(i + 1) and close[i + 1] > open[i + 1] and close[i] < open[i]
-            candidate = f_bodyTop(i + 1)
+            candidate = f_resistanceLevel(i)
             if f_resistanceBodyValid(i, candidate, maxTo1, maxTo2, excludeReversal)
                 level := candidate
                 barsBack := i + 1
@@ -280,7 +291,7 @@ f_autoSupport(maxScan, excludeReversal) =>
     float minTo2 = na
     for i = 0 to maxScan - 2
         if f_validBar(i) and f_validBar(i + 1) and close[i + 1] < open[i + 1] and close[i] > open[i]
-            candidate = f_bodyBottom(i + 1)
+            candidate = f_supportLevel(i)
             if f_supportBodyValid(i, candidate, minTo1, minTo2, excludeReversal)
                 level := candidate
                 barsBack := i + 1
@@ -303,7 +314,7 @@ f_debugFirstSupportCandidate(maxScan, excludeReversal) =>
     for i = 0 to maxScan - 2
         if not found
             if f_validBar(i) and f_validBar(i + 1) and close[i + 1] < open[i + 1] and close[i] > open[i]
-                candidate = f_bodyBottom(i + 1)
+                candidate = f_supportLevel(i)
                 level := candidate
                 pivotBar := bar_index - (i + 1)
                 found := true
@@ -342,7 +353,7 @@ f_autoTargetResistance(maxScan, resistanceLevel, minDistance, excludeReversal) =
     float maxTo2 = na
     for i = 0 to maxScan - 2
         if f_validBar(i) and f_validBar(i + 1) and close[i + 1] > open[i + 1] and close[i] < open[i]
-            candidate = f_bodyTop(i + 1)
+            candidate = f_resistanceLevel(i)
             bodyValid = f_resistanceBodyValid(i, candidate, maxTo1, maxTo2, excludeReversal)
             if bodyValid
                 if (candidate - resistanceLevel) >= minDistance and f_wickValidAboveLevel(i + 1, candidate)
@@ -369,7 +380,7 @@ f_autoTargetSupport(maxScan, supportLevel, minDistance, excludeReversal) =>
     float minTo2 = na
     for i = 0 to maxScan - 2
         if f_validBar(i) and f_validBar(i + 1) and close[i + 1] < open[i + 1] and close[i] > open[i]
-            candidate = f_bodyBottom(i + 1)
+            candidate = f_supportLevel(i)
             bodyValid = f_supportBodyValid(i, candidate, minTo1, minTo2, excludeReversal)
             if bodyValid
                 if (supportLevel - candidate) >= minDistance and f_wickValidBelowLevel(i + 1, candidate)

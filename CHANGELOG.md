@@ -3,6 +3,15 @@
 Alle noemenswaardige wijzigingen aan `trade_lines.pine` worden hier bijgehouden.
 Versienummering volgt [Semantic Versioning](https://semver.org/lang/nl/) (MAJOR.MINOR.PATCH).
 
+## [1.9.30]
+
+### Toegevoegd
+- Nieuwe instelling **"Overgang over dagsluiting/weekend: level = open van de reversal-candle"** (standaard **aan**) in de groep "Support / Resistance".
+- Ligt er tussen de pivot-candle en de reversal-candle een tijdsgat van meer dan één 30m-candle (dagsluiting of weekend), dan wordt het level niet de close van de pivot-candle maar de **open van de reversal-candle**, de eerste prijs na de gap. Dat geldt bij een gap up en een gap down, en voor alle vier de S/R-lijnen plus het debug-label van de Support-kandidaat. De body- en wick-checks gebruiken daarna dit level.
+- Overgangen zonder tijdsgat werken exact als in 1.9.29.
+- Aanleiding: op XAUUSD (28/29-09) sloot de candle van 22:30 op FTMO_OANDA op ≈4112.3, terwijl de eerste candle na de dagsluiting op ≈4121.0 opende. Die gap-up-overgang werd Target Support 4112.3 (pivot 14). Op FXCM sloot de overgang netjes aan en was het level terecht ongeldig (FALLBACK). Met de open na de gap (≈4121) wordt het level op FTMO_OANDA door latere candles doorbroken, net als op FXCM.
+- Staat de instelling uit, dan werkt alles exact als in 1.9.29.
+
 ## [1.9.29]
 
 ### Gewijzigd

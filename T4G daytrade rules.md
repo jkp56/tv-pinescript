@@ -17,7 +17,7 @@ Dit document beschrijft alle regels waaraan het Pine Script `trade_lines.pine` (
 
 1. Kijk terug vanaf de **laatst gesloten candle** (de nu lopende/vormende candle telt niet mee als startpunt van de zoektocht).
 2. Zoek de **meest recente overgang** van een **bullish candle** gevolgd door een **bearish candle**.
-3. Het niveau = de **bovenkant van de body** van die bullish candle (`max(open, close)`).
+3. Het niveau = de **bovenkant van de body** van die bullish candle (`max(open, close)`). **Uitzondering (dagsluiting/weekend)**: ligt er tussen pivot-candle en reversal-candle een tijdsgat, dan is het niveau de **open van de reversal-candle** (eerste prijs na de gap), bij gap up én gap down (instelling, standaard aan).
 4. **Geldigheidscheck (alleen body)**: dit niveau is alleen geldig als geen enkele candle daarna (inclusief de nu lopende candle) met zijn **body** dat niveau raakt of doorbreekt.
 5. **Optionele body-tolerantie** (instelling, standaard uit): de candle **direct na** de reversal-candle mag met zijn body maximaal een instelbaar aantal ticks (standaard 50) boven het level komen zonder het ongeldig te maken, **mits die candle bearish is** (de respecterende richting). Een bullish candle daar, en elke latere candle, blijft strikt. Geldt ook voor Target Resistance.
 6. **Wicks spelen voor Resistance geen rol** — de lijn mag gewoon door wicks van candles heen lopen, dat maakt het niveau niet ongeldig.
@@ -28,7 +28,7 @@ Dit document beschrijft alle regels waaraan het Pine Script `trade_lines.pine` (
 Spiegelbeeld van Resistance:
 
 1. Meest recente overgang van een **bearish candle** gevolgd door een **bullish candle**.
-2. Niveau = **onderkant van de body** van die bearish candle (`min(open, close)`).
+2. Niveau = **onderkant van de body** van die bearish candle (`min(open, close)`). **Uitzondering (dagsluiting/weekend)**: ligt er tussen pivot-candle en reversal-candle een tijdsgat, dan is het niveau de **open van de reversal-candle** (eerste prijs na de gap), bij gap up én gap down (instelling, standaard aan).
 3. Geldigheidscheck (alleen body): geldig alleen als geen enkele candle daarna (incl. lopende candle) met zijn **body** dat niveau raakt/doorbreekt.
 4. **Optionele body-tolerantie**: spiegelbeeld van Resistance. De candle direct na de reversal-candle mag met zijn body maximaal het ingestelde aantal ticks onder het level komen, **mits die candle bullish is**. Geldt ook voor Target Support.
 5. **Wicks spelen voor Support geen rol** — de lijn mag door wicks heen lopen.
@@ -36,7 +36,7 @@ Spiegelbeeld van Resistance:
 ## Target Resistance
 
 1. **Eigen, onafhankelijke zoektocht** naar een bullish→bearish overgang — exact dezelfde soort patroondetectie als Resistance (puur op **body**, wicks spelen geen rol bij het bepalen van de overgang).
-2. Het niveau = de **bovenkant van de body** (`max(open, close)`) van die pivot-candle — geen wick.
+2. Het niveau = de **bovenkant van de body** (`max(open, close)`) van die pivot-candle — geen wick. **Uitzondering (dagsluiting/weekend)**: ligt er tussen pivot-candle en reversal-candle een tijdsgat, dan is het niveau de **open van de reversal-candle** (eerste prijs na de gap), bij gap up én gap down (instelling, standaard aan).
 3. **Extra eis**: het niveau moet minimaal een instelbaar aantal ticks (standaard 300, `minTargetDistance`) **boven Resistance** liggen. Is de afstand kleiner, dan is de kandidaat ongeldig en wordt er verder teruggezocht naar een eerdere overgang die wél aan deze eis voldoet.
 4. **Geldigheidscheck**:
    - Geen enkele latere candle mag met zijn **body** het niveau raken/doorbreken (zelfde soort check als bij Resistance zelf, geen uitzonderingen).
@@ -49,7 +49,7 @@ Spiegelbeeld van Resistance:
 Spiegelbeeld van Target Resistance:
 
 1. Eigen, onafhankelijke zoektocht naar een bearish→bullish overgang, puur op body.
-2. Niveau = **onderkant van de body** (`min(open, close)`) van die pivot-candle.
+2. Niveau = **onderkant van de body** (`min(open, close)`) van die pivot-candle. **Uitzondering (dagsluiting/weekend)**: ligt er tussen pivot-candle en reversal-candle een tijdsgat, dan is het niveau de **open van de reversal-candle** (eerste prijs na de gap), bij gap up én gap down (instelling, standaard aan).
 3. Extra eis: het niveau moet minimaal `minTargetDistance` ticks **onder Support** liggen.
 4. Geldigheidscheck:
    - Geen enkele latere candle mag met zijn body het niveau raken/doorbreken.

@@ -1,0 +1,59 @@
+//@version=6
+indicator("30m Range", shorttitle = "30m Range", overlay = true, max_lines_count = 10)
+
+// ─── Instellingen ───────────────────────────────────────────────
+colCur   = input.color(color.new(color.teal, 0),   "Kleur huidige 30m-candle")
+colPrev  = input.color(color.new(color.orange, 0), "Kleur vorige 30m-candle")
+lw       = input.int(2, "Lijndikte", minval = 1, maxval = 5)
+styleStr = input.string("Solid", "Lijnstijl", options = ["Solid", "Dashed", "Dotted"])
+lStyle   = styleStr == "Dashed" ? line.style_dashed : styleStr == "Dotted" ? line.style_dotted : line.style_solid
+
+// Alleen tonen op intraday-charts kleiner dan 30 minuten (1m, 5m, 15m, ...)
+showTF = timeframe.isintraday and timeframe.in_seconds() < 1800
+
+// ─── 30m-candle bijhouden ───────────────────────────────────────
+t30   = time("30")                              // starttijd van de 30m-candle waar deze bar in valt
+isNew = na(t30[1]) or t30 != t30[1]
+
+var float curH  = na
+var float curL  = na
+var int   curT  = na
+var float prvH  = na
+var float prvL  = na
+var int   prvT  = na
+var int   prvEnd = na
+
+if isNew
+    // huidige wordt vorige; eindtijd = start van de nieuwe 30m-candle
+    prvH   := curH
+    prvL   := curL
+    prvT   := curT
+    prvEnd := t30
+    // nieuwe huidige candle starten
+    curH   := high
+    curL   := low
+    curT   := t30
+else
+    curH := math.max(curH, high)
+    curL := math.min(curL, low)
+
+// ─── Tekenen (alleen op de laatste bar → nooit geschiedenis) ────
+var line lCurH = na
+var line lCurL = na
+var line lPrvH = na
+var line lPrvL = na
+
+if barstate.islast and showTF
+    line.delete(lCurH)
+    line.delete(lCurL)
+    line.delete(lPrvH)
+    line.delete(lPrvL)
+
+    // Huidige 30m: van start candle tot en met de actuele bar (beweegt live mee)
+    lCurH := line.new(curT, curH, time_close, curH, xloc = xloc.bar_time, color = colCur, width = lw, style = lStyle)
+    lCurL := line.new(curT, curL, time_close, curL, xloc = xloc.bar_time, color = colCur, width = lw, style = lStyle)
+
+    // Vorige 30m: van start tot exact het einde van die candle
+    if not na(prvH)
+        lPrvH := line.new(prvT, prvH, prvEnd, prvH, xloc = xloc.bar_time, color = colPrev, width = lw, style = lStyle)
+        lPrvL := line.new(prvT, prvL, prvEnd, prvL, xloc = xloc.bar_time, color = colPrev, width = lw, style = lStyle)

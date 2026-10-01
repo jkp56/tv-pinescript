@@ -3,6 +3,14 @@
 Alle noemenswaardige wijzigingen aan `trade_lines.pine` worden hier bijgehouden.
 Versienummering volgt [Semantic Versioning](https://semver.org/lang/nl/) (MAJOR.MINOR.PATCH).
 
+## [1.9.33]
+
+### Gewijzigd
+- De labels **"Long/Short SL"** (incl. "Trade niet mogelijk: …"), **"TP"** en **"Resistance/Support doorbroken"** staan nu vlak naast de breakout-candle. De streeplijnen eindigen waar het label begint. De instelling *SL: lengte lijn* heet nu *SL/TP/doorbroken: lengte lijn tot label* en staat standaard op 5 in plaats van 20 30m-candles.
+
+### Verwijderd
+- De groene/rode signaalpijl bij de breakout-candle.
+
 ## [1.9.32]
 
 ### Opgelost

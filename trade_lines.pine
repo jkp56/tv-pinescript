@@ -1,5 +1,5 @@
 //@version=6
-// Versie: 1.9.32 - zie CHANGELOG.md voor de wijzigingsgeschiedenis.
+// Versie: 1.9.33 - zie CHANGELOG.md voor de wijzigingsgeschiedenis.
 //
 // Alle berekeningen (Support/Resistance, Targets, signalen, SL, TP en de
 // Range-check) draaien via request.security() altijd op het 30m-timeframe van
@@ -14,7 +14,7 @@ indicator("Trade Lijnen (SL/S/R)", overlay=true, max_lines_count=30, max_labels_
 // zichtbaar is in het Inputs-tabblad van de instellingen, zonder in de
 // code te hoeven kijken. Zie CHANGELOG.md voor de wijzigingsgeschiedenis.
 // ============================================================
-scriptVersion = input.string("1.9.32", "Versie", options=["1.9.32"], group="Info")
+scriptVersion = input.string("1.9.33", "Versie", options=["1.9.33"], group="Info")
 
 // ============================================================
 // REKENFEED: alle berekeningen (levels, signalen, SL/TP, Range-check) kunnen
@@ -66,7 +66,7 @@ srcTag         = usingOtherFeed ? " (" + (sourceExchange == "FX" ? "FXCM" : sour
 showSL         = input.bool(true, "Toon SL lijnen", group="Stop Loss lijnen")
 trailSL        = input.bool(false, "SL: trailing (bijwerken bij elke nieuwe candle in het venster)", group="Stop Loss lijnen")
 tickOffset     = input.int(50, "SL: aantal ticks van wick", minval=1, group="Stop Loss lijnen")
-lineLen        = input.int(20, "SL: lengte lijn (aantal 30m-candles naar rechts)", minval=1, group="Stop Loss lijnen")
+lineLen        = input.int(5, "SL/TP/doorbroken: lengte lijn tot label (aantal 30m-candles vanaf breakout)", minval=1, group="Stop Loss lijnen")
 slSignalWindow = input.int(2, "SL: lijn actief na signaal (aantal 30m-candles)", minval=1, group="Stop Loss lijnen")
 longColor      = input.color(color.new(color.green, 0), "Kleur Long SL", group="Stop Loss lijnen")
 shortColor     = input.color(color.new(color.red, 0), "Kleur Short SL", group="Stop Loss lijnen")
@@ -416,7 +416,6 @@ f_calc30m() =>
     var int   tsBarsBack  = na
 
     var int barTime       = na
-    var int rightEdgeTime = na
 
     var bool longActive   = false
     var bool shortActive  = false
@@ -431,8 +430,6 @@ f_calc30m() =>
     var float shortBreakLevel = na
     var int   breakTime       = na
     var breakSide             = bool(na)
-    var float breakLow        = na
-    var float breakHigh       = na
 
     var bool   longTradeOk    = false
     var float  longTP         = na
@@ -450,7 +447,6 @@ f_calc30m() =>
 
     if barstate.isconfirmed
         barTime       := time
-        rightEdgeTime := time + lineLen * timeframe.in_seconds(calcTF) * 1000
 
         // --- Resistance / Support / Targets ---
         prevResistance := resistance
@@ -520,14 +516,12 @@ f_calc30m() =>
             breakSide      := true
             breakTime      := time
             longBreakLevel := bullishLevel
-            breakLow       := low
 
         if bearishBreakNow
             lastShortBar    := bar_index
             breakSide        := false
             breakTime         := time
             shortBreakLevel  := bearishLevel
-            breakHigh         := high
 
         longActive  := not na(lastLongBar) and (bar_index - lastLongBar) < slSignalWindow
         shortActive := not na(lastShortBar) and (bar_index - lastShortBar) < slSignalWindow
@@ -569,11 +563,10 @@ f_calc30m() =>
      rFallback, sFallback, trFallback, tsFallback,
      rPivotTime, sPivotTime, trPivotTime, tsPivotTime,
      rBarsBack, sBarsBack, trBarsBack, tsBarsBack,
-     barTime, rightEdgeTime,
+     barTime,
      longActive, shortActive,
      longTrailSL, shortTrailSL, slSide,
      longBreakLevel, shortBreakLevel, breakTime, breakSide,
-     breakLow, breakHigh,
      longTradeOk, longTP, longReasonText, longRangeRR, longEntry, longR,
      shortTradeOk, shortTP, shortReasonText, shortRangeRR, shortEntry, shortR]
 
@@ -583,7 +576,7 @@ f_calc30m() =>
 // ondersteunt; een UDT-object teruggeven bleek in de praktijk niet
 // betrouwbaar te worden gevuld (alle velden bleven op hun startwaarde
 // staan, waardoor er nergens meer iets werd getekend).
-[calcResistance, calcSupport, calcTargetResistance, calcTargetSupport, calcRFallback, calcSFallback, calcTrFallback, calcTsFallback, calcRPivotTime, calcSPivotTime, calcTrPivotTime, calcTsPivotTime, calcRBarsBack, calcSBarsBack, calcTrBarsBack, calcTsBarsBack, calcBarTime, calcRightEdgeTime, calcLongActive, calcShortActive, calcLongTrailSL, calcShortTrailSL, calcSlSide, calcLongBreakLevel, calcShortBreakLevel, calcBreakTime, calcBreakSide, calcBreakLow, calcBreakHigh, calcLongTradeOk, calcLongTP, calcLongReasonText, calcLongRangeRR, calcLongEntry, calcLongR, calcShortTradeOk, calcShortTP, calcShortReasonText, calcShortRangeRR, calcShortEntry, calcShortR] = request.security(calcTicker, calcTF, f_calc30m(), lookahead=barmerge.lookahead_off)
+[calcResistance, calcSupport, calcTargetResistance, calcTargetSupport, calcRFallback, calcSFallback, calcTrFallback, calcTsFallback, calcRPivotTime, calcSPivotTime, calcTrPivotTime, calcTsPivotTime, calcRBarsBack, calcSBarsBack, calcTrBarsBack, calcTsBarsBack, calcBarTime, calcLongActive, calcShortActive, calcLongTrailSL, calcShortTrailSL, calcSlSide, calcLongBreakLevel, calcShortBreakLevel, calcBreakTime, calcBreakSide, calcLongTradeOk, calcLongTP, calcLongReasonText, calcLongRangeRR, calcLongEntry, calcLongR, calcShortTradeOk, calcShortTP, calcShortReasonText, calcShortRangeRR, calcShortEntry, calcShortR] = request.security(calcTicker, calcTF, f_calc30m(), lookahead=barmerge.lookahead_off)
 
 // ============================================================
 // Waarschuwing bij niet-ondersteund timeframe.
@@ -662,29 +655,24 @@ if effectiveNewData and not na(calcResistance)
     tsNameLabel := label.new(calcBarTime, calcTargetSupport, f_nameText("Target Support", calcTsFallback, calcTsBarsBack), xloc.bar_time, yloc.price, color.new(color.green, 100), label.style_label_left, labelTextColor, size.small)
 
 // ============================================================
-// Break-lijn + LONG/SHORT signaalpijl van het actieve signaal.
+// Break-lijn van het actieve signaal. De break-, SL- en TP-lijn lopen
+// `lineLen` 30m-candles vanaf de breakout-candle; daar begint hun label.
 // ============================================================
-var line  breakLine   = na
-var label breakLabel  = na
-var label signalLabel = na
+labelTime = calcBreakTime + lineLen * timeframe.in_seconds(calcTF) * 1000
 
-if effectiveNewData
+var line  breakLine  = na
+var label breakLabel = na
+
+if showSL and effectiveNewData
     line.delete(breakLine)
     label.delete(breakLabel)
-    label.delete(signalLabel)
-    breakLine   := na
-    breakLabel  := na
-    signalLabel := na
+    breakLine  := na
+    breakLabel := na
 
     if longSig or shortSig
         breakLevel = longSig ? calcLongBreakLevel : calcShortBreakLevel
-        if showSL
-            breakLine  := line.new(calcBreakTime, breakLevel, calcRightEdgeTime, breakLevel, xloc.bar_time, extend.left, color.black, line.style_dashed, 1)
-            breakLabel := label.new(calcRightEdgeTime, breakLevel, (longSig ? "Resistance" : "Support") + " doorbroken" + srcTag + ": " + str.tostring(breakLevel, format.mintick), xloc.bar_time, yloc.price, color.new(color.black, 100), label.style_label_left, labelTextColor, size.small)
-        if longSig
-            signalLabel := label.new(calcBreakTime, calcBreakLow - 10 * tickSize, "", xloc.bar_time, yloc.price, color.new(color.green, 0), label.style_arrowup, color.black, size.normal)
-        else
-            signalLabel := label.new(calcBreakTime, calcBreakHigh + 10 * tickSize, "", xloc.bar_time, yloc.price, color.new(color.red, 0), label.style_arrowdown, color.black, size.normal)
+        breakLine  := line.new(calcBreakTime, breakLevel, labelTime, breakLevel, xloc.bar_time, extend.left, color.black, line.style_dashed, 1)
+        breakLabel := label.new(labelTime, breakLevel, (longSig ? "Resistance" : "Support") + " doorbroken" + srcTag + ": " + str.tostring(breakLevel, format.mintick), xloc.bar_time, yloc.price, color.new(color.black, 100), label.style_label_left, labelTextColor, size.small)
 
 // ============================================================
 // SL-lijn (trailing binnen het signaalvenster). De reden van een niet-
@@ -707,8 +695,8 @@ if showSL and effectiveNewData
         reason  = longSL ? calcLongReasonText : calcShortReasonText
         blocked = showTradeCheck and (longSL ? longSig : shortSig) and not sigTradeOk and reason != ""
         slText  = (longSL ? "Long SL" : "Short SL") + srcTag + ": " + str.tostring(slValue, format.mintick) + (blocked ? "\nTrade niet mogelijk: " + reason : "")
-        slLine  := line.new(calcBreakTime, slValue, calcRightEdgeTime, slValue, xloc.bar_time, extend.none, slColor, line.style_dashed, 2)
-        slLabel := label.new(calcRightEdgeTime, slValue, slText, xloc.bar_time, yloc.price, color.new(blocked ? noTradeColor : slColor, blocked ? 0 : 80), label.style_label_left, blocked ? color.black : slColor, size.small)
+        slLine  := line.new(calcBreakTime, slValue, labelTime, slValue, xloc.bar_time, extend.none, slColor, line.style_dashed, 2)
+        slLabel := label.new(labelTime, slValue, slText, xloc.bar_time, yloc.price, color.new(blocked ? noTradeColor : slColor, blocked ? 0 : 80), label.style_label_left, blocked ? color.black : slColor, size.small)
 
 // ============================================================
 // TP-lijn. Vereist zowel showSL als showTradeCheck: de TP is afgeleid van
@@ -729,8 +717,8 @@ if showSL and showTradeCheck and effectiveNewData
         r       = longSig ? calcLongR : calcShortR
         rangeRR = longSig ? calcLongRangeRR : calcShortRangeRR
         tpText  = "TP" + srcTag + " (" + str.tostring(tpRR, "#.##") + " R/R): " + str.tostring(tp, format.mintick) + " · Entry " + str.tostring(entry, format.mintick) + " · R " + str.tostring(r, format.mintick) + " · Range " + f_fmtRR(rangeRR) + "R" + (showLots ? f_lotText(r) : "")
-        tpLine  := line.new(calcBreakTime, tp, calcRightEdgeTime, tp, xloc.bar_time, extend.none, tpColor, line.style_dashed, 2)
-        tpLabel := label.new(calcRightEdgeTime, tp, tpText, xloc.bar_time, yloc.price, color.new(tpColor, 80), label.style_label_left, tpColor, size.small)
+        tpLine  := line.new(calcBreakTime, tp, labelTime, tp, xloc.bar_time, extend.none, tpColor, line.style_dashed, 2)
+        tpLabel := label.new(labelTime, tp, tpText, xloc.bar_time, yloc.price, color.new(tpColor, 80), label.style_label_left, tpColor, size.small)
 
 if effectiveNewData
     lastDrawnBarTime := calcBarTime

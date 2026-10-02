@@ -3,6 +3,11 @@
 Alle noemenswaardige wijzigingen aan `trade_lines.pine` worden hier bijgehouden.
 Versienummering volgt [Semantic Versioning](https://semver.org/lang/nl/) (MAJOR.MINOR.PATCH).
 
+## [1.9.34]
+
+### Opgelost
+- **Wick-gratie van de Target-lijnen zat op de verkeerde candle.** Een overgang bestaat uit de pivot-candle en de reversal-candle. De gratie hoort bij de eerste candle ná die overgang, maar werd aan de reversal-candle zelf gegeven. De candle daarna werd daardoor wél gecontroleerd en kon een level onterecht ongeldig maken. Daardoor viel bijvoorbeeld op XAUUSD het level 4126.67 (pivot 29-09 06:30) af als Target Support, door de wick van de bullish candle direct na de overgang. Support schoof toen door naar dat level in plaats van 4139.41. Nu wordt de reversal-candle niet gecontroleerd, en krijgt de eerste candle erna gratie, maar alleen als hij in de respecterende richting sluit (bullish bij Support, bearish bij Resistance). Elke candle daarna telt, net als voorheen, altijd mee.
+
 ## [1.9.33]
 
 ### Gewijzigd

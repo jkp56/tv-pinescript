@@ -40,7 +40,7 @@ Spiegelbeeld van Resistance:
 3. **Extra eis**: het niveau moet minimaal een instelbaar aantal ticks (standaard 300, `minTargetDistance`) **boven Resistance** liggen. Is de afstand kleiner, dan is de kandidaat ongeldig en wordt er verder teruggezocht naar een eerdere overgang die wél aan deze eis voldoet.
 4. **Geldigheidscheck**:
    - Geen enkele latere candle mag met zijn **body** het niveau raken/doorbreken (zelfde soort check als bij Resistance zelf, geen uitzonderingen).
-   - **Gratieperiode voor wicks**: direct na de pivot-candle geldt een gratieperiode zolang de candles **bearish** blijven (de "respecterende" richting voor Resistance) — in die periode telt een wick die het niveau raakt niet mee. Zodra de **eerste bullish candle** (de "aanvallende" richting) verschijnt, eindigt de gratieperiode **blijvend**: vanaf dat moment maakt élke volgende wick (ongeacht of de candle bullish of bearish is) het niveau ongeldig als hij raakt/doorbreekt. Een aanvallende (bullish) candle telt zijn eigen wick overigens altijd mee, ook tíjdens de gratieperiode.
+   - **Gratie voor wicks**: de reversal-candle (de bearish candle die de overgang vormt) hoort bij de overgang en wordt niet op zijn wick gecontroleerd. De **eerste candle ná de overgang** mag het niveau met een wick raken zonder het ongeldig te maken, maar alleen als die candle **bearish** is (de "respecterende" richting voor Resistance). Een bullish candle of doji op die plek krijgt geen gratie. Élke candle daarna (ongeacht kleur) maakt het niveau ongeldig als zijn wick het raakt/doorbreekt.
 5. Zo niet geldig → verder terugzoeken naar de vorige bullish→bearish overgang die aan alle eisen voldoet.
 6. Als er geen geldige overgang gevonden wordt binnen de scanrange, valt het terug op een vaste afstand in ticks vanaf Resistance.
 
@@ -53,7 +53,7 @@ Spiegelbeeld van Target Resistance:
 3. Extra eis: het niveau moet minimaal `minTargetDistance` ticks **onder Support** liggen.
 4. Geldigheidscheck:
    - Geen enkele latere candle mag met zijn body het niveau raken/doorbreken.
-   - Gratieperiode voor wicks: zolang de candles **bullish** blijven (respecterende richting voor Support) telt een wick-aanraking niet mee. Zodra de eerste **bearish** candle (aanvallende richting) verschijnt, eindigt de gratieperiode blijvend — vanaf dan telt elke wick daarna (ongeacht kleur) mee.
+   - Gratie voor wicks: de reversal-candle (bullish) wordt niet op zijn wick gecontroleerd. De eerste candle ná de overgang mag het niveau met een wick raken, maar alleen als die candle **bullish** is (respecterende richting voor Support). Élke candle daarna (ongeacht kleur) maakt het niveau ongeldig als zijn wick het raakt.
 5. Fallback (vaste afstand in ticks) als er geen geldige overgang gevonden wordt.
 
 ## Tekenregels (alle 4 S/R-lijnen)

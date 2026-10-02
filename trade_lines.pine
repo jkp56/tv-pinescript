@@ -1,5 +1,5 @@
 //@version=6
-// Versie: 1.9.33 - zie CHANGELOG.md voor de wijzigingsgeschiedenis.
+// Versie: 1.9.34 - zie CHANGELOG.md voor de wijzigingsgeschiedenis.
 //
 // Alle berekeningen (Support/Resistance, Targets, signalen, SL, TP en de
 // Range-check) draaien via request.security() altijd op het 30m-timeframe van
@@ -14,7 +14,7 @@ indicator("Trade Lijnen (SL/S/R)", overlay=true, max_lines_count=30, max_labels_
 // zichtbaar is in het Inputs-tabblad van de instellingen, zonder in de
 // code te hoeven kijken. Zie CHANGELOG.md voor de wijzigingsgeschiedenis.
 // ============================================================
-scriptVersion = input.string("1.9.33", "Versie", options=["1.9.33"], group="Info")
+scriptVersion = input.string("1.9.34", "Versie", options=["1.9.34"], group="Info")
 
 // ============================================================
 // REKENFEED: alle berekeningen (levels, signalen, SL/TP, Range-check) kunnen
@@ -238,32 +238,32 @@ f_resistanceBodyValid(i, candidate, maxTo1, maxTo2, excludeReversal) =>
             valid := true
     valid
 
-// Generiek voor zowel Resistance/Support als de Target-lijnen: alleen de
-// allereerste candle na de bearish/bullish-overgang mag het level met een
-// wick raken (gratie). Elke candle daarna - ongeacht kleur - maakt het level
-// ongeldig ("uitgenomen") zodra de wick het raakt.
+// Wick-check voor de Target-lijnen. De reversal-candle (offset pivotOffset-1)
+// hoort bij de overgang zelf en wordt niet gecontroleerd. De eerste candle NA
+// de overgang (offset pivotOffset-2) mag het level met een wick raken
+// (gratie), maar alleen als hij in de respecterende richting sluit: bearish
+// bij Resistance, bullish bij Support. Elke candle daarna - ongeacht kleur -
+// maakt het level ongeldig ("uitgenomen") zodra de wick het raakt.
 f_wickValidAboveLevel(pivotOffset, level) =>
     bool valid = true
-    bool graceActive = true
-    for k = pivotOffset - 1 to 0
-        if f_validBar(k)
-            if graceActive
-                graceActive := false
-            else if high[k] >= level
-                valid := false
-                break
+    if pivotOffset >= 2
+        for k = pivotOffset - 2 to 0
+            if f_validBar(k)
+                graced = k == pivotOffset - 2 and close[k] < open[k]
+                if not graced and high[k] >= level
+                    valid := false
+                    break
     valid
 
 f_wickValidBelowLevel(pivotOffset, level) =>
     bool valid = true
-    bool graceActive = true
-    for k = pivotOffset - 1 to 0
-        if f_validBar(k)
-            if graceActive
-                graceActive := false
-            else if low[k] <= level
-                valid := false
-                break
+    if pivotOffset >= 2
+        for k = pivotOffset - 2 to 0
+            if f_validBar(k)
+                graced = k == pivotOffset - 2 and close[k] > open[k]
+                if not graced and low[k] <= level
+                    valid := false
+                    break
     valid
 
 // Resistance: bullish -> bearish overgang, body-top. Eerste geldige

@@ -1,5 +1,5 @@
 //@version=6
-// Versie: 1.9.34 - zie CHANGELOG.md voor de wijzigingsgeschiedenis.
+// Versie: 1.9.35 - zie CHANGELOG.md voor de wijzigingsgeschiedenis.
 //
 // Alle berekeningen (Support/Resistance, Targets, signalen, SL, TP en de
 // Range-check) draaien via request.security() altijd op het 30m-timeframe van
@@ -14,7 +14,7 @@ indicator("Trade Lijnen (SL/S/R)", overlay=true, max_lines_count=30, max_labels_
 // zichtbaar is in het Inputs-tabblad van de instellingen, zonder in de
 // code te hoeven kijken. Zie CHANGELOG.md voor de wijzigingsgeschiedenis.
 // ============================================================
-scriptVersion = input.string("1.9.34", "Versie", options=["1.9.34"], group="Info")
+scriptVersion = input.string("1.9.35", "Versie", options=["1.9.35"], group="Info")
 
 // ============================================================
 // REKENFEED: alle berekeningen (levels, signalen, SL/TP, Range-check) kunnen
@@ -112,11 +112,18 @@ xTicks  = input.int(10, "X: aantal ticks voorbij S/R voor signaal", minval=1, gr
 // - Trade alleen mogelijk als die Range minimaal minRangeRR * R kan bevatten
 //   EN R (in ticks) niet groter is dan maxRTicks. Zo niet: geen TP-lijn,
 //   maar een "Trade niet mogelijk"-label met de reden(en).
+// - Rejection candle (optioneel, standaard uit - komt uit de NASDAQ-
+//   strategie): sluit de tweede 15m-candle van de breakout-30m-candle tegen
+//   de trade-richting in (bearish bij Long, bullish bij Short) met een body
+//   van minimaal rejectionTicks, dan is de trade ook niet mogelijk. Een doji
+//   of kleinere tegengestelde body telt niet als rejection.
 // ============================================================
 showTradeCheck = input.bool(true, "Toon TP-lijn en Trade-mogelijkheid check", group="Trade Mogelijkheid")
 tpRR           = input.float(1.2, "TP: Risk/Reward ratio", minval=0.01, step=0.1, group="Trade Mogelijkheid")
 minRangeRR     = input.float(1.0, "Minimaal benodigde R/R-ruimte in de Range", minval=0.01, step=0.1, group="Trade Mogelijkheid")
 maxRTicks      = input.int(1000, "Maximaal toegestane R (ticks)", minval=1, group="Trade Mogelijkheid")
+rejectionOn    = input.bool(false, "Rejection candle (15m) maakt trade ongeldig", group="Trade Mogelijkheid")
+rejectionTicks = input.int(50, "Rejection candle: minimale tegengestelde body (ticks)", minval=1, group="Trade Mogelijkheid")
 tpColor        = input.color(color.new(color.blue, 0), "Kleur TP-lijn", group="Trade Mogelijkheid")
 noTradeColor   = input.color(color.new(color.orange, 0), "Kleur 'Trade niet mogelijk'-label", group="Trade Mogelijkheid")
 
@@ -370,20 +377,25 @@ f_autoTargetSupport(maxScan, supportLevel, minDistance, excludeReversal) =>
 
 // Trade Mogelijkheid voor een signaal, dir = 1 (Long) of -1 (Short). R en
 // Range zijn afstanden in de trade-richting: R = entry -> SL, Range = entry
-// -> Target. Retourneert [tp, rangeRR, r, ok, reden].
-f_tradeCheck(float entry, float sl, float target, int dir) =>
+// -> Target. body2 = close - open van de tweede 15m-candle van de signaal-
+// candle (na als die niet beschikbaar is). Retourneert [tp, rangeRR, r, ok, reden].
+f_tradeCheck(float entry, float sl, float target, int dir, float body2) =>
     r           = (entry - sl) * dir
     rTicks      = r / tickSize
     rangeAvail  = (target - entry) * dir
     rangeNeeded = minRangeRR * r
     rangeOk     = rangeAvail >= rangeNeeded
     rTooLarge   = rTicks > maxRTicks
+    rejTicks    = -body2 * dir / tickSize
+    rejected    = rejectionOn and not na(body2) and rejTicks >= rejectionTicks
     string reason = ""
     if not rangeOk
         reason := "Range " + f_fmtRR(rangeAvail / r) + "R < " + str.tostring(minRangeRR, "#.##") + "R (" + str.tostring(rangeAvail, format.mintick) + " < " + str.tostring(rangeNeeded, format.mintick) + ")"
     if rTooLarge
         reason := reason + (reason != "" ? "\n" : "") + "R " + str.tostring(rTicks, "#.##") + " ticks > max " + str.tostring(maxRTicks) + " ticks"
-    [entry + dir * tpRR * r, r > 0 ? rangeAvail / r : na, r, r > 0 and rangeOk and not rTooLarge, reason]
+    if rejected
+        reason := reason + (reason != "" ? "\n" : "") + "Rejection candle 15m (" + str.tostring(rejTicks, "#") + " ticks >= " + str.tostring(rejectionTicks) + ")"
+    [entry + dir * tpRR * r, r > 0 ? rangeAvail / r : na, r, r > 0 and rangeOk and not rTooLarge and not rejected, reason]
 
 // ============================================================
 // ALLE BEREKENINGEN: draait via request.security() altijd op het 30m-
@@ -444,6 +456,12 @@ f_calc30m() =>
     var float  shortRangeRR    = na
     var float  shortEntry      = na
     var float  shortR          = na
+
+    // De 15m-candles binnen deze 30m-candle (geneste request, draait dus ook
+    // op de rekenfeed). Body van de tweede 15m-candle = close - open; na als
+    // de 30m-candle niet uit twee 15m-candles bestaat (bijv. na een gap).
+    bodies15 = request.security_lower_tf(calcTicker, lowerTF, close - open)
+    float body2 = bodies15.size() == 2 ? bodies15.last() : na
 
     if barstate.isconfirmed
         barTime       := time
@@ -542,7 +560,7 @@ f_calc30m() =>
         // --- Trade Mogelijkheid: TP + Range-check, vast bepaald op de
         // signaal-candle zelf, blijft ongewijzigd zolang het venster loopt ---
         if bullishBreakNow and not na(prevTargetResistance)
-            [lTp, lRangeRR, lR, lOk, lReason] = f_tradeCheck(close, low - slOffset, prevTargetResistance, 1)
+            [lTp, lRangeRR, lR, lOk, lReason] = f_tradeCheck(close, low - slOffset, prevTargetResistance, 1, body2)
             longTP         := lTp
             longRangeRR    := lRangeRR
             longEntry      := close
@@ -551,7 +569,7 @@ f_calc30m() =>
             longReasonText := lReason
 
         if bearishBreakNow and not na(prevTargetSupport)
-            [sTp, sRangeRR, sR, sOk, sReason] = f_tradeCheck(close, high + slOffset, prevTargetSupport, -1)
+            [sTp, sRangeRR, sR, sOk, sReason] = f_tradeCheck(close, high + slOffset, prevTargetSupport, -1, body2)
             shortTP         := sTp
             shortRangeRR    := sRangeRR
             shortEntry      := close

@@ -3,6 +3,11 @@
 Alle noemenswaardige wijzigingen aan `trade_lines.pine` worden hier bijgehouden.
 Versienummering volgt [Semantic Versioning](https://semver.org/lang/nl/) (MAJOR.MINOR.PATCH).
 
+## [1.9.35]
+
+### Toegevoegd
+- **Rejection candle (15m)** als extra voorwaarde in "Trade Mogelijkheid" (standaard uit, komt uit de NASDAQ-strategie). Sluit de tweede 15m-candle van de breakout-30m-candle tegen de trade-richting in (bearish bij Long, bullish bij Short) met een body van minimaal *Rejection candle: minimale tegengestelde body* ticks (standaard 50), dan is de trade niet mogelijk: geen TP-lijn, oranje SL-label met "Rejection candle 15m (x ticks >= 50)". Een doji of kleinere tegengestelde body telt niet. De check draait op de rekenfeed via een geneste `request.security_lower_tf`. De alert gaat gewoon af.
+
 ## [1.9.34]
 
 ### Opgelost

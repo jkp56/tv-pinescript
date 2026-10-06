@@ -63,7 +63,7 @@ Elke alert vuurt **precies één keer per nieuw 30m-signaal**, ongeacht of je op
 | Instelling | Default | Wat het doet | Wat het niet doet |
 |---|---|---|---|
 | Berekeningen op andere feed dan de chart (`useSourceFeed`) | Aan | Alle berekeningen (Resistance/Support, Targets, signalen, SL/TP, Range-/R-check, lotgrootte) draaien op de rekenfeed in plaats van op de chart-feed. Op een FTMO_OANDA-chart zie je dan de beslissing van FXCM. In de labels staat de feed erbij, bijv. `Long SL (FXCM): …`. | Rekent de prijzen niet om naar de chart-feed: SL, TP en levels zijn de FXCM-prijzen en kunnen een paar tienden afwijken van de OANDA-candles. |
-| Exchange-prefix van de rekenfeed (`sourceExchange`) | `FX` | De exchange die voor de ticker van de chart wordt gezet. TradingView gebruikt voor FXCM de prefix `FX`, dus `FX` → `FX:XAUUSD` (in de labels staat dan "FXCM"). `FXCM` werkt niet: dat geeft "Invalid symbol". | Is de prefix gelijk aan die van de chart, of leeg, dan rekent het script gewoon op de chart-feed. Het symbool moet op die exchange onder dezelfde naam bestaan. |
+| Exchange-prefix van de rekenfeed (`sourceExchange`) | `FX` | De exchange die voor de ticker van de chart wordt gezet. TradingView gebruikt voor FXCM de prefix `FX`, dus `FX` → `FX:XAUUSD` (in de labels staat dan "FXCM"). `FXCM` werkt niet: dat geeft "Invalid symbol". | Is de prefix gelijk aan die van de chart, of leeg, dan rekent het script gewoon op de chart-feed. Het symbool moet op die exchange onder dezelfde naam bestaan; bij `FX` worden afwijkende OANDA-namen vertaald (bijv. `NAS100USD` → `NAS100`, `US30USD` → `US30`). |
 
 ### Groep "Freeze"
 

@@ -3,6 +3,11 @@
 Alle noemenswaardige wijzigingen aan `trade_lines.pine` worden hier bijgehouden.
 Versienummering volgt [Semantic Versioning](https://semver.org/lang/nl/) (MAJOR.MINOR.PATCH).
 
+## [1.9.36]
+
+### Opgelost
+- "Invalid symbol: FX:NAS100USD" op een OANDA-chart van de US Nas 100. OANDA en FXCM gebruiken voor indices en olie andere tickernamen. De rekenfeed vertaalt die nu bij prefix `FX`: `NAS100USD` → `NAS100`, `US30USD` → `US30`, `SPX500USD` → `SPX500`, `DE30EUR`/`DE40EUR` → `GER30`, `UK100GBP` → `UK100`, `FR40EUR` → `FRA40`, `EU50EUR` → `EUSTX50`, `JP225USD` → `JPN225`, `AU200AUD` → `AUS200`, `HK33HKD` → `HKG33`, `WTICOUSD` → `USOIL`, `BCOUSD` → `UKOIL`. Andere tickers (zoals `XAUUSD` en forex-paren) blijven ongewijzigd.
+
 ## [1.9.35]
 
 ### Toegevoegd

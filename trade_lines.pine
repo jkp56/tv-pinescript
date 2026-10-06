@@ -1,5 +1,5 @@
 //@version=6
-// Versie: 1.9.35 - zie CHANGELOG.md voor de wijzigingsgeschiedenis.
+// Versie: 1.9.36 - zie CHANGELOG.md voor de wijzigingsgeschiedenis.
 //
 // Alle berekeningen (Support/Resistance, Targets, signalen, SL, TP en de
 // Range-check) draaien via request.security() altijd op het 30m-timeframe van
@@ -14,7 +14,7 @@ indicator("Trade Lijnen (SL/S/R)", overlay=true, max_lines_count=30, max_labels_
 // zichtbaar is in het Inputs-tabblad van de instellingen, zonder in de
 // code te hoeven kijken. Zie CHANGELOG.md voor de wijzigingsgeschiedenis.
 // ============================================================
-scriptVersion = input.string("1.9.35", "Versie", options=["1.9.35"], group="Info")
+scriptVersion = input.string("1.9.36", "Versie", options=["1.9.36"], group="Info")
 
 // ============================================================
 // REKENFEED: alle berekeningen (levels, signalen, SL/TP, Range-check) kunnen
@@ -45,8 +45,27 @@ isSupportedTF = timeframe.period == calcTF or timeframe.period == lowerTF
 // FTMO_OANDA:XAUUSD-chart; TradingView gebruikt voor FXCM de prefix FX).
 // srcTag komt in de labels zodat zichtbaar is dat de waarden niet van de
 // chart-feed zijn.
+// OANDA noemt indices/grondstoffen anders dan FXCM (NAS100USD vs NAS100);
+// f_fxcmTicker vertaalt die namen, andere tickers blijven ongewijzigd.
+f_fxcmTicker(string t) =>
+    switch t
+        "NAS100USD" => "NAS100"
+        "US30USD"   => "US30"
+        "SPX500USD" => "SPX500"
+        "DE30EUR"   => "GER30"
+        "DE40EUR"   => "GER30"
+        "UK100GBP"  => "UK100"
+        "FR40EUR"   => "FRA40"
+        "EU50EUR"   => "EUSTX50"
+        "JP225USD"  => "JPN225"
+        "AU200AUD"  => "AUS200"
+        "HK33HKD"   => "HKG33"
+        "WTICOUSD"  => "USOIL"
+        "BCOUSD"    => "UKOIL"
+        => t
+
 usingOtherFeed = useSourceFeed and sourceExchange != "" and sourceExchange != syminfo.prefix
-calcTicker     = usingOtherFeed ? sourceExchange + ":" + syminfo.ticker : syminfo.tickerid
+calcTicker     = usingOtherFeed ? sourceExchange + ":" + (sourceExchange == "FX" ? f_fxcmTicker(syminfo.ticker) : syminfo.ticker) : syminfo.tickerid
 srcTag         = usingOtherFeed ? " (" + (sourceExchange == "FX" ? "FXCM" : sourceExchange) + ")" : ""
 
 // ============================================================

@@ -1,5 +1,13 @@
 //@version=6
+// Versie: 1.1.1
+//   1.1.1 - Rechthoeken lopen van de wick van de eerste tot de wick van de laatste candle
+//           van het 30m-blok (niet meer tot in de candle erna). Versienummer toegevoegd.
+//   1.1.0 - Rechthoeken in plaats van lijnen.
+//   1.0.0 - Hoog/laag van de huidige en vorige 30m-candle als lijnen.
 indicator("30m Range", shorttitle = "30m Range", overlay = true, max_boxes_count = 10)
+
+// Versie-info: zichtbaar in het Inputs-tabblad van de instellingen.
+scriptVersion = input.string("1.1.1", "Versie", options = ["1.1.1"], group = "Info")
 
 // ─── Instellingen ───────────────────────────────────────────────
 // Rand op volle kleur, vulling zeer transparant: de candles en andere lijnen blijven goed leesbaar.
@@ -23,14 +31,14 @@ var int   curT  = na
 var float prvH  = na
 var float prvL  = na
 var int   prvT  = na
-var int   prvEnd = na
+var int   prvLast = na                       // tijd van de laatste bar binnen de vorige 30m-candle
 
 if isNew
-    // huidige wordt vorige; eindtijd = start van de nieuwe 30m-candle
-    prvH   := curH
-    prvL   := curL
-    prvT   := curT
-    prvEnd := t30
+    // huidige wordt vorige; eindigt op de laatste bar daarvan (de vorige chartbar)
+    prvH    := curH
+    prvL    := curL
+    prvT    := curT
+    prvLast := time[1]
     // nieuwe huidige candle starten
     curH   := high
     curL   := low
@@ -43,6 +51,9 @@ else
 var box bCur = na
 var box bPrv = na
 
+// Een box-rand ligt in TradingView altijd op het midden (de wick) van een candle; tijden
+// daartussen worden afgerond. Beide zijden lopen daarom van de wick van de eerste tot de
+// wick van de laatste candle van het blok.
 f_box(int t1, float top, int t2, float bot, color c) =>
     box.new(t1, top, t2, bot, xloc = xloc.bar_time,
          border_color = bw == 0 ? na : c, border_width = bw, border_style = bStyle,
@@ -52,9 +63,9 @@ if barstate.islast and showTF
     box.delete(bCur)
     box.delete(bPrv)
 
-    // Vorige 30m: van start tot exact het einde van die candle
+    // Vorige 30m: van de eerste tot en met de laatste bar van die candle
     if not na(prvH)
-        bPrv := f_box(prvT, prvH, prvEnd, prvL, colPrev)
+        bPrv := f_box(prvT, prvH, prvLast, prvL, colPrev)
 
-    // Huidige 30m: van start candle tot en met de actuele bar (groeit live mee)
-    bCur := f_box(curT, curH, time_close, curL, colCur)
+    // Huidige 30m: van de eerste bar tot en met de actuele bar (groeit live mee)
+    bCur := f_box(curT, curH, time, curL, colCur)

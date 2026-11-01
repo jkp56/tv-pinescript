@@ -1,104 +1,142 @@
 # T4G Daytrade Rules
 
-Dit document beschrijft alle regels waaraan het Pine Script `trade_lines.pine` ("Trade Lijnen (SL/S/R)") moet voldoen.
+Dit document beschrijft alle regels waaraan het Pine Script `trade_lines.pine` ("Trade Lijnen (SL/S/R)") moet voldoen. Bijgewerkt tot en met versie **1.9.36**. Bij twijfel is de code leidend; dit document beschrijft wat de code doet.
+
+## Algemeen
+
+1. **Timeframe**: alle berekeningen draaien op **30m-candles**, ook als de chart op 15m staat. Alleen de 30m- en 15m-chart worden ondersteund; op elk ander timeframe verschijnt een rood waarschuwingslabel en wordt er niets getekend en geen alert verstuurd.
+2. **Alleen gesloten candles**: alles wordt berekend bij het sluiten van een 30m-candle. Een nog lopende 30m-candle telt nergens mee; zolang die loopt, blijven alle waarden op de laatst bevestigde stand staan.
+3. **Rekenfeed** (instelling, standaard aan): de berekeningen draaien op hetzelfde symbool bij een andere broker-feed dan de chart, standaard FXCM (prefix `FX`), bijv. `FX:XAUUSD` op een `FTMO_OANDA:XAUUSD`-chart. Alle niveaus, SL, TP en de lotgrootte zijn dan FXCM-prijzen; de labels tonen "(FXCM)". Bij prefix `FX` worden afwijkende OANDA-tickernamen vertaald (bijv. `NAS100USD` → `NAS100`). Is de prefix gelijk aan die van de chart of leeg, dan rekent het script op de chart-feed.
+4. **Tijd-coördinaten**: lijnen en labels staan op tijd (`xloc.bar_time`), zodat ze op de 30m- en 15m-chart op dezelfde plek staan.
 
 ## Stop Loss lijnen
 
-1. Bij het sluiten van elke candle wordt gekeken naar de **wick** (high/low) van die laatst gesloten candle — hier tellen wicks wél mee.
-2. **Long SL** = `low` van de laatst gesloten candle **min** `x` ticks (instelbaar, standaard 50).
-3. **Short SL** = `high` van de laatst gesloten candle **plus** `x` ticks (standaard 50).
-4. Er is altijd maar **één SL-lijn tegelijk zichtbaar**. Op de **signaal-candle** wordt de SL altijd gezet, ongeacht de kleur van die candle (na een gap kan een break-candle boven Resistance toch bearish zijn). Met trailing aan werkt daarna alleen een **bullish** candle de **Long SL** bij en alleen een **bearish** candle de **Short SL**. Zodra de ene lijn wordt getekend, wordt de andere (indien aanwezig) verwijderd.
-5. **Doji-uitzondering** (alleen bij trailing): een doji (close == open) werkt geen van beide lijnen bij — ze blijven op hun laatst geldige niveau staan. Reden: bij een doji wordt normaal geen trade genomen, dus is er ook geen aanleiding om de SL te herzien.
-6. De lijn loopt een instelbaar aantal bars (`lineLen`, standaard 20) naar rechts, niet oneindig door — in dit opzicht anders dan de S/R-lijnen, die wél doorlopen naar rechts.
-7. Kleur: groen voor Long SL, rood voor Short SL. Getoond met een label met de exacte prijswaarde erbij.
-8. Kan volledig aan/uit gezet worden via de instelling "Toon SL lijnen".
+1. Op de **signaal-candle** (zie LONG/SHORT signaal) wordt de SL gezet op basis van de **wick** van die candle — hier tellen wicks wél mee:
+   - **Long SL** = `low` van de signaal-candle **min** `x` ticks (instelbaar, standaard 50).
+   - **Short SL** = `high` van de signaal-candle **plus** `x` ticks (standaard 50).
+2. Op de signaal-candle wordt de SL altijd gezet, ongeacht de kleur van die candle (na een gap kan een break-candle boven Resistance toch bearish zijn).
+3. **Trailing** (instelling, standaard uit): staat trailing uit, dan blijft de SL vanaf de signaal-candle vast staan, net als de TP. Staat trailing aan, dan werkt binnen het signaalvenster elke volgende gesloten **bullish** candle de Long SL bij (`low` − x ticks) en elke **bearish** candle de Short SL (`high` + x ticks).
+4. **Doji-uitzondering** (alleen bij trailing): een doji (close == open) werkt geen van beide lijnen bij.
+5. **Signaalvenster** (`slSignalWindow`, standaard 2): de SL-lijn is alleen zichtbaar zolang het bijbehorende signaal actief is, dus binnen dit aantal 30m-candles na het signaal (de signaal-candle telt als candle 1).
+6. Er is altijd maar **één SL-lijn tegelijk zichtbaar**: die van het laatste signaal.
+7. De lijn begint bij de signaal-candle en loopt `lineLen` 30m-candles (standaard 5) naar rechts; daar begint het label met de exacte prijs. De lijn loopt niet oneindig door, anders dan de S/R-lijnen.
+8. Kleur: instelbaar, standaard groen voor Long SL en rood voor Short SL. Is de trade niet mogelijk (zie Trade Mogelijkheid), dan krijgt het label de "niet mogelijk"-kleur (standaard oranje) met de reden erin.
+9. Kan volledig aan/uit gezet worden via "Toon SL lijnen". Uit betekent ook: geen TP-lijn en geen break-lijn.
 
 ## Resistance
 
-1. Kijk terug vanaf de **laatst gesloten candle** (de nu lopende/vormende candle telt niet mee als startpunt van de zoektocht).
-2. Zoek de **meest recente overgang** van een **bullish candle** gevolgd door een **bearish candle**.
-3. Het niveau = de **bovenkant van de body** van die bullish candle (`max(open, close)`). **Uitzondering (dagsluiting/weekend)**: ligt er tussen pivot-candle en reversal-candle een tijdsgat, dan is het niveau de **open van de reversal-candle** (eerste prijs na de gap), bij gap up én gap down (instelling, standaard aan).
-4. **Geldigheidscheck (alleen body)**: dit niveau is alleen geldig als geen enkele candle daarna (inclusief de nu lopende candle) met zijn **body** dat niveau raakt of doorbreekt.
-5. **Optionele body-tolerantie** (instelling, standaard uit): de candle **direct na** de reversal-candle mag met zijn body maximaal een instelbaar aantal ticks (standaard 50) boven het level komen zonder het ongeldig te maken, **mits die candle bearish is** (de respecterende richting). Een bullish candle daar, en elke latere candle, blijft strikt. Geldt ook voor Target Resistance.
-6. **Wicks spelen voor Resistance geen rol** — de lijn mag gewoon door wicks van candles heen lopen, dat maakt het niveau niet ongeldig.
-7. Zo niet geldig (body-doorbraak) → zoek verder terug naar de vórige bullish→bearish overgang, en herhaal de check.
+1. Kijk terug vanaf de **laatst gesloten 30m-candle**, maximaal `maxScanBars` candles (standaard 450).
+2. Zoek de **meest recente overgang** van een **bullish candle** (pivot-candle) gevolgd door een **bearish candle** (reversal-candle). Een doji is geen van beide en vormt dus geen overgang.
+3. Het niveau = de **bovenkant van de body** van de pivot-candle (`max(open, close)`). **Uitzondering (dagsluiting/weekend)**: ligt er tussen pivot-candle en reversal-candle een tijdsgat van meer dan één 30m-candle, dan is het niveau de **open van de reversal-candle** (eerste prijs na de gap), bij gap up én gap down (instelling, standaard aan).
+4. **Geldigheidscheck (alleen body)**: het niveau is alleen geldig als geen enkele latere gesloten candle met zijn **body boven** het niveau komt. Een body die precies op het niveau eindigt, maakt het niet ongeldig.
+5. **Reversal-candle uitsluiten** (instelling, standaard aan): de reversal-candle zelf telt niet mee in de check van zijn eigen niveau. Alleen candles daarna kunnen het ongeldig maken.
+6. **Body-tolerantie voor de candle na de overgang** (instelling, standaard uit): de candle **direct na** de reversal-candle mag met zijn body maximaal een instelbaar aantal ticks (standaard 50) boven het niveau komen, **mits die candle bearish is** (de respecterende richting). Een bullish candle op die plek blijft strikt.
+7. **Body-tolerantie voor alle latere candles** (instelling, standaard uit): **elke** latere candle, ongeacht kleur, mag met zijn body maximaal een instelbaar aantal ticks (standaard 50) boven het niveau komen. Voor de candle direct na de reversal-candle geldt dan de grootste van de twee toleranties (mits bearish). Let op: is deze tolerantie groter dan `x` (signaal), dan kan een close tussen die twee grenzen een signaal geven terwijl het niveau blijft staan.
+8. **Wicks spelen voor Resistance geen rol** — de lijn mag door wicks heen lopen.
+9. Niet geldig → zoek verder terug naar de vórige bullish→bearish overgang en herhaal de check.
+10. **Fallback**: geen geldige overgang binnen `maxScanBars` → Resistance = de hoogste high in die range, label `[FALLBACK]`.
+11. **Verschuiving**: na de Target-zoektocht kan Resistance nog verschuiven naar een tussenliggend niveau (zie Target Resistance, punt 6).
 
 ## Support
 
 Spiegelbeeld van Resistance:
 
-1. Meest recente overgang van een **bearish candle** gevolgd door een **bullish candle**.
-2. Niveau = **onderkant van de body** van die bearish candle (`min(open, close)`). **Uitzondering (dagsluiting/weekend)**: ligt er tussen pivot-candle en reversal-candle een tijdsgat, dan is het niveau de **open van de reversal-candle** (eerste prijs na de gap), bij gap up én gap down (instelling, standaard aan).
-3. Geldigheidscheck (alleen body): geldig alleen als geen enkele candle daarna (incl. lopende candle) met zijn **body** dat niveau raakt/doorbreekt.
-4. **Optionele body-tolerantie**: spiegelbeeld van Resistance. De candle direct na de reversal-candle mag met zijn body maximaal het ingestelde aantal ticks onder het level komen, **mits die candle bullish is**. Geldt ook voor Target Support.
-5. **Wicks spelen voor Support geen rol** — de lijn mag door wicks heen lopen.
+1. Meest recente overgang van een **bearish candle** (pivot) gevolgd door een **bullish candle** (reversal).
+2. Niveau = **onderkant van de body** van de pivot-candle (`min(open, close)`). Zelfde uitzondering bij een tijdsgat: dan de **open van de reversal-candle**.
+3. Geldigheidscheck (alleen body): geldig alleen als geen enkele latere gesloten candle met zijn **body onder** het niveau komt. Precies op het niveau is toegestaan.
+4. Reversal-candle uitsluiten en beide body-toleranties werken gespiegeld: de tolerantie voor de candle direct na de overgang geldt alleen als die candle **bullish** is; de tolerantie voor latere candles geldt ongeacht kleur, onder het niveau.
+5. **Wicks spelen voor Support geen rol.**
+6. **Fallback**: de laagste low in de scanrange, label `[FALLBACK]`.
+7. **Verschuiving**: zie Target Support.
 
 ## Target Resistance
 
-1. **Eigen, onafhankelijke zoektocht** naar een bullish→bearish overgang — exact dezelfde soort patroondetectie als Resistance (puur op **body**, wicks spelen geen rol bij het bepalen van de overgang).
-2. Het niveau = de **bovenkant van de body** (`max(open, close)`) van die pivot-candle — geen wick. **Uitzondering (dagsluiting/weekend)**: ligt er tussen pivot-candle en reversal-candle een tijdsgat, dan is het niveau de **open van de reversal-candle** (eerste prijs na de gap), bij gap up én gap down (instelling, standaard aan).
-3. **Extra eis**: het niveau moet minimaal een instelbaar aantal ticks (standaard 300, `minTargetDistance`) **boven Resistance** liggen. Is de afstand kleiner, dan is de kandidaat ongeldig en wordt er verder teruggezocht naar een eerdere overgang die wél aan deze eis voldoet.
-4. **Geldigheidscheck**:
-   - Geen enkele latere candle mag met zijn **body** het niveau raken/doorbreken (zelfde soort check als bij Resistance zelf, geen uitzonderingen).
-   - **Gratie voor wicks**: de reversal-candle (de bearish candle die de overgang vormt) hoort bij de overgang en wordt niet op zijn wick gecontroleerd. De **eerste candle ná de overgang** mag het niveau met een wick raken zonder het ongeldig te maken, maar alleen als die candle **bearish** is (de "respecterende" richting voor Resistance). Een bullish candle of doji op die plek krijgt geen gratie. Élke candle daarna (ongeacht kleur) maakt het niveau ongeldig als zijn wick het raakt/doorbreekt.
-5. Zo niet geldig → verder terugzoeken naar de vorige bullish→bearish overgang die aan alle eisen voldoet.
-6. Als er geen geldige overgang gevonden wordt binnen de scanrange, valt het terug op een vaste afstand in ticks vanaf Resistance.
+1. **Eigen zoektocht** vanaf de laatst gesloten candle naar bullish→bearish overgangen, met dezelfde patroondetectie, hetzelfde niveau (incl. gap-uitzondering) en dezelfde body-check als Resistance (incl. reversal-candle uitsluiten en beide body-toleranties).
+2. **Afstandseis**: het niveau moet minimaal `minTargetDistance` ticks (standaard 300) **boven Resistance** liggen. Resistance is hier de waarde vóór een eventuele verschuiving (punt 6).
+3. **Wick-check** (alleen voor het Target zelf):
+   - De reversal-candle hoort bij de overgang en wordt niet op zijn wick gecontroleerd.
+   - De **eerste candle ná de overgang** mag het niveau met een wick raken, maar alleen als die candle **bearish** is. Een bullish candle of doji op die plek krijgt geen gratie.
+   - Élke candle daarna (ongeacht kleur) maakt het niveau ongeldig zodra zijn high het niveau raakt of doorbreekt.
+4. Het **eerste** niveau dat body-geldig is, ver genoeg ligt én de wick-check doorstaat, wordt Target Resistance. Daar stopt de zoektocht.
+5. Body-geldige niveaus die onderweg afvallen (te dichtbij, of al met een wick geraakt) worden onthouden; het **laatst gevondene** daarvan (het verst terug, vlak vóór het Target) is het tussenliggende niveau.
+6. **Verschuiving van Resistance**: is er een Target gevonden én een tussenliggend niveau, dan wordt Resistance dat tussenliggende niveau. Anders blijven Resistance en Target zoals ze zijn. Het tussenliggende niveau hoeft de wick-check niet te doorstaan.
+7. **Fallback**: geen geldig Target binnen de scanrange → Target = Resistance plus het grootste van `autoTargetTicks` (standaard 100) en `minTargetDistance` ticks, label `[FALLBACK]`. Resistance verschuift dan niet.
 
 ## Target Support
 
 Spiegelbeeld van Target Resistance:
 
-1. Eigen, onafhankelijke zoektocht naar een bearish→bullish overgang, puur op body.
-2. Niveau = **onderkant van de body** (`min(open, close)`) van die pivot-candle. **Uitzondering (dagsluiting/weekend)**: ligt er tussen pivot-candle en reversal-candle een tijdsgat, dan is het niveau de **open van de reversal-candle** (eerste prijs na de gap), bij gap up én gap down (instelling, standaard aan).
-3. Extra eis: het niveau moet minimaal `minTargetDistance` ticks **onder Support** liggen.
-4. Geldigheidscheck:
-   - Geen enkele latere candle mag met zijn body het niveau raken/doorbreken.
-   - Gratie voor wicks: de reversal-candle (bullish) wordt niet op zijn wick gecontroleerd. De eerste candle ná de overgang mag het niveau met een wick raken, maar alleen als die candle **bullish** is (respecterende richting voor Support). Élke candle daarna (ongeacht kleur) maakt het niveau ongeldig als zijn wick het raakt.
-5. Fallback (vaste afstand in ticks) als er geen geldige overgang gevonden wordt.
+1. Eigen zoektocht naar bearish→bullish overgangen, met dezelfde niveaubepaling en body-check als Support.
+2. Afstandseis: minimaal `minTargetDistance` ticks **onder Support** (vóór verschuiving).
+3. Wick-check: de reversal-candle wordt niet gecontroleerd; de eerste candle ná de overgang mag het niveau met een wick raken als die candle **bullish** is; élke candle daarna maakt het niveau ongeldig zodra zijn low het raakt of doorbreekt.
+4. Eerste niveau dat aan alle eisen voldoet = Target Support; het laatst afgevallen body-geldige niveau ervoor is het tussenliggende niveau waar Support naartoe verschuift.
+5. Fallback: Support min het grootste van `autoTargetTicks` en `minTargetDistance` ticks. Support verschuift dan niet.
 
 ## Tekenregels (alle 4 S/R-lijnen)
 
-- Lijn begint **exact bij de overgang-candle** (niet doorgetrokken naar links).
+- De lijn begint bij de **pivot-candle** van de overgang (bij een fallback aan het begin van de scanrange).
 - Loopt door naar **rechts** (door de huidige candle heen, de toekomst in).
-- Lijndikte **2px**.
-- Alles wordt **opnieuw berekend en getekend bij elke candle close** (niet pas bij elke tick).
+- Lijndikte **2px**. Resistance rood, Support groen; de Target-lijnen in dezelfde kleur, lichter.
+- Label bij de laatst gesloten 30m-candle met de naam, de feed (bijv. "(FXCM)") en `[pivot N candles terug]` of `[FALLBACK]`. Tekstkleur instelbaar.
+- Alles wordt **opnieuw berekend en getekend bij elke gesloten 30m-candle**, ook op de 15m-chart. Uitzondering: zie Freeze.
 - Geen handmatig verslepen nodig — volledig automatisch.
 
 ## LONG signaal
 
-1. Wordt alleen getest bij een **candle close**, niet tijdens de vorming van een candle.
-2. Triggert wanneer de **close** van de zojuist gesloten candle voor het eerst boven `Resistance + x ticks` uitkomt — dus alleen op het moment van de eerste doorbraak, niet elke volgende candle die er nog steeds boven sluit.
+1. Wordt alleen getest bij het sluiten van een 30m-candle.
+2. Triggert wanneer de **close** van die candle boven `Resistance + x ticks` sluit terwijl de vorige close daar nog op of onder lag — alleen bij de eerste doorbraak, niet bij elke volgende candle die er nog boven sluit.
 3. `x` = instelbaar aantal ticks (standaard 10).
-4. Bij triggeren: groen label boven de candle met tekst "LONG signaal / Close > Resistance +x ticks", plus een alert.
-5. Het vorige signaallabel (long of short) wordt eerst verwijderd, zodat alleen het laatste signaal zichtbaar blijft.
-6. **Belangrijk voor verificatie**: het signaal wordt getoetst tegen Resistance zoals die gold vlak vóór deze candle - niet tegen de Resistance-lijn die je ná deze candle op de chart ziet. Zodra de candle die lijn doorbreekt, wordt ze zelf ongeldig en herberekent het script Resistance naar het eerstvolgende geldige (verder terugliggende) niveau. Om dit toch te kunnen controleren, krijgt de break-lijn (het zwarte stippellijntje op het doorbraakniveau) een label met het exacte doorbroken niveau: "Resistance doorbroken: [prijs]".
+4. **Getoetst tegen de Resistance van vóór deze candle**: de Resistance zoals die na de vorige candle op de chart stond (inclusief een eventuele verschuiving). Zodra de candle die lijn doorbreekt, wordt ze ongeldig en berekent het script Resistance opnieuw.
+5. **Geen dubbel signaal**: loopt er nog een LONG-signaalvenster (`slSignalWindow`), dan telt een nieuwe doorbraak niet als nieuw signaal. Resistance kan na een sterke beweging verspringen; zonder deze regel zou dat een tweede signaal met een andere R geven.
+6. Bij triggeren:
+   - een **alert** ("Bullish breakout: close boven Resistance + x ticks"), één keer per signaal, ook als de trade niet mogelijk is;
+   - de **break-lijn**: zwarte stippellijn op het doorbraakniveau (`Resistance + x ticks`), doorlopend naar links tot `lineLen` candles na de signaal-candle, met het label "Resistance doorbroken: [prijs]". Zo is het doorbroken niveau achteraf te controleren. Alleen zichtbaar als "Toon SL lijnen" aan staat;
+   - SL, TP en Trade Mogelijkheid (zie daar).
+7. Er is geen apart signaallabel of signaalpijl.
+8. Er is maximaal één signaal tegelijk actief: het laatste signaal (LONG of SHORT) bepaalt welke lijnen getoond worden.
 
 ## SHORT signaal
 
 Spiegelbeeld van het LONG signaal:
 
-1. Alleen getest bij candle close.
-2. Triggert wanneer de close voor het eerst onder `Support − x ticks` zakt.
-3. Zelfde instelbare `x` (ticks) als bij het LONG signaal.
-4. Bij triggeren: rood label onder de candle met tekst "SHORT signaal / Close < Support -x ticks", plus alert.
-5. Vervangt eveneens het vorige signaallabel.
-6. **Belangrijk voor verificatie**: net als bij LONG wordt het signaal getoetst tegen Support zoals die gold vlak vóór deze candle, niet tegen de Support-lijn die je ná deze candle op de chart ziet - die kan intussen alweer (ver) terugliggend herberekend zijn. De break-lijn krijgt daarom een label met het exacte doorbroken niveau: "Support doorbroken: [prijs]".
+1. Alleen getest bij het sluiten van een 30m-candle.
+2. Triggert wanneer de close onder `Support − x ticks` sluit terwijl de vorige close daar nog op of boven lag.
+3. Zelfde `x` als bij LONG.
+4. Getoetst tegen de Support van vóór deze candle.
+5. Geen dubbel signaal zolang er een SHORT-signaalvenster loopt.
+6. Bij triggeren: alert ("Bearish breakdown: close onder Support - x ticks"), break-lijn met label "Support doorbroken: [prijs]", SL, TP en Trade Mogelijkheid.
 
 ## Trade Mogelijkheid (TP & Range-check)
 
-1. Wordt bepaald direct bij een LONG- of SHORT-signaal, op dezelfde candle-close als het signaal zelf.
-2. **R** = het verschil tussen de **close** van de signaal-candle en de waarde van de bijbehorende SL-lijn, met dezelfde formule als de Stop Loss-lijnen hierboven:
-   - Long: `SL = low van de signaal-candle − x ticks` → `R = close − SL`.
-   - Short: `SL = high van de signaal-candle + x ticks` → `R = SL − close`.
-3. **TP** = entry (= close van de signaal-candle) **plus** (Long) of **min** (Short) een instelbare Risk/Reward-ratio (`tpRR`, standaard **1.2**) maal R.
-4. **Range-check**: de beschikbare ruimte tussen de S/R-lijnen moet minimaal een instelbare Risk/Reward-ratio (`minRangeRR`, standaard **1.0**) maal R kunnen bevatten:
-   - Long: Range = **Target Resistance − Resistance**.
-   - Short: Range = **Support − Target Support**.
-   - Beide gebruiken de actuele waarden van die lijnen, zoals net herberekend op de signaal-candle.
-5. **Max R-check**: R, uitgedrukt in ticks, mag niet groter zijn dan een instelbaar maximum (`maxRTicks`, standaard **1000 ticks**). Is R groter, dan is de trade ook ongeldig — los van de Range-check. Deze twee voorwaarden gelden onafhankelijk van elkaar en kunnen tegelijk optreden.
-   - Deze standaardwaarde van 1000 ticks hoort specifiek bij deze strategie op **XAUUSD**: op dat symbool (tick-grootte 0.01) komt dat overeen met een SL-ruimte van **100 pips / $10**. Op een ander symbool of een andere tick-grootte moet `maxRTicks` opnieuw bepaald worden.
-6. **Trade mogelijk** (Range ≥ `minRangeRR` × R **én** R ≤ `maxRTicks` ticks): een blauwe stippellijn met de TP-waarde wordt getekend, met label "TP (1.2 R/R): ... · Entry ... · R ... · Range x.xxR" — zelfde stijl als de SL-lijn. De Range wordt daarbij ook uitgedrukt in R (Range ÷ R, naar beneden afgerond op 2 decimalen), zodat direct zichtbaar is hoe ruim de trade de check haalt. Entry (close van de signaal-candle) en R (SL-afstand in prijs) staan erbij, zodat de trade direct in een externe position sizer ingevoerd kan worden.
-7. **Trade niet mogelijk** (Range < `minRangeRR` × R **en/of** R > `maxRTicks` ticks **en/of** rejection candle, zie punt 9): geen TP-lijn; in plaats daarvan verschijnt een label "Trade niet mogelijk" met per overtreden voorwaarde een eigen regel (gemeten Range in R t.o.v. `minRangeRR`, plus gemeten en benodigde afstand in prijs, bijv. "Range 0.92R < 1R (3.50 < 3.80)", en/of gemeten R in ticks + het maximum). De LONG/SHORT-alert wordt in dat geval **niet** onderdrukt — er wordt alleen visueel gesignaleerd dat de trade niet haalbaar is.
-8. TP-lijn/labels en het "niet mogelijk"-label volgen hetzelfde signaalvenster (`slSignalWindow`) als de SL-lijnen: ze verdwijnen zodra dat venster verloopt, en worden direct vervangen zodra het andere signaal (LONG of SHORT) optreedt — maximaal 1 tegelijk zichtbaar.
-9. **Rejection candle (optioneel, standaard uit)**: de breakout-30m-candle bestaat uit twee 15m-candles. Sluit de **tweede** 15m-candle tegen de trade-richting in (Long: bearish, Short: bullish) met een body van minimaal een instelbaar aantal ticks (`rejectionTicks`, standaard **50**), dan is de trade niet mogelijk ("Rejection candle 15m (x ticks >= 50)"). Een doji of kleinere tegengestelde body telt niet. Alleen de signaal-candle wordt gecontroleerd, op de rekenfeed. Deze regel komt uit de NASDAQ-strategie.
-10. Volledig aan/uit te zetten via de instelling "Toon TP-lijn en Trade-mogelijkheid check" (groep "Trade Mogelijkheid"). Beide R/R-ratio's, het R-maximum en de kleuren zijn daar los instelbaar.
+1. Wordt eenmalig bepaald op de signaal-candle zelf en blijft ongewijzigd zolang het signaalvenster loopt.
+2. **Entry** = close van de signaal-candle.
+3. **R** = afstand van entry tot de SL, met dezelfde formule als de Stop Loss-lijnen:
+   - Long: `SL = low van de signaal-candle − x ticks` → `R = entry − SL`.
+   - Short: `SL = high van de signaal-candle + x ticks` → `R = SL − entry`.
+4. **TP** = entry **plus** (Long) of **min** (Short) `tpRR` × R (standaard **1.2**).
+5. **Range-check**: de vrije ruimte van entry tot het Target moet minimaal `minRangeRR` × R (standaard **1.0**) zijn:
+   - Long: Range = **Target Resistance − entry**.
+   - Short: Range = **entry − Target Support**.
+   - Het Target is de waarde zoals die **vóór de signaal-candle** op de chart stond, net als de doorbroken Resistance/Support zelf — niet de waarde die op de signaal-candle opnieuw berekend wordt.
+   - Bewust niet gemeten vanaf (verschoven) Resistance/Support: dat niveau kan vlak bij het Target liggen, waardoor de Range kunstmatig klein wordt terwijl de trade vrij baan heeft.
+6. **Max R-check**: R in ticks mag niet groter zijn dan `maxRTicks` (standaard **1000**). Deze standaard hoort bij **XAUUSD** (tick 0.01): 1000 ticks = 100 pips / $10. Op een ander symbool moet `maxRTicks` opnieuw bepaald worden.
+7. **Rejection candle** (optioneel, standaard uit): de signaal-30m-candle bestaat uit twee 15m-candles (op de rekenfeed). Sluit de **tweede** tegen de trade-richting in (Long: bearish, Short: bullish) met een body van minimaal `rejectionTicks` (standaard **50**), dan is de trade niet mogelijk. Een doji of kleinere tegengestelde body telt niet. Bestaat de 30m-candle niet uit precies twee 15m-candles, dan wordt deze check overgeslagen. Komt uit de NASDAQ-strategie.
+8. **Trade mogelijk** = R > 0 **én** Range ≥ `minRangeRR` × R **én** R ≤ `maxRTicks` **én** geen rejection. Dan verschijnt een blauwe stippellijn op de TP met label "TP (1.2 R/R): ... · Entry ... · R ... · Range x.xxR", plus (instelbaar) de lotgrootte (zie Lotgrootte). De Range in R is naar beneden afgerond op 2 decimalen.
+9. **Trade niet mogelijk**: geen TP-lijn. De reden staat in het **SL-label**, dat dan de "niet mogelijk"-kleur krijgt (standaard oranje), met per overtreden voorwaarde een eigen regel, bijv. "Range 0.92R < 1R (3.50 < 3.80)", "R 1250 ticks > max 1000 ticks" of "Rejection candle 15m (85 ticks >= 50)". De alert wordt **niet** onderdrukt.
+10. TP-lijn en reden volgen het signaalvenster (`slSignalWindow`) en verdwijnen zodra dat verloopt; een nieuw signaal vervangt ze direct. De TP-lijn loopt, net als de SL-lijn, `lineLen` candles vanaf de signaal-candle.
+11. Aan/uit via "Toon TP-lijn en Trade-mogelijkheid check"; de TP-lijn vereist daarnaast "Toon SL lijnen".
+
+## Lotgrootte
+
+1. Bij een mogelijke trade toont het TP-label (instelbaar, standaard aan) de lotgrootte en het werkelijke risico, bijv. `Lot 0.27 · risico $98.76 (0.99%)`.
+2. Formule: `lot = account × risico% / (R × contractgrootte × koers-naar-USD + commissie per lot)`, naar beneden afgerond op 0.01 lot, minimaal 0.01. Accountvaluta is USD; niet-USD-symbolen worden omgerekend.
+3. Valt de berekening onder 0.01 lot, dan toont het label 0.01 lot met "min. lot, boven je risico!".
+4. R is de vaste R van de signaal-candle op de rekenfeed. Spread en swap zijn niet meegerekend.
+
+## Freeze
+
+1. Instelling "Lijnen bevriezen zodra een geldige trade ontstaat" (standaard uit).
+2. Staat die aan en is er bij een nieuwe 30m-candle **op de laatste candle van de chart** een mogelijke trade actief, dan blijven alle lijnen en labels staan zoals ze op dat moment getekend zijn; daarna wordt niets meer bijgewerkt.
+3. Bevriest niet met terugwerkende kracht in de geschiedenis.
+4. Opheffen: de instelling uit- en weer aanzetten.
+5. Alerts blijven werken tijdens een freeze.

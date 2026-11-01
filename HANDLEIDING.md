@@ -1,6 +1,6 @@
 # Handleiding – Trade Lijnen (SL/S/R)
 
-Gebruikershandleiding voor `trade_lines.pine`, versie **1.9.32**. Voor de technische wijzigingsgeschiedenis zie [CHANGELOG.md](CHANGELOG.md); voor de exacte detectielogica zie [T4G daytrade rules.md](T4G%20daytrade%20rules.md). Dit document beschrijft hoe je het script gebruikt en wat elke instelling in het Inputs-tabblad wel en niet doet.
+Gebruikershandleiding voor `trade_lines.pine`, versie **1.9.36**. Voor de technische wijzigingsgeschiedenis zie [CHANGELOG.md](CHANGELOG.md); voor de exacte detectielogica zie [T4G daytrade rules.md](T4G%20daytrade%20rules.md). Dit document beschrijft hoe je het script gebruikt en wat elke instelling in het Inputs-tabblad wel en niet doet.
 
 ## 1. Wat doet dit script
 
@@ -56,7 +56,7 @@ Elke alert vuurt **precies één keer per nieuw 30m-signaal**, ongeacht of je op
 
 | Instelling | Default | Wat het doet | Wat het niet doet |
 |---|---|---|---|
-| Versie | `1.9.32` | Puur informatief: toont de actieve scriptversie boven in de instellingen, zodat je niet in de code hoeft te kijken. | Heeft geen enkele invloed op de berekeningen of weergave; er is ook maar 1 optie beschikbaar. |
+| Versie | `1.9.36` | Puur informatief: toont de actieve scriptversie boven in de instellingen, zodat je niet in de code hoeft te kijken. | Heeft geen enkele invloed op de berekeningen of weergave; er is ook maar 1 optie beschikbaar. |
 
 ### Groep "Rekenfeed"
 
@@ -79,7 +79,7 @@ Elke alert vuurt **precies één keer per nieuw 30m-signaal**, ongeacht of je op
 | SL: trailing (`trailSL`) | Uit | Als aan: de getoonde SL wordt bijgewerkt bij élke nieuwe candle van de juiste kleur binnen het signaalvenster (kan tijdens een sterke beweging "verspringen"). Als uit (default): de SL wordt eenmalig vastgezet op de signaal-candle zelf en blijft daarna ongewijzigd, net als de TP-lijn. | Heeft geen invloed op de TP-waarde of de Range-check — die blijven altijd vast op de signaal-candle, ongeacht deze instelling. |
 | SL: aantal ticks van wick (`tickOffset`) | 50 | Afstand in ticks tussen de wick (low bij Long, high bij Short) van de signaal-/laatste candle en de SL-lijn. | Verandert niets aan hóe de SL bepaald wordt (nog steeds op basis van de wick), alleen de marge eromheen. |
 | SL/TP/doorbroken: lengte lijn tot label (`lineLen`) | 5 | Hoeveel 30m-candles de SL-, TP- en break-lijnen vanaf de breakout-candle naar rechts lopen. Waar de lijn eindigt, begint het label (sinds v1.9.33; daarvoor default 20 en stond het label aan het eind van een lange lijn). | Heeft **geen** effect op de Resistance/Support/Target-lijnen — die lopen altijd onbeperkt door naar rechts, ongeacht deze waarde. |
-| SL: lijn actief na signaal (`slSignalWindow`) | 2 | Bepaalt het "signaalvenster": hoeveel 30m-candles (de signaal-candle zelf telt als candle 1) de SL-, TP- en "niet mogelijk"-labels zichtbaar blijven na een signaal. Wordt ook gebruikt om te voorkomen dat een kleine verschuiving van Support/Resistance een tweede, ongewenst signaal in dezelfde richting veroorzaakt terwijl het vorige venster nog loopt. | Heeft geen invloed op de Resistance/Support-lijnen zelf (die blijven gewoon doorlopend zichtbaar, los van dit venster). |
+| SL: lijn actief na signaal (`slSignalWindow`) | 2 | Bepaalt het "signaalvenster": hoeveel 30m-candles (de signaal-candle zelf telt als candle 1) de SL-, TP- en break-lijnen met hun labels (incl. de "niet mogelijk"-reden) zichtbaar blijven na een signaal. Wordt ook gebruikt om te voorkomen dat een kleine verschuiving van Support/Resistance een tweede, ongewenst signaal in dezelfde richting veroorzaakt terwijl het vorige venster nog loopt. | Heeft geen invloed op de Resistance/Support-lijnen zelf (die blijven gewoon doorlopend zichtbaar, los van dit venster). |
 | Kleur Long SL (`longColor`) | Groen | Kleur van de SL-lijn/label bij een Long-signaal. | — |
 | Kleur Short SL (`shortColor`) | Rood | Kleur van de SL-lijn/label bij een Short-signaal. | — |
 
@@ -106,7 +106,7 @@ Elke alert vuurt **precies één keer per nieuw 30m-signaal**, ongeacht of je op
 
 | Instelling | Default | Wat het doet | Wat het niet doet |
 |---|---|---|---|
-| Toon TP-lijn en Trade-mogelijkheid check (`showTradeCheck`) | Aan | Schakelt de TP-lijn en de Range/R-controle (en dus het "Trade niet mogelijk"-label) in of uit. | Uitzetten onderdrukt **niet** de LONG/SHORT-alert of de signaallabels/SL-lijn zelf — alleen de TP-gerelateerde weergave verdwijnt. Vereist bovendien dat `showSL` ook aanstaat, anders verschijnt er sowieso geen TP-lijn. |
+| Toon TP-lijn en Trade-mogelijkheid check (`showTradeCheck`) | Aan | Schakelt de TP-lijn en de Range/R-controle (en dus het "Trade niet mogelijk"-label) in of uit. | Uitzetten onderdrukt **niet** de LONG/SHORT-alert, de break-lijn of de SL-lijn zelf — alleen de TP-gerelateerde weergave verdwijnt. Vereist bovendien dat `showSL` ook aanstaat, anders verschijnt er sowieso geen TP-lijn. |
 | TP: Risk/Reward ratio (`tpRR`) | 1.2 | Bepaalt de TP-afstand als veelvoud van R (het risico): `TP = entry ± tpRR × R`. | Heeft geen invloed op of de trade "mogelijk" is — dat wordt apart bepaald door `minRangeRR` en `maxRTicks`. |
 | Minimaal benodigde R/R-ruimte in de Range (`minRangeRR`) | 1.0 | De beschikbare ruimte tussen de entry en de bijbehorende Target-lijn (Target Resistance bij Long, Target Support bij Short), zoals die lijn op de chart stond op het moment van de break, moet minimaal `minRangeRR × R` zijn, anders is de trade "niet mogelijk" (geen TP-lijn, wel een label met de reden). De gemeten Range staat altijd in R in het label: bij een mogelijke trade achter de TP-waarde, samen met entry en R ("TP (1.2 R/R): 4279.86 · Entry 4284.16 · R 3.58 · Range 1.50R"), bij een niet-mogelijke trade in de reden (bijv. "Range 0.92R < 1R (3.50 < 3.80)"). | Tot v1.9.23 was de default 1.5R; dat bleek te streng voor trades met een TP rond 1.2R en gaf bij grensgevallen verschillen tussen broker-feeds (bijv. 1.46R op FTMO_OANDA vs 1.50R op FXCM). Omdat R en de S/R-niveaus per feed iets verschillen, kan een grensgeval op de ene broker net wel en op de andere net niet slagen — beoordeel dat zelf aan de hand van de getoonde R-waarde. Is onafhankelijk van de `maxRTicks`-check hieronder; beide voorwaarden kunnen los van elkaar (of tegelijk) een trade blokkeren. |
 | Maximaal toegestane R (ticks) (`maxRTicks`) | 1000 | Als het risico R (in ticks) groter is dan deze waarde, is de trade sowieso "niet mogelijk", ongeacht de Range-check. | **Let op:** deze default (1000 ticks = 100 pips / $10 SL) is specifiek afgestemd op **XAUUSD** (tick-grootte 0,01). Op een ander symbool of een andere tick-grootte moet je deze waarde zelf opnieuw bepalen — het script doet dat niet automatisch. |
@@ -133,7 +133,7 @@ De lotgrootte wordt berekend met de R van de rekenfeed (standaard FXCM, zie groe
 Twee mogelijke oorzaken: (1) `showSL` of `showTradeCheck` staat uit — beide moeten aan staan; (2) de trade is "niet mogelijk" volgens de Range- of R-check — kijk dan naar de reden in het SL-label.
 
 **Waarom verschuift Resistance/Support ineens naar een ander niveau?**
-Zodra de huidige lijn door een candle-body doorbroken wordt, is ze ongeldig geworden en berekent het script automatisch het eerstvolgende geldige (verder terugliggende) niveau. Dit kan er tegelijk voor zorgen dat de drempel voor een nieuw signaal (`Resistance/Support ± xTicks`) verschuift — het script voorkomt hierbij expliciet dat zo'n verschuiving een tweede, ongewenst signaal in dezelfde richting veroorzaakt zolang het vorige signaalvenster nog loopt.
+Er zijn twee oorzaken. (1) Zodra de huidige lijn door een candle-body doorbroken wordt, is ze ongeldig geworden en berekent het script automatisch het eerstvolgende geldige (verder terugliggende) niveau. (2) Bij het zoeken naar het Target-niveau kan het script een geldig tussenliggend niveau vinden dat te dicht bij Resistance/Support ligt om Target te zijn (`minTargetDistance`) of al met een wick geraakt is. Is er een Target gevonden, dan verschuift Resistance/Support naar het laatste (verst terugliggende) zo'n tussenliggend niveau. Zie "T4G daytrade rules.md", Target Resistance punt 5 en 6. Dit kan er tegelijk voor zorgen dat de drempel voor een nieuw signaal (`Resistance/Support ± xTicks`) verschuift — het script voorkomt hierbij expliciet dat zo'n verschuiving een tweede, ongewenst signaal in dezelfde richting veroorzaakt zolang het vorige signaalvenster nog loopt.
 
 **Waarom loopt de SL/TP-lijn niet even ver door als de Resistance/Support-lijn?**
 Dat is bewust: `lineLen` bepaalt alleen de lengte van SL/TP/break-lijnen. Resistance/Support/Target lopen altijd onbeperkt door naar rechts.

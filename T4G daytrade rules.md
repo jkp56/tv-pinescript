@@ -1,6 +1,6 @@
 # T4G Daytrade Rules
 
-Dit document beschrijft alle regels waaraan het Pine Script `trade_lines.pine` ("Trade Lijnen (SL/S/R)") moet voldoen. Bijgewerkt tot en met versie **1.9.37**. Bij twijfel is de code leidend; dit document beschrijft wat de code doet.
+Dit document beschrijft alle regels waaraan het Pine Script `trade_lines.pine` ("Trade Lijnen (SL/S/R)") moet voldoen. Bijgewerkt tot en met versie **1.9.38**. Bij twijfel is de code leidend; dit document beschrijft wat de code doet.
 
 ## Algemeen
 
@@ -91,6 +91,7 @@ Spiegelbeeld van Target Resistance:
 6. Bij triggeren:
    - een **alert** ("Bullish breakout: close boven Resistance + x ticks"), één keer per signaal, ook als de trade niet mogelijk is;
    - de **break-lijn**: zwarte stippellijn op het doorbraakniveau (`Resistance + x ticks`), doorlopend naar links tot `lineLen` candles na de signaal-candle, met het label "Resistance doorbroken: [prijs]". Zo is het doorbroken niveau achteraf te controleren. Alleen zichtbaar als "Toon SL lijnen" aan staat;
+   - de **target-lijn bij de break**: rode stippellijn (groen bij Short) op het Target Resistance zoals het vóór de signaal-candle stond (het target van de Range-check), met het label "Target Resistance bij break: [prijs]". Ook alleen zichtbaar als "Toon SL lijnen" aan staat;
    - SL, TP en Trade Mogelijkheid (zie daar).
 7. Er is geen apart signaallabel of signaalpijl.
 8. Er is maximaal één signaal tegelijk actief: het laatste signaal (LONG of SHORT) bepaalt welke lijnen getoond worden.

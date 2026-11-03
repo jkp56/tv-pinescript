@@ -3,6 +3,11 @@
 Alle noemenswaardige wijzigingen aan `trade_lines.pine` worden hier bijgehouden.
 Versienummering volgt [Semantic Versioning](https://semver.org/lang/nl/) (MAJOR.MINOR.PATCH).
 
+## [1.9.38]
+
+### Toegevoegd
+- **Target-lijn bij de break.** Naast de zwarte "doorbroken"-lijn staat nu een gestippelde lijn (rood bij Long, groen bij Short) met het label "Target Resistance/Support bij break: [prijs]". Dat is het Target zoals het op de chart stond vóór de signaal-candle, precies het target waar de Range-check mee rekent. Het Target op de chart wordt na de break opnieuw berekend en kan dan elders liggen, waardoor een negatieve Range (de close ligt al voorbij het target) niet meer te controleren was. Alleen zichtbaar als *Toon SL lijnen* aan staat, net als de doorbroken-lijn.
+
 ## [1.9.37]
 
 ### Gewijzigd

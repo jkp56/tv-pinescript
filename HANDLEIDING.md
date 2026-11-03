@@ -1,6 +1,6 @@
 # Handleiding – Trade Lijnen (SL/S/R)
 
-Gebruikershandleiding voor `trade_lines.pine`, versie **1.9.37**. Voor de technische wijzigingsgeschiedenis zie [CHANGELOG.md](CHANGELOG.md); voor de exacte detectielogica zie [T4G daytrade rules.md](T4G%20daytrade%20rules.md). Dit document beschrijft hoe je het script gebruikt en wat elke instelling in het Inputs-tabblad wel en niet doet.
+Gebruikershandleiding voor `trade_lines.pine`, versie **1.9.38**. Voor de technische wijzigingsgeschiedenis zie [CHANGELOG.md](CHANGELOG.md); voor de exacte detectielogica zie [T4G daytrade rules.md](T4G%20daytrade%20rules.md). Dit document beschrijft hoe je het script gebruikt en wat elke instelling in het Inputs-tabblad wel en niet doet.
 
 ## 1. Wat doet dit script
 
@@ -32,6 +32,7 @@ Alle berekeningen draaien **altijd op de 30-minuten candles**, ongeacht op welk 
 | Target Resistance-lijn | Rood, lichter/transparanter | Verder gelegen niveau boven Resistance; bepaalt de beschikbare "ruimte" voor een Long-trade. |
 | Target Support-lijn | Groen, lichter/transparanter | Spiegelbeeld van Target Resistance, voor Short-trades. |
 | Zwarte stippellijn + label "Resistance/Support doorbroken: …" | Zwart, gestippeld | Toont het exacte prijsniveau waarop het LONG/SHORT-signaal getriggerd is. Nodig omdat Resistance/Support na de doorbraak zelf herberekend wordt en dus kan verschuiven — deze lijn/label blijft het originele doorbroken niveau tonen. Alleen zichtbaar als *Toon SL lijnen* aan staat (sinds v1.9.29). De lijn loopt `lineLen` candles vanaf de breakout-candle; daar begint het label (sinds v1.9.33). |
+| Gestippelde lijn + label "Target Resistance/Support bij break: …" | Rood (Long) / groen (Short), gestippeld | Het Target zoals het vóór de signaal-candle op de chart stond: het target waarmee de Range-check rekent. Het Target op de chart zelf wordt na de break herberekend en kan verspringen; deze lijn blijft het oorspronkelijke target tonen. Ligt de lijn al aan de verkeerde kant van de close, dan is de Range negatief. Alleen zichtbaar als *Toon SL lijnen* aan staat (sinds v1.9.38). |
 | SL-lijn | Groen (Long) / rood (Short), gestippeld | Stop loss van het actieve signaal, inclusief prijswaarde in het label. Wordt **niet** getekend als de trade niet mogelijk is (sinds v1.9.37). |
 | "Trade niet mogelijk"-blok | Oranje | Vast blok op het scherm (default rechtsboven, instelbaar) met richting, feed en de reden(en) waarom het actieve signaal geen geldige trade is. Verdwijnt zodra het signaalvenster afloopt. De "doorbroken"-lijn blijft gewoon staan. |
 | TP-lijn | Blauw, gestippeld | Take-profit niveau, alleen zichtbaar als de trade wél mogelijk is. Het label toont ook entry, R, Range en (sinds v1.9.28) de lotgrootte met het bijbehorende risico in $. |
@@ -57,7 +58,7 @@ Elke alert vuurt **precies één keer per nieuw 30m-signaal**, ongeacht of je op
 
 | Instelling | Default | Wat het doet | Wat het niet doet |
 |---|---|---|---|
-| Versie | `1.9.37` | Puur informatief: toont de actieve scriptversie boven in de instellingen, zodat je niet in de code hoeft te kijken. | Heeft geen enkele invloed op de berekeningen of weergave; er is ook maar 1 optie beschikbaar. |
+| Versie | `1.9.38` | Puur informatief: toont de actieve scriptversie boven in de instellingen, zodat je niet in de code hoeft te kijken. | Heeft geen enkele invloed op de berekeningen of weergave; er is ook maar 1 optie beschikbaar. |
 
 ### Groep "Rekenfeed"
 
@@ -76,7 +77,7 @@ Elke alert vuurt **precies één keer per nieuw 30m-signaal**, ongeacht of je op
 
 | Instelling | Default | Wat het doet | Wat het niet doet |
 |---|---|---|---|
-| Toon SL lijnen (`showSL`) | Aan | Schakelt de SL-lijn/label volledig in of uit. | Als je dit uitzet, verdwijnen **ook** de TP-lijn (die vereist `showSL` én `showTradeCheck` samen) en de zwarte "Resistance/Support doorbroken"-lijn met label (sinds v1.9.29) — het zet dus niet alleen de SL-weergave uit. |
+| Toon SL lijnen (`showSL`) | Aan | Schakelt de SL-lijn/label volledig in of uit. | Als je dit uitzet, verdwijnen **ook** de TP-lijn (die vereist `showSL` én `showTradeCheck` samen) en de zwarte "Resistance/Support doorbroken"-lijn met label (sinds v1.9.29) en de target-lijn bij de break (sinds v1.9.38) — het zet dus niet alleen de SL-weergave uit. |
 | SL: trailing (`trailSL`) | Uit | Als aan: de getoonde SL wordt bijgewerkt bij élke nieuwe candle van de juiste kleur binnen het signaalvenster (kan tijdens een sterke beweging "verspringen"). Als uit (default): de SL wordt eenmalig vastgezet op de signaal-candle zelf en blijft daarna ongewijzigd, net als de TP-lijn. | Heeft geen invloed op de TP-waarde of de Range-check — die blijven altijd vast op de signaal-candle, ongeacht deze instelling. |
 | SL: aantal ticks van wick (`tickOffset`) | 50 | Afstand in ticks tussen de wick (low bij Long, high bij Short) van de signaal-/laatste candle en de SL-lijn. | Verandert niets aan hóe de SL bepaald wordt (nog steeds op basis van de wick), alleen de marge eromheen. |
 | SL/TP/doorbroken: lengte lijn tot label (`lineLen`) | 5 | Hoeveel 30m-candles de SL-, TP- en break-lijnen vanaf de breakout-candle naar rechts lopen. Waar de lijn eindigt, begint het label (sinds v1.9.33; daarvoor default 20 en stond het label aan het eind van een lange lijn). | Heeft **geen** effect op de Resistance/Support/Target-lijnen — die lopen altijd onbeperkt door naar rechts, ongeacht deze waarde. |

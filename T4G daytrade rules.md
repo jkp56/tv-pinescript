@@ -1,6 +1,6 @@
 # T4G Daytrade Rules
 
-Dit document beschrijft alle regels waaraan het Pine Script `trade_lines.pine` ("Trade Lijnen (SL/S/R)") moet voldoen. Bijgewerkt tot en met versie **1.9.36**. Bij twijfel is de code leidend; dit document beschrijft wat de code doet.
+Dit document beschrijft alle regels waaraan het Pine Script `trade_lines.pine` ("Trade Lijnen (SL/S/R)") moet voldoen. Bijgewerkt tot en met versie **1.9.37**. Bij twijfel is de code leidend; dit document beschrijft wat de code doet.
 
 ## Algemeen
 
@@ -20,7 +20,7 @@ Dit document beschrijft alle regels waaraan het Pine Script `trade_lines.pine` (
 5. **Signaalvenster** (`slSignalWindow`, standaard 2): de SL-lijn is alleen zichtbaar zolang het bijbehorende signaal actief is, dus binnen dit aantal 30m-candles na het signaal (de signaal-candle telt als candle 1).
 6. Er is altijd maar **één SL-lijn tegelijk zichtbaar**: die van het laatste signaal.
 7. De lijn begint bij de signaal-candle en loopt `lineLen` 30m-candles (standaard 5) naar rechts; daar begint het label met de exacte prijs. De lijn loopt niet oneindig door, anders dan de S/R-lijnen.
-8. Kleur: instelbaar, standaard groen voor Long SL en rood voor Short SL. Is de trade niet mogelijk (zie Trade Mogelijkheid), dan krijgt het label de "niet mogelijk"-kleur (standaard oranje) met de reden erin.
+8. Kleur: instelbaar, standaard groen voor Long SL en rood voor Short SL. Is de trade niet mogelijk (zie Trade Mogelijkheid), dan wordt de SL-lijn niet getekend.
 9. Kan volledig aan/uit gezet worden via "Toon SL lijnen". Uit betekent ook: geen TP-lijn en geen break-lijn.
 
 ## Resistance
@@ -122,7 +122,7 @@ Spiegelbeeld van het LONG signaal:
 6. **Max R-check**: R in ticks mag niet groter zijn dan `maxRTicks` (standaard **1000**). Deze standaard hoort bij **XAUUSD** (tick 0.01): 1000 ticks = 100 pips / $10. Op een ander symbool moet `maxRTicks` opnieuw bepaald worden.
 7. **Rejection candle** (optioneel, standaard uit): de signaal-30m-candle bestaat uit twee 15m-candles (op de rekenfeed). Sluit de **tweede** tegen de trade-richting in (Long: bearish, Short: bullish) met een body van minimaal `rejectionTicks` (standaard **50**), dan is de trade niet mogelijk. Een doji of kleinere tegengestelde body telt niet. Bestaat de 30m-candle niet uit precies twee 15m-candles, dan wordt deze check overgeslagen. Komt uit de NASDAQ-strategie.
 8. **Trade mogelijk** = R > 0 **én** Range ≥ `minRangeRR` × R **én** R ≤ `maxRTicks` **én** geen rejection. Dan verschijnt een blauwe stippellijn op de TP met label "TP (1.2 R/R): ... · Entry ... · R ... · Range x.xxR", plus (instelbaar) de lotgrootte (zie Lotgrootte). De Range in R is naar beneden afgerond op 2 decimalen.
-9. **Trade niet mogelijk**: geen TP-lijn. De reden staat in het **SL-label**, dat dan de "niet mogelijk"-kleur krijgt (standaard oranje), met per overtreden voorwaarde een eigen regel, bijv. "Range 0.92R < 1R (3.50 < 3.80)", "R 1250 ticks > max 1000 ticks" of "Rejection candle 15m (85 ticks >= 50)". De alert wordt **niet** onderdrukt.
+9. **Trade niet mogelijk**: geen TP-lijn en geen SL-lijn. De reden staat in een vast **"Trade niet mogelijk"-blok** op het scherm (positie instelbaar, standaard rechtsboven; kleur standaard oranje), met per overtreden voorwaarde een eigen regel, bijv. "Range 0.92R < 1R (3.50 < 3.80)", "R 1250 ticks > max 1000 ticks" of "Rejection candle 15m (85 ticks >= 50)". De alert wordt **niet** onderdrukt.
 10. TP-lijn en reden volgen het signaalvenster (`slSignalWindow`) en verdwijnen zodra dat verloopt; een nieuw signaal vervangt ze direct. De TP-lijn loopt, net als de SL-lijn, `lineLen` candles vanaf de signaal-candle.
 11. Aan/uit via "Toon TP-lijn en Trade-mogelijkheid check"; de TP-lijn vereist daarnaast "Toon SL lijnen".
 

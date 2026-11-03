@@ -1,6 +1,6 @@
 # Handleiding – Trade Lijnen (SL/S/R)
 
-Gebruikershandleiding voor `trade_lines.pine`, versie **1.9.36**. Voor de technische wijzigingsgeschiedenis zie [CHANGELOG.md](CHANGELOG.md); voor de exacte detectielogica zie [T4G daytrade rules.md](T4G%20daytrade%20rules.md). Dit document beschrijft hoe je het script gebruikt en wat elke instelling in het Inputs-tabblad wel en niet doet.
+Gebruikershandleiding voor `trade_lines.pine`, versie **1.9.37**. Voor de technische wijzigingsgeschiedenis zie [CHANGELOG.md](CHANGELOG.md); voor de exacte detectielogica zie [T4G daytrade rules.md](T4G%20daytrade%20rules.md). Dit document beschrijft hoe je het script gebruikt en wat elke instelling in het Inputs-tabblad wel en niet doet.
 
 ## 1. Wat doet dit script
 
@@ -10,7 +10,7 @@ De indicator tekent automatisch, zonder handmatig werk:
 - **Target-lijnen** (verder gelegen niveaus) die bepalen hoeveel "ruimte" een trade heeft.
 - **LONG/SHORT-signalen** zodra de prijs een niveau met een marge doorbreekt.
 - **Stop Loss (SL)-lijnen** bij elk signaal.
-- Een **Take Profit (TP)-lijn**, of juist een **"Trade niet mogelijk"-label** als de trade niet aan de risk/reward-eisen voldoet.
+- Een **Take Profit (TP)-lijn**, of juist een **"Trade niet mogelijk"-blok** als de trade niet aan de risk/reward-eisen voldoet.
 - **Alerts** bij elk nieuw LONG/SHORT-signaal.
 
 Alle berekeningen draaien **altijd op de 30-minuten candles**, ongeacht op welk timeframe je zelf kijkt.
@@ -32,7 +32,8 @@ Alle berekeningen draaien **altijd op de 30-minuten candles**, ongeacht op welk 
 | Target Resistance-lijn | Rood, lichter/transparanter | Verder gelegen niveau boven Resistance; bepaalt de beschikbare "ruimte" voor een Long-trade. |
 | Target Support-lijn | Groen, lichter/transparanter | Spiegelbeeld van Target Resistance, voor Short-trades. |
 | Zwarte stippellijn + label "Resistance/Support doorbroken: …" | Zwart, gestippeld | Toont het exacte prijsniveau waarop het LONG/SHORT-signaal getriggerd is. Nodig omdat Resistance/Support na de doorbraak zelf herberekend wordt en dus kan verschuiven — deze lijn/label blijft het originele doorbroken niveau tonen. Alleen zichtbaar als *Toon SL lijnen* aan staat (sinds v1.9.29). De lijn loopt `lineLen` candles vanaf de breakout-candle; daar begint het label (sinds v1.9.33). |
-| SL-lijn | Groen (Long) / rood (Short), gestippeld | Stop loss van het actieve signaal, inclusief prijswaarde in het label. Als de trade niet mogelijk is (zie Trade Mogelijkheid), verschijnt de reden in hetzelfde label en verandert de kleur naar de "niet mogelijk"-kleur (default oranje). |
+| SL-lijn | Groen (Long) / rood (Short), gestippeld | Stop loss van het actieve signaal, inclusief prijswaarde in het label. Wordt **niet** getekend als de trade niet mogelijk is (sinds v1.9.37). |
+| "Trade niet mogelijk"-blok | Oranje | Vast blok op het scherm (default rechtsboven, instelbaar) met richting, feed en de reden(en) waarom het actieve signaal geen geldige trade is. Verdwijnt zodra het signaalvenster afloopt. De "doorbroken"-lijn blijft gewoon staan. |
 | TP-lijn | Blauw, gestippeld | Take-profit niveau, alleen zichtbaar als de trade wél mogelijk is. Het label toont ook entry, R, Range en (sinds v1.9.28) de lotgrootte met het bijbehorende risico in $. |
 | Rood waarschuwingslabel | Rood | Verschijnt alleen op een niet-ondersteund timeframe (zie §2). |
 
@@ -48,7 +49,7 @@ Er vuurt automatisch een alert bij elk nieuw signaal (werkt met `alert()`, dus j
 - **Bullish breakout**: "Bullish breakout: close boven Resistance + X ticks"
 - **Bearish breakdown**: "Bearish breakdown: close onder Support - X ticks"
 
-Elke alert vuurt **precies één keer per nieuw 30m-signaal**, ongeacht of je op de 15m- of 30m-chart kijkt (met een vertraging van maximaal één candle van je eigen chart-timeframe totdat de bijgewerkte 30m-waarde binnenkomt). De alert wordt **niet** onderdrukt als de trade achteraf "niet mogelijk" blijkt — dat wordt alleen visueel aangegeven via het label.
+Elke alert vuurt **precies één keer per nieuw 30m-signaal**, ongeacht of je op de 15m- of 30m-chart kijkt (met een vertraging van maximaal één candle van je eigen chart-timeframe totdat de bijgewerkte 30m-waarde binnenkomt). De alert wordt **niet** onderdrukt als de trade achteraf "niet mogelijk" blijkt — dat wordt alleen visueel aangegeven via het "Trade niet mogelijk"-blok.
 
 ## 6. Instellingen (Inputs-tabblad)
 
@@ -56,7 +57,7 @@ Elke alert vuurt **precies één keer per nieuw 30m-signaal**, ongeacht of je op
 
 | Instelling | Default | Wat het doet | Wat het niet doet |
 |---|---|---|---|
-| Versie | `1.9.36` | Puur informatief: toont de actieve scriptversie boven in de instellingen, zodat je niet in de code hoeft te kijken. | Heeft geen enkele invloed op de berekeningen of weergave; er is ook maar 1 optie beschikbaar. |
+| Versie | `1.9.37` | Puur informatief: toont de actieve scriptversie boven in de instellingen, zodat je niet in de code hoeft te kijken. | Heeft geen enkele invloed op de berekeningen of weergave; er is ook maar 1 optie beschikbaar. |
 
 ### Groep "Rekenfeed"
 
@@ -106,14 +107,15 @@ Elke alert vuurt **precies één keer per nieuw 30m-signaal**, ongeacht of je op
 
 | Instelling | Default | Wat het doet | Wat het niet doet |
 |---|---|---|---|
-| Toon TP-lijn en Trade-mogelijkheid check (`showTradeCheck`) | Aan | Schakelt de TP-lijn en de Range/R-controle (en dus het "Trade niet mogelijk"-label) in of uit. | Uitzetten onderdrukt **niet** de LONG/SHORT-alert, de break-lijn of de SL-lijn zelf — alleen de TP-gerelateerde weergave verdwijnt. Vereist bovendien dat `showSL` ook aanstaat, anders verschijnt er sowieso geen TP-lijn. |
+| Toon TP-lijn en Trade-mogelijkheid check (`showTradeCheck`) | Aan | Schakelt de TP-lijn en de Range/R-controle (en dus het "Trade niet mogelijk"-blok) in of uit. | Uitzetten onderdrukt **niet** de LONG/SHORT-alert, de break-lijn of de SL-lijn zelf — alleen de TP-gerelateerde weergave verdwijnt. Vereist bovendien dat `showSL` ook aanstaat, anders verschijnt er sowieso geen TP-lijn. |
 | TP: Risk/Reward ratio (`tpRR`) | 1.2 | Bepaalt de TP-afstand als veelvoud van R (het risico): `TP = entry ± tpRR × R`. | Heeft geen invloed op of de trade "mogelijk" is — dat wordt apart bepaald door `minRangeRR` en `maxRTicks`. |
-| Minimaal benodigde R/R-ruimte in de Range (`minRangeRR`) | 1.0 | De beschikbare ruimte tussen de entry en de bijbehorende Target-lijn (Target Resistance bij Long, Target Support bij Short), zoals die lijn op de chart stond op het moment van de break, moet minimaal `minRangeRR × R` zijn, anders is de trade "niet mogelijk" (geen TP-lijn, wel een label met de reden). De gemeten Range staat altijd in R in het label: bij een mogelijke trade achter de TP-waarde, samen met entry en R ("TP (1.2 R/R): 4279.86 · Entry 4284.16 · R 3.58 · Range 1.50R"), bij een niet-mogelijke trade in de reden (bijv. "Range 0.92R < 1R (3.50 < 3.80)"). | Tot v1.9.23 was de default 1.5R; dat bleek te streng voor trades met een TP rond 1.2R en gaf bij grensgevallen verschillen tussen broker-feeds (bijv. 1.46R op FTMO_OANDA vs 1.50R op FXCM). Omdat R en de S/R-niveaus per feed iets verschillen, kan een grensgeval op de ene broker net wel en op de andere net niet slagen — beoordeel dat zelf aan de hand van de getoonde R-waarde. Is onafhankelijk van de `maxRTicks`-check hieronder; beide voorwaarden kunnen los van elkaar (of tegelijk) een trade blokkeren. |
+| Minimaal benodigde R/R-ruimte in de Range (`minRangeRR`) | 1.0 | De beschikbare ruimte tussen de entry en de bijbehorende Target-lijn (Target Resistance bij Long, Target Support bij Short), zoals die lijn op de chart stond op het moment van de break, moet minimaal `minRangeRR × R` zijn, anders is de trade "niet mogelijk" (geen TP- en SL-lijn, wel het "Trade niet mogelijk"-blok met de reden). De gemeten Range staat altijd in R in het label: bij een mogelijke trade achter de TP-waarde, samen met entry en R ("TP (1.2 R/R): 4279.86 · Entry 4284.16 · R 3.58 · Range 1.50R"), bij een niet-mogelijke trade in de reden (bijv. "Range 0.92R < 1R (3.50 < 3.80)"). | Tot v1.9.23 was de default 1.5R; dat bleek te streng voor trades met een TP rond 1.2R en gaf bij grensgevallen verschillen tussen broker-feeds (bijv. 1.46R op FTMO_OANDA vs 1.50R op FXCM). Omdat R en de S/R-niveaus per feed iets verschillen, kan een grensgeval op de ene broker net wel en op de andere net niet slagen — beoordeel dat zelf aan de hand van de getoonde R-waarde. Is onafhankelijk van de `maxRTicks`-check hieronder; beide voorwaarden kunnen los van elkaar (of tegelijk) een trade blokkeren. |
 | Maximaal toegestane R (ticks) (`maxRTicks`) | 1000 | Als het risico R (in ticks) groter is dan deze waarde, is de trade sowieso "niet mogelijk", ongeacht de Range-check. | **Let op:** deze default (1000 ticks = 100 pips / $10 SL) is specifiek afgestemd op **XAUUSD** (tick-grootte 0,01). Op een ander symbool of een andere tick-grootte moet je deze waarde zelf opnieuw bepalen — het script doet dat niet automatisch. |
-| Rejection candle (15m) maakt trade ongeldig (`rejectionOn`) | Uit | Kijkt naar de twee 15m-candles van de breakout-30m-candle, op de rekenfeed. Sluit de **tweede** 15m-candle tegen de trade-richting in (bearish bij Long, bullish bij Short) met een body van minimaal `rejectionTicks`, dan is de trade "niet mogelijk". Het SL-label toont dan bijv. "Rejection candle 15m (85 ticks >= 50)". | Een doji of een kleinere tegengestelde body telt niet als rejection. Latere candles in het signaalvenster worden niet gecontroleerd. De LONG/SHORT-alert gaat gewoon af. Komt uit de NASDAQ-strategie, daarom standaard uit; zet hem per chart aan. |
+| Rejection candle (15m) maakt trade ongeldig (`rejectionOn`) | Uit | Kijkt naar de twee 15m-candles van de breakout-30m-candle, op de rekenfeed. Sluit de **tweede** 15m-candle tegen de trade-richting in (bearish bij Long, bullish bij Short) met een body van minimaal `rejectionTicks`, dan is de trade "niet mogelijk". Het "Trade niet mogelijk"-blok toont dan bijv. "Rejection candle 15m (85 ticks >= 50)". | Een doji of een kleinere tegengestelde body telt niet als rejection. Latere candles in het signaalvenster worden niet gecontroleerd. De LONG/SHORT-alert gaat gewoon af. Komt uit de NASDAQ-strategie, daarom standaard uit; zet hem per chart aan. |
 | Rejection candle: minimale tegengestelde body (`rejectionTicks`) | 50 | Minimale body (in ticks, verschil tussen open en close) van de tegengestelde tweede 15m-candle om als rejection te tellen. | **Let op:** ticks zijn per symbool anders. Op XAUUSD is 50 ticks $0,50; controleer de tick-grootte van je NASDAQ-symbool en stel de waarde daarop af. |
 | Kleur TP-lijn (`tpColor`) | Blauw | Kleur van de TP-lijn/label wanneer de trade mogelijk is. | — |
-| Kleur 'Trade niet mogelijk'-label (`noTradeColor`) | Oranje | Kleur van de SL-lijn/label wanneer de trade **niet** mogelijk is (de reden wordt dan in het SL-label getoond). | Er is geen apart losstaand "niet mogelijk"-label meer (sinds v1.9.18) — de reden staat in het SL-label zelf, dus zonder `showSL` zie je deze melding niet. |
+| Kleur 'Trade niet mogelijk'-blok (`noTradeColor`) | Oranje | Achtergrondkleur van het "Trade niet mogelijk"-blok. | — |
+| Positie 'Trade niet mogelijk'-blok (`noTradePosStr`) | Rechtsboven | Waar het blok op het scherm staat: rechts-, midden- of linksboven/-midden/-onder. Het blok staat vast op die schermpositie, los van prijs en tijd. | Verschijnt ook als `showSL` uitstaat (sinds v1.9.37); alleen `showTradeCheck` uit zet het blok uit. |
 
 ### Groep "Lotgrootte"
 
@@ -130,7 +132,7 @@ De lotgrootte wordt berekend met de R van de rekenfeed (standaard FXCM, zie groe
 ## 7. Veelgestelde vragen
 
 **Waarom zie ik geen TP-lijn, terwijl er wel een LONG/SHORT-signaal is?**
-Twee mogelijke oorzaken: (1) `showSL` of `showTradeCheck` staat uit — beide moeten aan staan; (2) de trade is "niet mogelijk" volgens de Range- of R-check — kijk dan naar de reden in het SL-label.
+Twee mogelijke oorzaken: (1) `showSL` of `showTradeCheck` staat uit — beide moeten aan staan; (2) de trade is "niet mogelijk" volgens de Range- of R-check — kijk dan naar de reden in het "Trade niet mogelijk"-blok (default rechtsboven).
 
 **Waarom verschuift Resistance/Support ineens naar een ander niveau?**
 Er zijn twee oorzaken. (1) Zodra de huidige lijn door een candle-body doorbroken wordt, is ze ongeldig geworden en berekent het script automatisch het eerstvolgende geldige (verder terugliggende) niveau. (2) Bij het zoeken naar het Target-niveau kan het script een geldig tussenliggend niveau vinden dat te dicht bij Resistance/Support ligt om Target te zijn (`minTargetDistance`) of al met een wick geraakt is. Is er een Target gevonden, dan verschuift Resistance/Support naar het laatste (verst terugliggende) zo'n tussenliggend niveau. Zie "T4G daytrade rules.md", Target Resistance punt 5 en 6. Dit kan er tegelijk voor zorgen dat de drempel voor een nieuw signaal (`Resistance/Support ± xTicks`) verschuift — het script voorkomt hierbij expliciet dat zo'n verschuiving een tweede, ongewenst signaal in dezelfde richting veroorzaakt zolang het vorige signaalvenster nog loopt.

@@ -3,6 +3,11 @@
 Alle noemenswaardige wijzigingen aan `trade_lines.pine` worden hier bijgehouden.
 Versienummering volgt [Semantic Versioning](https://semver.org/lang/nl/) (MAJOR.MINOR.PATCH).
 
+## [1.9.37]
+
+### Gewijzigd
+- **Trade niet mogelijk: geen SL-lijn meer.** Is de trade niet mogelijk, dan worden SL-lijn en -label niet meer getekend. De reden staat nu in een vast oranje blok op het scherm (tabel), standaard **rechtsboven**, zodat het niet meer over candles of S/R-lijnen valt. Nieuwe instelling *Positie 'Trade niet mogelijk'-blok* (rechts/midden/links, boven/midden/onder). Het blok verschijnt ook als *Toon SL lijnen* uit staat. De "doorbroken"-lijn blijft gewoon staan.
+
 ## [1.9.36]
 
 ### Opgelost

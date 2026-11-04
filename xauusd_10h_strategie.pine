@@ -1,0 +1,217 @@
+//@version=6
+// Versie: 1.1.1
+//   1.1.1 - Labels rechts overlappen niet meer: labels van dezelfde dag die
+//           te dicht bij elkaar liggen worden verticaal uit elkaar geschoven.
+//   1.1.0 - Zone = eerste tegengestelde candle TERUG in de tijd vanaf de
+//           breakout-candle; order direct bij de break geplaatst.
+//   1.0.0 - Eerste versie.
+//
+// XAUUSD 10H Breakout - strategie (alleen 15m-chart)
+// ------------------------------------------------------------
+// Stap 1: Om 08:59 NL-tijd: hoogste/laagste prijs van de afgelopen 10 uur
+//         (15m-candles van 23:00 t/m 08:45, dus t/m 08:59).
+// Stap 2: Wacht tot een 15m-candle erboven (BUY) of eronder (SELL) sluit.
+//         De eerste break van de dag telt; max. 1 trade per dag.
+// Stap 3: Vanaf de breakout-candle wordt terug in de tijd gezocht naar de
+//         eerste tegengestelde candle; die is de zone (BUY: laatste bearish
+//         candle vóór de break, SELL: laatste bullish candle vóór de break).
+//         Zonegrootte = high - low van die candle (incl. wicks).
+//         Geen tegengestelde candle binnen de zoekdiepte = geen trade.
+// Stap 4: Pending limit-order op de zone. Standaard op de zonerand die
+//         prijs bij een retest als eerste raakt: BUY op de zone-high,
+//         SELL op de zone-low. Optioneel het midden van de zone.
+// Stap 5: SL = entry -/+ 2,5 x zonegrootte (= 1R), TP = entry +/- 4R.
+// Stap 6: Raakt prijs +1R, dan gaat de SL naar +0,5R. Om 22:00 NL-tijd
+//         wordt een open trade gesloten en een niet-gevulde order
+//         geannuleerd.
+//
+// De order wordt op de close van de breakout-candle geplaatst. De zone ligt
+// dan meestal onder (BUY) of boven (SELL) de prijs, dus de order wacht op
+// een retest. Ligt de zone toch aan de verkeerde kant van de prijs, dan
+// vult TradingView op de open van de volgende candle (tegen die prijs of
+// beter).
+// ------------------------------------------------------------
+strategy("XAUUSD 10H Breakout", shorttitle = "10H Breakout", overlay = true,
+     initial_capital = 10000, currency = currency.USD, pyramiding = 0,
+     margin_long = 5, margin_short = 5,
+     max_lines_count = 200, max_boxes_count = 100, max_labels_count = 100)
+
+// Versie-info: zichtbaar in het Inputs-tabblad van de instellingen.
+scriptVersion = input.string("1.1.1", "Versie", options = ["1.1.1"], group = "Info")
+
+// ─── Instellingen ───────────────────────────────────────────────
+tz         = input.string("Europe/Amsterdam", "Tijdzone", group = "Tijd")
+markHour   = input.int(9, "Range sluit om (uur)", minval = 0, maxval = 23, group = "Tijd", tooltip = "9 = range t/m 08:59. Daarna wordt naar een break gezocht.")
+rangeHours = input.int(10, "Range-lengte (uren)", minval = 1, maxval = 23, group = "Tijd")
+exitHour   = input.int(22, "Alles sluiten om (uur)", minval = 1, maxval = 23, group = "Tijd", tooltip = "Open trade sluiten en pending order annuleren. Na dit uur geen nieuwe setups meer.")
+
+entryMode = input.string("Zonerand", "Entry op zone", options = ["Zonerand", "Zone-midden"], group = "Trade", tooltip = "Zonerand: BUY op de zone-high, SELL op de zone-low.")
+slMult    = input.float(2.5, "SL = x keer zonegrootte", minval = 0.1, step = 0.1, group = "Trade")
+tpRR      = input.float(4.0, "TP (R/R)", minval = 0.1, step = 0.5, group = "Trade")
+beTrigger = input.float(1.0, "SL verplaatsen zodra prijs (R) haalt", minval = 0.1, step = 0.1, group = "Trade")
+beLevel   = input.float(0.5, "SL verplaatsen naar (R)", minval = -1.0, step = 0.1, group = "Trade")
+riskPct   = input.float(1.0, "Risico per trade (% van equity)", minval = 0.01, step = 0.1, group = "Trade")
+lookback  = input.int(40, "Max. candles terugzoeken naar zone", minval = 1, maxval = 500, group = "Trade", tooltip = "Vanaf de breakout-candle terug in de tijd zoeken naar de eerste tegengestelde candle. 40 = 10 uur op de 15m-chart.")
+qtyStep   = input.float(0.01, "Afronding positiegrootte (stap)", minval = 0.0001, group = "Trade", tooltip = "Positiegrootte wordt naar beneden afgerond op deze stap (in contracten/units van het symbool).")
+
+showDraw  = input.bool(true, "Teken range, zone en trade-lijnen", group = "Weergave")
+colRange  = input.color(color.new(color.gray, 0), "Kleur range-lijnen", group = "Weergave")
+colZone   = input.color(color.new(color.blue, 80), "Kleur zone", group = "Weergave")
+labelGap  = input.float(5.0, "Min. afstand labels (% van dag-span)", minval = 0, step = 0.5, group = "Weergave", tooltip = "Labels rechts van dezelfde dag die dichter bij elkaar liggen dan dit percentage van (hoogste - laagste label-prijs) worden verticaal uit elkaar geschoven. Verhogen als teksten nog overlappen, verlagen als ze te ver van hun lijn staan. 0 = uit.")
+
+// ─── Tijdvensters (NL-tijd) ─────────────────────────────────────
+isTF = timeframe.period == "15"
+
+yy = year(time, tz)
+mm = month(time, tz)
+dd = dayofmonth(time, tz)
+markToday = timestamp(tz, yy, mm, dd, markHour, 0)
+exitToday = timestamp(tz, yy, mm, dd, exitHour, 0)
+// De range loopt over middernacht: een candle van 23:00 hoort bij de mark van morgen.
+nextMark  = time < markToday ? markToday : markToday + 86400000
+
+inRange  = time >= nextMark - rangeHours * 3600000 and time < nextMark
+inTrade  = time >= markToday and time < exitToday
+closeBar = inTrade and time_close >= exitToday   // laatste candle vóór 22:00: sluit-order vult op de 22:00-open
+
+// ─── Status ─────────────────────────────────────────────────────
+var float rHigh      = na
+var float rLow       = na
+var int   rStartTime = na
+var bool  rangeDone  = false
+var int   state      = 0      // 0 = wacht op break, 2 = order geplaatst / klaar voor vandaag
+var int   dir        = 0      // 1 = BUY, -1 = SELL
+var float entryPx    = na
+var float slPx       = na
+var float tpPx       = na
+var float riskR      = na
+var bool  slMoved    = false
+
+f_id(int d) => d == 1 ? "Long" : "Short"
+
+// ─── Labels rechts (bij 22:00) zonder overlap ───────────────────
+// Alle labels van één dag staan op dezelfde x (22:00). Liggen twee prijzen
+// dicht bij elkaar (bijv. entry vlak bij de 10H high), dan schuift het
+// hogere label omhoog tot de minimale afstand. Labels blijven op volgorde.
+var array<label> dayLbls = array.new<label>()
+var array<float> dayPx   = array.new<float>()
+
+f_layout() =>
+    n = dayPx.size()
+    if n > 1
+        gap = (dayPx.max() - dayPx.min()) * labelGap / 100
+        idx = dayPx.sort_indices(order.ascending)
+        float prevY = na
+        for k = 0 to n - 1
+            i = idx.get(k)
+            y = dayPx.get(i)
+            if not na(prevY) and y < prevY + gap
+                y := prevY + gap
+            label.set_y(dayLbls.get(i), y)
+            prevY := y
+
+f_rlabel(int t, float px, string txt, color col) =>
+    lb = label.new(t, px, txt, xloc.bar_time, yloc.price, color.new(color.black, 100), label.style_label_left, col, size.small)
+    dayLbls.push(lb)
+    dayPx.push(px)
+    f_layout()
+
+// Nieuwe dag: range opnieuw opbouwen.
+if isTF and inRange and not inRange[1]
+    rHigh      := high
+    rLow       := low
+    rStartTime := time
+    rangeDone  := false
+    state      := 0
+    dir        := 0
+    entryPx    := na
+    slPx       := na
+    tpPx       := na
+    riskR      := na
+    slMoved    := false
+    dayLbls.clear()
+    dayPx.clear()
+else if isTF and inRange
+    rHigh := math.max(rHigh, high)
+    rLow  := math.min(rLow, low)
+
+// Range afgerond (eerste candle na 08:59).
+if isTF and inTrade and not inTrade[1] and not na(rHigh)
+    rangeDone := true
+    if showDraw
+        line.new(rStartTime, rHigh, exitToday, rHigh, xloc.bar_time, extend.none, colRange, line.style_solid, 1)
+        line.new(rStartTime, rLow, exitToday, rLow, xloc.bar_time, extend.none, colRange, line.style_solid, 1)
+        f_rlabel(exitToday, rHigh, "10H high " + str.tostring(rHigh, format.mintick), colRange)
+        f_rlabel(exitToday, rLow, "10H low " + str.tostring(rLow, format.mintick), colRange)
+
+// ─── Setup: break -> zone (terug in de tijd) -> pending order ───
+if isTF and inTrade and rangeDone and not closeBar and state == 0
+    brk = close > rHigh ? 1 : close < rLow ? -1 : 0
+    if brk != 0
+        dir   := brk
+        state := 2   // eerste break van de dag telt, ook als er geen zone is
+        // Terugzoeken vanaf de candle vóór de breakout-candle.
+        int zi = na
+        maxI = math.min(lookback, bar_index)
+        for i = 1 to maxI
+            isOpposite = dir == 1 ? close[i] < open[i] : close[i] > open[i]
+            if isOpposite and high[i] - low[i] > 0
+                zi := i
+                break
+        if not na(zi)
+            zHigh   = high[zi]
+            zLow    = low[zi]
+            zTime   = time[zi]
+            zSize   = zHigh - zLow
+            entryPx := entryMode == "Zonerand" ? (dir == 1 ? zHigh : zLow) : (zHigh + zLow) / 2
+            riskR   := slMult * zSize
+            slPx    := entryPx - dir * riskR
+            tpPx    := entryPx + dir * tpRR * riskR
+            rawQty   = strategy.equity * riskPct / 100 / (riskR * syminfo.pointvalue)
+            qty      = math.floor(rawQty / qtyStep) * qtyStep
+            if qty > 0
+                strategy.entry(f_id(dir), dir == 1 ? strategy.long : strategy.short, qty = qty, limit = entryPx)
+                strategy.exit(f_id(dir) + " exit", f_id(dir), stop = slPx, limit = tpPx)
+                if showDraw
+                    box.new(zTime, zHigh, exitToday, zLow, color.new(colZone, 0), 1, line.style_solid, extend.none, xloc.bar_time, colZone)
+                    line.new(time, entryPx, exitToday, entryPx, xloc.bar_time, extend.none, color.blue, line.style_solid, 2)
+                    line.new(time, slPx, exitToday, slPx, xloc.bar_time, extend.none, color.red, line.style_dashed, 2)
+                    line.new(time, tpPx, exitToday, tpPx, xloc.bar_time, extend.none, color.green, line.style_dashed, 2)
+                    f_rlabel(exitToday, entryPx, (dir == 1 ? "BUY limit " : "SELL limit ") + str.tostring(entryPx, format.mintick) + " · " + str.tostring(qty) + " units", color.blue)
+                    f_rlabel(exitToday, slPx, "SL " + str.tostring(slPx, format.mintick), color.red)
+                    f_rlabel(exitToday, tpPx, "TP " + str.tostring(tpPx, format.mintick) + " (" + str.tostring(tpRR) + "R)", color.green)
+        else if showDraw
+            label.new(bar_index, dir == 1 ? high : low, "Geen zone binnen " + str.tostring(lookback) + " candles", xloc.bar_index, yloc.price, color.new(color.gray, 20), dir == 1 ? label.style_label_down : label.style_label_up, color.white, size.small)
+
+// ─── SL naar +0,5R zodra +1R gehaald ────────────────────────────
+// Gemeten vanaf de geplande entry (niet de eventueel betere fill).
+if isTF and strategy.position_size != 0 and not slMoved and not na(riskR)
+    hit = dir == 1 ? high >= entryPx + beTrigger * riskR : low <= entryPx - beTrigger * riskR
+    if hit
+        slPx    := entryPx + dir * beLevel * riskR
+        slMoved := true
+        strategy.exit(f_id(dir) + " exit", f_id(dir), stop = slPx, limit = tpPx)
+        if showDraw
+            line.new(time, slPx, exitToday, slPx, xloc.bar_time, extend.none, color.orange, line.style_dashed, 2)
+            f_rlabel(exitToday, slPx, "SL -> " + str.tostring(beLevel) + "R " + str.tostring(slPx, format.mintick), color.orange)
+
+// ─── 22:00: alles sluiten ───────────────────────────────────────
+if isTF and closeBar
+    strategy.cancel_all()
+    strategy.close_all(comment = "22:00")
+    state := 2
+
+// Vangnet (bijv. ontbrekende candle vóór 22:00): buiten het handelsvenster
+// geen open orders of posities.
+if isTF and not inTrade
+    strategy.cancel_all()
+    if strategy.position_size != 0
+        strategy.close_all(comment = "Buiten venster")
+
+// ─── Waarschuwing bij verkeerd timeframe ────────────────────────
+var label tfWarn = na
+if barstate.islast
+    label.delete(tfWarn)
+    tfWarn := na
+    if not isTF
+        tfWarn := label.new(bar_index, high, "10H Breakout: alleen op de 15m-chart.", xloc.bar_index, yloc.abovebar, color.red, label.style_label_down, color.white, size.normal)

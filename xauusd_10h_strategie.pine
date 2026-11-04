@@ -1,5 +1,8 @@
 //@version=6
-// Versie: 1.1.1
+// Versie: 1.2.0
+//   1.2.0 - Input "Account-saldo voor labels": units in het BUY/SELL-label
+//           worden op je eigen saldo berekend (backtest blijft op de
+//           tester-equity). Label toont ook risico in $ en 1R in punten.
 //   1.1.1 - Labels rechts overlappen niet meer: labels van dezelfde dag die
 //           te dicht bij elkaar liggen worden verticaal uit elkaar geschoven.
 //   1.1.0 - Zone = eerste tegengestelde candle TERUG in de tijd vanaf de
@@ -37,7 +40,7 @@ strategy("XAUUSD 10H Breakout", shorttitle = "10H Breakout", overlay = true,
      max_lines_count = 200, max_boxes_count = 100, max_labels_count = 100)
 
 // Versie-info: zichtbaar in het Inputs-tabblad van de instellingen.
-scriptVersion = input.string("1.1.1", "Versie", options = ["1.1.1"], group = "Info")
+scriptVersion = input.string("1.2.0", "Versie", options = ["1.2.0"], group = "Info")
 
 // ─── Instellingen ───────────────────────────────────────────────
 tz         = input.string("Europe/Amsterdam", "Tijdzone", group = "Tijd")
@@ -53,6 +56,7 @@ beLevel   = input.float(0.5, "SL verplaatsen naar (R)", minval = -1.0, step = 0.
 riskPct   = input.float(1.0, "Risico per trade (% van equity)", minval = 0.01, step = 0.1, group = "Trade")
 lookback  = input.int(40, "Max. candles terugzoeken naar zone", minval = 1, maxval = 500, group = "Trade", tooltip = "Vanaf de breakout-candle terug in de tijd zoeken naar de eerste tegengestelde candle. 40 = 10 uur op de 15m-chart.")
 qtyStep   = input.float(0.01, "Afronding positiegrootte (stap)", minval = 0.0001, group = "Trade", tooltip = "Positiegrootte wordt naar beneden afgerond op deze stap (in contracten/units van het symbool).")
+acctBal   = input.float(0.0, "Account-saldo voor labels ($)", minval = 0, step = 100, group = "Trade", tooltip = "Je eigen account-saldo. Units en risico in het BUY/SELL-label worden hierop berekend (met 'Risico per trade'). De backtest blijft op de equity van de Strategy Tester rekenen. 0 = labels gebruiken de backtest-equity.")
 
 showDraw  = input.bool(true, "Teken range, zone en trade-lijnen", group = "Weergave")
 colRange  = input.color(color.new(color.gray, 0), "Kleur range-lijnen", group = "Weergave")
@@ -177,7 +181,11 @@ if isTF and inTrade and rangeDone and not closeBar and state == 0
                     line.new(time, entryPx, exitToday, entryPx, xloc.bar_time, extend.none, color.blue, line.style_solid, 2)
                     line.new(time, slPx, exitToday, slPx, xloc.bar_time, extend.none, color.red, line.style_dashed, 2)
                     line.new(time, tpPx, exitToday, tpPx, xloc.bar_time, extend.none, color.green, line.style_dashed, 2)
-                    f_rlabel(exitToday, entryPx, (dir == 1 ? "BUY limit " : "SELL limit ") + str.tostring(entryPx, format.mintick) + " · " + str.tostring(qty) + " units", color.blue)
+                    // Label: units en risico op het eigen saldo (of backtest-equity bij 0).
+                    lblBal  = acctBal > 0 ? acctBal : strategy.equity
+                    lblQty  = math.floor(lblBal * riskPct / 100 / (riskR * syminfo.pointvalue) / qtyStep) * qtyStep
+                    lblRisk = lblQty * riskR * syminfo.pointvalue
+                    f_rlabel(exitToday, entryPx, (dir == 1 ? "BUY limit " : "SELL limit ") + str.tostring(entryPx, format.mintick) + " · " + str.tostring(lblQty, "#.####") + " units · risico $" + str.tostring(lblRisk, "#.##") + " (1R = " + str.tostring(riskR, format.mintick) + ")", color.blue)
                     f_rlabel(exitToday, slPx, "SL " + str.tostring(slPx, format.mintick), color.red)
                     f_rlabel(exitToday, tpPx, "TP " + str.tostring(tpPx, format.mintick) + " (" + str.tostring(tpRR) + "R)", color.green)
         else if showDraw

@@ -1,5 +1,6 @@
 //@version=6
-// Versie: 1.2.0
+// Versie: 1.2.1
+//   1.2.1 - Afronding positiegrootte standaard 1 (hele ounces = 0,01 lot).
 //   1.2.0 - Input "Account-saldo voor labels": units in het BUY/SELL-label
 //           worden op je eigen saldo berekend (backtest blijft op de
 //           tester-equity). Label toont ook risico in $ en 1R in punten.
@@ -40,7 +41,7 @@ strategy("XAUUSD 10H Breakout", shorttitle = "10H Breakout", overlay = true,
      max_lines_count = 200, max_boxes_count = 100, max_labels_count = 100)
 
 // Versie-info: zichtbaar in het Inputs-tabblad van de instellingen.
-scriptVersion = input.string("1.2.0", "Versie", options = ["1.2.0"], group = "Info")
+scriptVersion = input.string("1.2.1", "Versie", options = ["1.2.1"], group = "Info")
 
 // ─── Instellingen ───────────────────────────────────────────────
 tz         = input.string("Europe/Amsterdam", "Tijdzone", group = "Tijd")
@@ -55,7 +56,7 @@ beTrigger = input.float(1.0, "SL verplaatsen zodra prijs (R) haalt", minval = 0.
 beLevel   = input.float(0.5, "SL verplaatsen naar (R)", minval = -1.0, step = 0.1, group = "Trade")
 riskPct   = input.float(1.0, "Risico per trade (% van equity)", minval = 0.01, step = 0.1, group = "Trade")
 lookback  = input.int(40, "Max. candles terugzoeken naar zone", minval = 1, maxval = 500, group = "Trade", tooltip = "Vanaf de breakout-candle terug in de tijd zoeken naar de eerste tegengestelde candle. 40 = 10 uur op de 15m-chart.")
-qtyStep   = input.float(0.01, "Afronding positiegrootte (stap)", minval = 0.0001, group = "Trade", tooltip = "Positiegrootte wordt naar beneden afgerond op deze stap (in contracten/units van het symbool).")
+qtyStep   = input.float(1.0, "Afronding positiegrootte (stap)", minval = 0.0001, group = "Trade", tooltip = "Positiegrootte wordt naar beneden afgerond op deze stap (in units van het symbool; XAUUSD: 1 unit = 1 oz). 1 = hele ounces = stappen van 0,01 lot bij 100 oz per lot.")
 acctBal   = input.float(0.0, "Account-saldo voor labels ($)", minval = 0, step = 100, group = "Trade", tooltip = "Je eigen account-saldo. Units en risico in het BUY/SELL-label worden hierop berekend (met 'Risico per trade'). De backtest blijft op de equity van de Strategy Tester rekenen. 0 = labels gebruiken de backtest-equity.")
 
 showDraw  = input.bool(true, "Teken range, zone en trade-lijnen", group = "Weergave")

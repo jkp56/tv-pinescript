@@ -1,6 +1,6 @@
 # Handleiding – XAUUSD 10H Breakout (strategie)
 
-Uitleg voor `xauusd_10h_strategie.pine`, versie **1.2.0**. Dit document beschrijft de regels van de strategie, hoe het script ze uitvoert, wat je op de chart ziet en wat elke instelling doet.
+Uitleg voor `xauusd_10h_strategie.pine`, versie **1.2.1**. Dit document beschrijft de regels van de strategie, hoe het script ze uitvoert, wat je op de chart ziet en wat elke instelling doet.
 
 ## 1. Wat doet dit script
 
@@ -103,7 +103,7 @@ De **backtest** gebruikt als equity altijd de equity van de Strategy Tester (beg
 | SL | 2648,20 − 6,00 = **2642,20** |
 | TP (4R) | 2648,20 + 24,00 = **2672,20** |
 | SL-verplaatsing bij +1R | prijs raakt 2654,20 → SL naar **2651,20** (+0,5R) |
-| Positiegrootte (equity 10.000, 1 %, pointvalue 1) | 100 ÷ 6,00 = 16,666 → **16,66 units** |
+| Positiegrootte (equity 10.000, 1 %, pointvalue 1, stap 1) | 100 ÷ 6,00 = 16,666 → **16 units** (= 0,16 lot, risico $96) |
 
 De BUY-limit op 2648,20 ligt onder de close van 2652,40. De order vult dus pas als prijs terugvalt naar de zone vóór 22:00. Gebeurt dat niet, dan wordt de order om 22:00 geannuleerd.
 
@@ -130,7 +130,7 @@ De prijzen in de tabel zijn voorbeelden. Alle labels van een dag staan rechts, a
 |---|---|---|
 | **10H high 4029.10** (grijs) | Hoogste prijs van de range 23:00–08:59. Verschijnt om 09:00. | Een 15m-**close** hierboven = BUY-break. Vanaf 09:00 in de gaten houden; een wick erdoor is nog geen break. |
 | **10H low 4001.30** (grijs) | Laagste prijs van de range. Verschijnt om 09:00. | Een 15m-**close** hieronder = SELL-break. |
-| **BUY limit 4028.80 · 4.69 units · risico $99.8 (1R = 21.28)** (blauw) | Er was een break, de zone is gevonden en de strategie heeft een limit-order geplaatst. Prijs = entry (zone-high bij BUY, zone-low bij SELL). *units* = positiegrootte op *Account-saldo voor labels* × *Risico per trade* (bij saldo 0: op de backtest-equity). *risico* = verlies in $ als de SL geraakt wordt. *1R* = afstand entry–SL in punten. | Dit is het signaal om de order live te plaatsen: **limit-order op deze prijs**, met de SL en TP van de labels hieronder. Met 1R en het risicobedrag kun je de grootte op je eigen broker-chart narekenen. Houd *Account-saldo voor labels* bij met je echte saldo. |
+| **BUY limit 4028.80 · 4 units · risico $85.12 (1R = 21.28)** (blauw) | Er was een break, de zone is gevonden en de strategie heeft een limit-order geplaatst. Prijs = entry (zone-high bij BUY, zone-low bij SELL). *units* = positiegrootte op *Account-saldo voor labels* × *Risico per trade* (bij saldo 0: op de backtest-equity). *risico* = verlies in $ als de SL geraakt wordt. *1R* = afstand entry–SL in punten. | Dit is het signaal om de order live te plaatsen: **limit-order op deze prijs**, met de SL en TP van de labels hieronder. Met 1R en het risicobedrag kun je de grootte op je eigen broker-chart narekenen. Houd *Account-saldo voor labels* bij met je echte saldo. |
 | **SELL limit …** (blauw) | Idem, voor een SELL-break. | Idem: sell-limit op deze prijs. |
 | **SL 4007.52** (rood) | Stop loss = entry ∓ 1R (1R = 2,5 × zonegrootte). | Als SL van je order instellen. |
 | **TP 4113.90 (4R)** (groen) | Take profit = entry ± 4R. | Als TP van je order instellen. |
@@ -157,7 +157,7 @@ De prijzen in de tabel zijn voorbeelden. Alle labels van een dag staan rechts, a
 
 | Instelling | Default | Wat het doet |
 |---|---|---|
-| Versie | 1.2.0 | Alleen ter informatie. |
+| Versie | 1.2.1 | Alleen ter informatie. |
 
 ### Groep "Tijd"
 
@@ -179,7 +179,7 @@ De prijzen in de tabel zijn voorbeelden. Alle labels van een dag staan rechts, a
 | SL verplaatsen naar (R) | 0,5 | Nieuwe SL in R ten opzichte van de entry (0 = break-even, negatief mag). |
 | Risico per trade (% van equity) | 1,0 | Risico per trade voor de positiegrootte. |
 | Max. candles terugzoeken naar zone | 40 | Hoe ver vanaf de breakout-candle terug in de tijd naar de tegengestelde candle gezocht wordt. 40 = 10 uur. |
-| Afronding positiegrootte (stap) | 0,01 | De positiegrootte wordt naar beneden afgerond op deze stap. |
+| Afronding positiegrootte (stap) | 1 | De positiegrootte wordt naar beneden afgerond op deze stap, in units (XAUUSD: 1 unit = 1 oz). Bij 100 oz per lot is 1 unit = 0,01 lot, dus de units in het label ÷ 100 = je lotgrootte. Geldt ook voor de backtest. |
 | Account-saldo voor labels ($) | 0 | Je eigen account-saldo. Alleen voor de units en het risico in het BUY/SELL-label; de backtest blijft op de Strategy Tester-equity rekenen. 0 = label gebruikt de backtest-equity. |
 
 ### Groep "Weergave"

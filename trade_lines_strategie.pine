@@ -1,5 +1,7 @@
 //@version=6
-// Versie: 1.3.0
+// Versie: 1.4.0
+//   1.4.0 - Break-tolerantie als % van het S/R-level (standaard 0,01%) i.p.v.
+//           10 ticks (indicator v1.10.0). Alleen de close telt, wicks niet.
 //   1.3.0 - Flip (tradeplan, entry-criterium): volgende 30m-candle tegengesteld
 //           met body >= 0,12R, niet meer dan 0,6R terug vanaf de break-close.
 //           Entry daarna als stop-order op de break-prijs. Standaard aan.
@@ -47,7 +49,7 @@ strategy("Trade Lijnen strategie (SL/S/R)", shorttitle = "Trade Lijnen strat", o
      max_lines_count = 500, max_labels_count = 500, max_bars_back = 500)
 
 // Versie-info: zichtbaar in het Inputs-tabblad van de instellingen.
-scriptVersion = input.string("1.3.0", "Versie", options = ["1.3.0"], group = "Info")
+scriptVersion = input.string("1.4.0", "Versie", options = ["1.4.0"], group = "Info")
 
 // ============================================================
 // REKENFEED: alle berekeningen (levels, signalen, SL/TP, Range-check) kunnen
@@ -148,7 +150,13 @@ sessionGapOpen   = input.bool(true, "Overgang over dagsluiting/weekend: level = 
 // ============================================================
 // SIGNAAL INSTELLINGEN
 // ============================================================
-xTicks  = input.int(10, "X: aantal ticks voorbij S/R voor signaal", minval=1, group="Signaal instellingen")
+// Break-tolerantie als percentage van het S/R-level: de 30m-close moet
+// minimaal breakPct % voorbij Resistance (Long) resp. Support (Short) sluiten.
+// Alleen de close telt, wicks spelen geen rol. Een percentage schaalt vanzelf
+// mee met instrument en koersniveau (0,01% = ca. 0,40 op XAUUSD ~4000 en
+// ca. 2,7 punt op NAS100 ~27000) en is direct na te meten met de price
+// range tool van TradingView.
+breakPct = input.float(0.01, "Break-tolerantie: close voorbij S/R (% van het level)", minval=0, step=0.005, group="Signaal instellingen", tooltip="De 30m-close moet minimaal dit percentage voorbij Resistance/Support sluiten. Wicks tellen niet mee. 0,01% = ca. 0,40 op XAUUSD (~4000) en ca. 2,7 punt op NAS100 (~27000). Na te meten met de price range tool van TradingView.")
 
 // ============================================================
 // TRADE MOGELIJKHEID: TP (bij ingestelde R/R) + Range-check
@@ -221,7 +229,6 @@ labelTextColor = input.color(color.black, "Labelkleur (tekst)", group="Weergave"
 
 tickSize = syminfo.mintick
 slOffset = tickOffset * tickSize
-xOffset  = xTicks * tickSize
 bodyTol  = bodyTolTicks * tickSize
 laterTol = laterTolEnabled ? laterTolTicks * tickSize : 0.0
 
@@ -580,8 +587,8 @@ f_calc30m() =>
         tsPivotTime := time[tsBarsBack]
 
         // --- Breakout-signalen (tegen de PRE-update Resistance/Support) ---
-        bullishLevel = prevResistance + xOffset
-        bearishLevel = prevSupport - xOffset
+        bullishLevel = prevResistance * (1 + breakPct / 100)
+        bearishLevel = prevSupport * (1 - breakPct / 100)
 
         // Was er al een actief signaal in dezelfde richting (op basis van de
         // ORIGINELE lastLongBar/lastShortBar, dus vóór de eventuele update

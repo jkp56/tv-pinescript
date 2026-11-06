@@ -3,6 +3,11 @@
 Alle noemenswaardige wijzigingen aan `trade_lines.pine` worden hier bijgehouden.
 Versienummering volgt [Semantic Versioning](https://semver.org/lang/nl/) (MAJOR.MINOR.PATCH).
 
+## [1.10.0]
+
+### Gewijzigd
+- **Break-tolerantie als percentage van het level** in plaats van in ticks. De instelling *X: aantal ticks voorbij S/R voor signaal* (10 ticks) is vervangen door *Break-tolerantie: close voorbij S/R (% van het level)*, standaard **0,01%**. Een break telt pas als de 30m-close minimaal dat percentage voorbij Resistance/Support sluit. Alleen de close telt, wicks niet. 10 ticks was op instrumenten met tick 0,01 en een hoge koers (XAUUSD, NAS100) vrijwel nul: een close die precies op de lijn sloot, gaf al een signaal. 0,01% is ca. 0,40 op XAUUSD (~4000) en ca. 2,7 punt op NAS100 (~27000), en is direct na te meten met de price range tool van TradingView. Ook doorgevoerd in `trade_lines_strategie.pine` (v1.4.0).
+
 ## [1.9.38]
 
 ### Toegevoegd

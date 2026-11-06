@@ -1,6 +1,6 @@
 # T4G Daytrade Rules
 
-Dit document beschrijft alle regels waaraan het Pine Script `trade_lines.pine` ("Trade Lijnen (SL/S/R)") moet voldoen. Bijgewerkt tot en met versie **1.9.38**. Bij twijfel is de code leidend; dit document beschrijft wat de code doet.
+Dit document beschrijft alle regels waaraan het Pine Script `trade_lines.pine` ("Trade Lijnen (SL/S/R)") moet voldoen. Bijgewerkt tot en met versie **1.10.0**. Bij twijfel is de code leidend; dit document beschrijft wat de code doet.
 
 ## Algemeen
 
@@ -31,7 +31,7 @@ Dit document beschrijft alle regels waaraan het Pine Script `trade_lines.pine` (
 4. **Geldigheidscheck (alleen body)**: het niveau is alleen geldig als geen enkele latere gesloten candle met zijn **body boven** het niveau komt. Een body die precies op het niveau eindigt, maakt het niet ongeldig.
 5. **Reversal-candle uitsluiten** (instelling, standaard aan): de reversal-candle zelf telt niet mee in de check van zijn eigen niveau. Alleen candles daarna kunnen het ongeldig maken.
 6. **Body-tolerantie voor de candle na de overgang** (instelling, standaard uit): de candle **direct na** de reversal-candle mag met zijn body maximaal een instelbaar aantal ticks (standaard 50) boven het niveau komen, **mits die candle bearish is** (de respecterende richting). Een bullish candle op die plek blijft strikt.
-7. **Body-tolerantie voor alle latere candles** (instelling, standaard uit): **elke** latere candle, ongeacht kleur, mag met zijn body maximaal een instelbaar aantal ticks (standaard 50) boven het niveau komen. Voor de candle direct na de reversal-candle geldt dan de grootste van de twee toleranties (mits bearish). Let op: is deze tolerantie groter dan `x` (signaal), dan kan een close tussen die twee grenzen een signaal geven terwijl het niveau blijft staan.
+7. **Body-tolerantie voor alle latere candles** (instelling, standaard uit): **elke** latere candle, ongeacht kleur, mag met zijn body maximaal een instelbaar aantal ticks (standaard 50) boven het niveau komen. Voor de candle direct na de reversal-candle geldt dan de grootste van de twee toleranties (mits bearish). Let op: is deze tolerantie groter dan de break-tolerantie (`breakPct`, zie LONG signaal), dan kan een close tussen die twee grenzen een signaal geven terwijl het niveau blijft staan.
 8. **Wicks spelen voor Resistance geen rol** — de lijn mag door wicks heen lopen.
 9. Niet geldig → zoek verder terug naar de vórige bullish→bearish overgang en herhaal de check.
 10. **Fallback**: geen geldige overgang binnen `maxScanBars` → Resistance = de hoogste high in die range, label `[FALLBACK]`.
@@ -84,13 +84,13 @@ Spiegelbeeld van Target Resistance:
 ## LONG signaal
 
 1. Wordt alleen getest bij het sluiten van een 30m-candle.
-2. Triggert wanneer de **close** van die candle boven `Resistance + x ticks` sluit terwijl de vorige close daar nog op of onder lag — alleen bij de eerste doorbraak, niet bij elke volgende candle die er nog boven sluit.
-3. `x` = instelbaar aantal ticks (standaard 10).
+2. Triggert wanneer de **close** van die candle boven `Resistance × (1 + breakPct %)` sluit terwijl de vorige close daar nog op of onder lag — alleen bij de eerste doorbraak, niet bij elke volgende candle die er nog boven sluit.
+3. `breakPct` = **break-tolerantie** als percentage van het level (instelbaar, standaard **0,01%**). Alleen de close telt; **wicks spelen bij het bepalen van een break geen rol**. Een percentage schaalt mee met instrument en koersniveau: 0,01% is ca. 0,40 op XAUUSD (~4000) en ca. 2,7 punt op NAS100 (~27000). Na te meten met de price range tool van TradingView (de "%"-waarde). Referentie van een duidelijke break: XAUUSD, close 0,93 voorbij Support = ca. 0,02%; de helft daarvan is ook acceptabel. Zie "OPENSTAANDE PUNTEN.md" voor de nog niet uitgewerkte regels rond een "duidelijke break".
 4. **Getoetst tegen de Resistance van vóór deze candle**: de Resistance zoals die na de vorige candle op de chart stond (inclusief een eventuele verschuiving). Zodra de candle die lijn doorbreekt, wordt ze ongeldig en berekent het script Resistance opnieuw.
 5. **Geen dubbel signaal**: loopt er nog een LONG-signaalvenster (`slSignalWindow`), dan telt een nieuwe doorbraak niet als nieuw signaal. Resistance kan na een sterke beweging verspringen; zonder deze regel zou dat een tweede signaal met een andere R geven.
 6. Bij triggeren:
-   - een **alert** ("Bullish breakout: close boven Resistance + x ticks"), één keer per signaal, ook als de trade niet mogelijk is;
-   - de **break-lijn**: zwarte stippellijn op het doorbraakniveau (`Resistance + x ticks`), doorlopend naar links tot `lineLen` candles na de signaal-candle, met het label "Resistance doorbroken: [prijs]". Zo is het doorbroken niveau achteraf te controleren. Alleen zichtbaar als "Toon SL lijnen" aan staat;
+   - een **alert** ("Bullish breakout: close boven Resistance + 0.01%"), één keer per signaal, ook als de trade niet mogelijk is;
+   - de **break-lijn**: zwarte stippellijn op het doorbraakniveau (`Resistance × (1 + breakPct %)`), doorlopend naar links tot `lineLen` candles na de signaal-candle, met het label "Resistance doorbroken: [prijs]". Zo is het doorbroken niveau achteraf te controleren. Alleen zichtbaar als "Toon SL lijnen" aan staat;
    - de **target-lijn bij de break**: rode stippellijn (groen bij Short) op het Target Resistance zoals het vóór de signaal-candle stond (het target van de Range-check), met het label "Target Resistance bij break: [prijs]". Ook alleen zichtbaar als "Toon SL lijnen" aan staat;
    - SL, TP en Trade Mogelijkheid (zie daar).
 7. Er is geen apart signaallabel of signaalpijl.
@@ -101,11 +101,11 @@ Spiegelbeeld van Target Resistance:
 Spiegelbeeld van het LONG signaal:
 
 1. Alleen getest bij het sluiten van een 30m-candle.
-2. Triggert wanneer de close onder `Support − x ticks` sluit terwijl de vorige close daar nog op of boven lag.
-3. Zelfde `x` als bij LONG.
+2. Triggert wanneer de close onder `Support × (1 − breakPct %)` sluit terwijl de vorige close daar nog op of boven lag.
+3. Zelfde `breakPct` als bij LONG.
 4. Getoetst tegen de Support van vóór deze candle.
 5. Geen dubbel signaal zolang er een SHORT-signaalvenster loopt.
-6. Bij triggeren: alert ("Bearish breakdown: close onder Support - x ticks"), break-lijn met label "Support doorbroken: [prijs]", SL, TP en Trade Mogelijkheid.
+6. Bij triggeren: alert ("Bearish breakdown: close onder Support - 0.01%"), break-lijn met label "Support doorbroken: [prijs]", SL, TP en Trade Mogelijkheid.
 
 ## Trade Mogelijkheid (TP & Range-check)
 

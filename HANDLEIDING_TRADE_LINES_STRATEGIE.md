@@ -1,7 +1,7 @@
 # Handleiding – Trade Lijnen strategie (backtest)
 
-Script: `trade_lines_strategie.pine` (versie 1.3.0)
-Gebaseerd op: `trade_lines.pine` (indicator, versie 1.9.38)
+Script: `trade_lines_strategie.pine` (versie 1.4.0)
+Gebaseerd op: `trade_lines.pine` (indicator, versie 1.10.0)
 
 ## 1. Wat doet dit script
 
@@ -10,7 +10,7 @@ Een strategie-versie van de indicator *Trade Lijnen (SL/S/R)*. De signalen worde
 **De rekenlogica is ongewijzigd.** Deze onderdelen zijn letterlijk overgenomen uit de indicator:
 
 - Resistance en Support, Target Resistance en Target Support (inclusief het verschuiven van levels)
-- breakout-signaal (close voorbij S/R + X ticks) en het signaalvenster
+- breakout-signaal (close minimaal de break-tolerantie, standaard 0,01% van het level, voorbij S/R; wicks tellen niet) en het signaalvenster
 - SL-formule, TP (R/R) en de Trade Mogelijkheid-check (Range, max. R, rejection candle)
 - rekenfeed (FXCM) en het 30m-rekentimeframe
 

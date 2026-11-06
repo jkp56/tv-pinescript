@@ -1,6 +1,6 @@
 # Handleiding – Trade Lijnen (SL/S/R)
 
-Gebruikershandleiding voor `trade_lines.pine`, versie **1.9.38**. Voor de technische wijzigingsgeschiedenis zie [CHANGELOG.md](CHANGELOG.md); voor de exacte detectielogica zie [T4G daytrade rules.md](T4G%20daytrade%20rules.md). Dit document beschrijft hoe je het script gebruikt en wat elke instelling in het Inputs-tabblad wel en niet doet.
+Gebruikershandleiding voor `trade_lines.pine`, versie **1.10.0**. Voor de technische wijzigingsgeschiedenis zie [CHANGELOG.md](CHANGELOG.md); voor de exacte detectielogica zie [T4G daytrade rules.md](T4G%20daytrade%20rules.md). Dit document beschrijft hoe je het script gebruikt en wat elke instelling in het Inputs-tabblad wel en niet doet.
 
 ## 1. Wat doet dit script
 
@@ -47,8 +47,8 @@ Alle berekeningen draaien **altijd op de 30-minuten candles**, ongeacht op welk 
 
 Er vuurt automatisch een alert bij elk nieuw signaal (werkt met `alert()`, dus je moet zelf nog een TradingView-alert op deze indicator instellen om een notificatie te krijgen):
 
-- **Bullish breakout**: "Bullish breakout: close boven Resistance + X ticks"
-- **Bearish breakdown**: "Bearish breakdown: close onder Support - X ticks"
+- **Bullish breakout**: "Bullish breakout: close boven Resistance + 0.01%" (het ingestelde percentage)
+- **Bearish breakdown**: "Bearish breakdown: close onder Support - 0.01%"
 
 Elke alert vuurt **precies één keer per nieuw 30m-signaal**, ongeacht of je op de 15m- of 30m-chart kijkt (met een vertraging van maximaal één candle van je eigen chart-timeframe totdat de bijgewerkte 30m-waarde binnenkomt). De alert wordt **niet** onderdrukt als de trade achteraf "niet mogelijk" blijkt — dat wordt alleen visueel aangegeven via het "Trade niet mogelijk"-blok.
 
@@ -58,7 +58,7 @@ Elke alert vuurt **precies één keer per nieuw 30m-signaal**, ongeacht of je op
 
 | Instelling | Default | Wat het doet | Wat het niet doet |
 |---|---|---|---|
-| Versie | `1.9.38` | Puur informatief: toont de actieve scriptversie boven in de instellingen, zodat je niet in de code hoeft te kijken. | Heeft geen enkele invloed op de berekeningen of weergave; er is ook maar 1 optie beschikbaar. |
+| Versie | `1.10.0` | Puur informatief: toont de actieve scriptversie boven in de instellingen, zodat je niet in de code hoeft te kijken. | Heeft geen enkele invloed op de berekeningen of weergave; er is ook maar 1 optie beschikbaar. |
 
 ### Groep "Rekenfeed"
 
@@ -95,14 +95,14 @@ Elke alert vuurt **precies één keer per nieuw 30m-signaal**, ongeacht of je op
 | Labelkleur (tekst) (`labelTextColor`) | Zwart | Tekstkleur van de Resistance/Support/Target-labels en de "doorbroken"-labels. | Heeft geen invloed op de kleur van de SL/TP-labels (die hebben hun eigen kleurinstellingen) of op de lijnkleuren zelf. |
 | Support/Resistance: reversal-candle uitsluiten van eigen invalidatie (`excludeReversalCandle`) | Aan | Bepaalt of de candle die een bullish/bearish-overgang zelf afrondt, meetelt in de check die dat niveau weer ongeldig kan maken. Standaard (aan) telt die candle niet mee voor zijn eigen invalidatie, wat voorkomt dat een fractie van een tick verschil tussen broker-datafeeds een niveau onterecht laat overslaan. | Latere candles (ná de overgang) kunnen het niveau nog steeds normaal ongeldig maken — deze instelling geldt alleen voor de candle die de overgang zelf vormt. |
 | Body-tolerantie voor candle na de overgang (`bodyTolEnabled`) + Body-tolerantie (ticks) (`bodyTolTicks`) | Uit / 50 | Staat deze aan, dan mag de candle **direct na** de reversal-candle met zijn body maximaal `bodyTolTicks` door het level gaan zonder het ongeldig te maken, mits die candle in de respecterende richting sluit (bullish bij Support/Target Support, bearish bij Resistance/Target Resistance). Voorkomt dat een paar tienden verschil tussen broker-feeds (bijv. FTMO_OANDA vs FXCM) een level laat vervallen. Op XAUUSD (tick 0.01) is 50 ticks = 0.50. | Geldt niet voor latere candles en niet voor een candle in de aanvallende richting: die blijven strikt. Verandert niets aan de wick-check van de Target-lijnen. |
-| Body-tolerantie voor alle latere candles (`laterTolEnabled`) + Body-tolerantie latere candles (ticks) (`laterTolTicks`) | Uit / 50 | Staat deze aan, dan mag **elke** candle na de overgang, ongeacht kleur, met zijn body maximaal `laterTolTicks` door het level gaan zonder het ongeldig te maken. Voorkomt dat bijv. een break-candle die op de ene feed net onder en op de andere net boven het level sluit, het level op één broker laat vervallen. Op XAUUSD (tick 0.01) is 50 ticks = 0.50. | Een body die verder dan de tolerantie doorgaat maakt het level nog steeds ongeldig. Verandert niets aan de wick-check van de Target-lijnen. Is de tolerantie groter dan `xTicks`, dan kan een close tussen die twee grenzen een breakout-signaal geven terwijl het level blijft staan. |
+| Body-tolerantie voor alle latere candles (`laterTolEnabled`) + Body-tolerantie latere candles (ticks) (`laterTolTicks`) | Uit / 50 | Staat deze aan, dan mag **elke** candle na de overgang, ongeacht kleur, met zijn body maximaal `laterTolTicks` door het level gaan zonder het ongeldig te maken. Voorkomt dat bijv. een break-candle die op de ene feed net onder en op de andere net boven het level sluit, het level op één broker laat vervallen. Op XAUUSD (tick 0.01) is 50 ticks = 0.50. | Een body die verder dan de tolerantie doorgaat maakt het level nog steeds ongeldig. Verandert niets aan de wick-check van de Target-lijnen. Is de tolerantie groter dan de break-tolerantie (`breakPct`), dan kan een close tussen die twee grenzen een breakout-signaal geven terwijl het level blijft staan. |
 | Overgang over dagsluiting/weekend: level = open van de reversal-candle (`sessionGapOpen`) | Aan | Ligt er tussen de pivot-candle en de reversal-candle een tijdsgat (dagsluiting of weekend), dan wordt het level de **open van de reversal-candle**, de eerste prijs na de gap, in plaats van de close van de pivot-candle. Geldt bij gap up én gap down, voor Support, Resistance en beide Target-lijnen. De close vlak voor de dagsluiting is door dunne handel en brede spread per broker onbetrouwbaar (bijv. FTMO_OANDA vs FXCM). | Verandert niets aan overgangen zonder tijdsgat. Het label blijft het aantal candles tot de pivot-candle tonen en de lijn begint daar ook. |
 
 ### Groep "Signaal instellingen"
 
 | Instelling | Default | Wat het doet | Wat het niet doet |
 |---|---|---|---|
-| X: aantal ticks voorbij S/R voor signaal (`xTicks`) | 10 | Marge (in ticks) die de close voorbij Resistance (Long) of onder Support (Short) moet sluiten voordat een LONG/SHORT-signaal (en dus ook de SL/TP-berekening) getriggerd wordt. | Heeft geen invloed op waar Resistance/Support zelf getekend wordt — alleen op de drempel voor het signaal. |
+| Break-tolerantie: close voorbij S/R (% van het level) (`breakPct`) | 0,01% | Hoe ver de 30m-close voorbij Resistance (Long) of onder Support (Short) moet sluiten, als percentage van het level, voordat een LONG/SHORT-signaal (en dus ook de SL/TP-berekening) getriggerd wordt. Alleen de close telt, wicks spelen geen rol. 0,01% = ca. 0,40 op XAUUSD (~4000) en ca. 2,7 punt op NAS100 (~27000). Na te meten met de price range tool van TradingView (de "%"-waarde). | Heeft geen invloed op waar Resistance/Support zelf getekend wordt — alleen op de drempel voor het signaal. |
 
 ### Groep "Trade Mogelijkheid"
 
@@ -136,7 +136,7 @@ De lotgrootte wordt berekend met de R van de rekenfeed (standaard FXCM, zie groe
 Twee mogelijke oorzaken: (1) `showSL` of `showTradeCheck` staat uit — beide moeten aan staan; (2) de trade is "niet mogelijk" volgens de Range- of R-check — kijk dan naar de reden in het "Trade niet mogelijk"-blok (default rechtsboven).
 
 **Waarom verschuift Resistance/Support ineens naar een ander niveau?**
-Er zijn twee oorzaken. (1) Zodra de huidige lijn door een candle-body doorbroken wordt, is ze ongeldig geworden en berekent het script automatisch het eerstvolgende geldige (verder terugliggende) niveau. (2) Bij het zoeken naar het Target-niveau kan het script een geldig tussenliggend niveau vinden dat te dicht bij Resistance/Support ligt om Target te zijn (`minTargetDistance`) of al met een wick geraakt is. Is er een Target gevonden, dan verschuift Resistance/Support naar het laatste (verst terugliggende) zo'n tussenliggend niveau. Zie "T4G daytrade rules.md", Target Resistance punt 5 en 6. Dit kan er tegelijk voor zorgen dat de drempel voor een nieuw signaal (`Resistance/Support ± xTicks`) verschuift — het script voorkomt hierbij expliciet dat zo'n verschuiving een tweede, ongewenst signaal in dezelfde richting veroorzaakt zolang het vorige signaalvenster nog loopt.
+Er zijn twee oorzaken. (1) Zodra de huidige lijn door een candle-body doorbroken wordt, is ze ongeldig geworden en berekent het script automatisch het eerstvolgende geldige (verder terugliggende) niveau. (2) Bij het zoeken naar het Target-niveau kan het script een geldig tussenliggend niveau vinden dat te dicht bij Resistance/Support ligt om Target te zijn (`minTargetDistance`) of al met een wick geraakt is. Is er een Target gevonden, dan verschuift Resistance/Support naar het laatste (verst terugliggende) zo'n tussenliggend niveau. Zie "T4G daytrade rules.md", Target Resistance punt 5 en 6. Dit kan er tegelijk voor zorgen dat de drempel voor een nieuw signaal (`Resistance/Support ± breakPct %`) verschuift — het script voorkomt hierbij expliciet dat zo'n verschuiving een tweede, ongewenst signaal in dezelfde richting veroorzaakt zolang het vorige signaalvenster nog loopt.
 
 **Waarom loopt de SL/TP-lijn niet even ver door als de Resistance/Support-lijn?**
 Dat is bewust: `lineLen` bepaalt alleen de lengte van SL/TP/break-lijnen. Resistance/Support/Target lopen altijd onbeperkt door naar rechts.

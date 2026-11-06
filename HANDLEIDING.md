@@ -1,6 +1,6 @@
 # Handleiding – Trade Lijnen (SL/S/R)
 
-Gebruikershandleiding voor `trade_lines.pine`, versie **1.10.0**. Voor de technische wijzigingsgeschiedenis zie [CHANGELOG.md](CHANGELOG.md); voor de exacte detectielogica zie [T4G daytrade rules.md](T4G%20daytrade%20rules.md). Dit document beschrijft hoe je het script gebruikt en wat elke instelling in het Inputs-tabblad wel en niet doet.
+Gebruikershandleiding voor `trade_lines.pine`, versie **1.11.0**. Voor de technische wijzigingsgeschiedenis zie [CHANGELOG.md](CHANGELOG.md); voor de exacte detectielogica zie [T4G daytrade rules.md](T4G%20daytrade%20rules.md). Dit document beschrijft hoe je het script gebruikt en wat elke instelling in het Inputs-tabblad wel en niet doet.
 
 ## 1. Wat doet dit script
 
@@ -36,6 +36,7 @@ Alle berekeningen draaien **altijd op de 30-minuten candles**, ongeacht op welk 
 | SL-lijn | Groen (Long) / rood (Short), gestippeld | Stop loss van het actieve signaal, inclusief prijswaarde in het label. Wordt **niet** getekend als de trade niet mogelijk is (sinds v1.9.37). |
 | "Trade niet mogelijk"-blok | Oranje | Vast blok op het scherm (default rechtsboven, instelbaar) met richting, feed en de reden(en) waarom het actieve signaal geen geldige trade is. Verdwijnt zodra het signaalvenster afloopt. De "doorbroken"-lijn blijft gewoon staan. |
 | TP-lijn | Blauw, gestippeld | Take-profit niveau, alleen zichtbaar als de trade wél mogelijk is. Het label toont ook entry, R, Range en (sinds v1.9.28) de lotgrootte met het bijbehorende risico in $. |
+| Flip-hulplijnen "Flip 0.12R" en "Te ver zonder flip 0.6R" | Paars, gestippeld | Alleen als *Toon flip-hulplijnen* aan staat en de trade mogelijk is. Beginnen bij de candle na de breakout-candle. "Flip" ligt 0,12R terug vanaf de entry richting het level; "Te ver zonder flip" ligt 0,6R voorbij de entry. Puur visueel, het script beslist er niets mee (sinds v1.11.0). |
 | Rood waarschuwingslabel | Rood | Verschijnt alleen op een niet-ondersteund timeframe (zie §2). |
 
 ## 4. Wanneer wordt er bijgewerkt?
@@ -58,7 +59,7 @@ Elke alert vuurt **precies één keer per nieuw 30m-signaal**, ongeacht of je op
 
 | Instelling | Default | Wat het doet | Wat het niet doet |
 |---|---|---|---|
-| Versie | `1.10.0` | Puur informatief: toont de actieve scriptversie boven in de instellingen, zodat je niet in de code hoeft te kijken. | Heeft geen enkele invloed op de berekeningen of weergave; er is ook maar 1 optie beschikbaar. |
+| Versie | `1.11.0` | Puur informatief: toont de actieve scriptversie boven in de instellingen, zodat je niet in de code hoeft te kijken. | Heeft geen enkele invloed op de berekeningen of weergave; er is ook maar 1 optie beschikbaar. |
 
 ### Groep "Rekenfeed"
 
@@ -117,6 +118,19 @@ Elke alert vuurt **precies één keer per nieuw 30m-signaal**, ongeacht of je op
 | Kleur TP-lijn (`tpColor`) | Blauw | Kleur van de TP-lijn/label wanneer de trade mogelijk is. | — |
 | Kleur 'Trade niet mogelijk'-blok (`noTradeColor`) | Oranje | Achtergrondkleur van het "Trade niet mogelijk"-blok. | — |
 | Positie 'Trade niet mogelijk'-blok (`noTradePosStr`) | Rechtsboven | Waar het blok op het scherm staat: rechts-, midden- of linksboven/-midden/-onder. Het blok staat vast op die schermpositie, los van prijs en tijd. | Verschijnt ook als `showSL` uitstaat (sinds v1.9.37); alleen `showTradeCheck` uit zet het blok uit. |
+
+### Groep "Flip-hulplijnen"
+
+Hulpmiddel om de flip live met het oog te beoordelen: de candle na de breakout-candle zakt tijdens zijn vorming eerst tegen de break in (bij Long eerst rood) en draait dan in de richting van de break (groen). De lijnen beslissen niets; ze vervangen alleen het meten met een Gann box of de price range tool.
+
+| Instelling | Default | Wat het doet | Wat het niet doet |
+|---|---|---|---|
+| Toon flip-hulplijnen (`showFlipLines`) | Uit | Tekent bij een mogelijke trade de twee flip-lijnen, van de candle na de breakout-candle tot het labelpunt (`lineLen`). | Geen lijnen als de trade niet mogelijk is. Geen alert, geen invloed op "Trade mogelijk". |
+| Flip: diepte terug vanaf de entry (`flipMinRR`) | 0.12 | Lijn op `entry − 0,12R` (Long) of `entry + 0,12R` (Short): zo diep moet de body van de volgende candle tegen de break in komen. | Controleert niet of de flip echt gebeurt. |
+| Te ver zonder flip (`flipMaxRR`) | 0.6 | Lijn op `entry + 0,6R` (Long) of `entry − 0,6R` (Short): komt de prijs daar zonder flip, dan is de flip gemist (tradeplan). | — |
+| Kleur flip-hulplijnen (`flipColor`) | Paars | Kleur van beide lijnen en labels. | — |
+
+Entry en R zijn die van de rekenfeed (bijv. FXCM), net als bij de TP-lijn.
 
 ### Groep "Lotgrootte"
 

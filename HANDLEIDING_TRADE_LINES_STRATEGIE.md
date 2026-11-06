@@ -1,7 +1,7 @@
 # Handleiding – Trade Lijnen strategie (backtest)
 
 Script: `trade_lines_strategie.pine` (versie 1.5.0)
-Gebaseerd op: `trade_lines.pine` (indicator, versie 1.10.0)
+Gebaseerd op: `trade_lines.pine` (indicator, versie 1.11.0)
 
 ## 1. Wat doet dit script
 

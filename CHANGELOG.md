@@ -3,6 +3,11 @@
 Alle noemenswaardige wijzigingen aan `trade_lines.pine` worden hier bijgehouden.
 Versienummering volgt [Semantic Versioning](https://semver.org/lang/nl/) (MAJOR.MINOR.PATCH).
 
+## [1.11.0]
+
+### Toegevoegd
+- **Flip-hulplijnen** (nieuwe groep *Flip-hulplijnen*, standaard uit). Bij een mogelijke trade staan er twee paarse stippellijnen vanaf de candle na de breakout-candle: **"Flip 0.12R"** op 0,12R terug vanaf de entry richting het level, en **"Te ver zonder flip 0.6R"** op 0,6R voorbij de entry in de trade-richting. Puur visueel: je ziet of de body van de volgende candle tijdens zijn vorming diep genoeg tegen de break in komt, en of de prijs al te ver is doorgeschoten zonder flip. Het script beslist hier niets mee. Beide afstanden en de kleur zijn instelbaar.
+
 ## [1.10.0]
 
 ### Gewijzigd

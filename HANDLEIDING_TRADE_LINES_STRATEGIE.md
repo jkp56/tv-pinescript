@@ -1,6 +1,6 @@
 # Handleiding – Trade Lijnen strategie (backtest)
 
-Script: `trade_lines_strategie.pine` (versie 1.4.0)
+Script: `trade_lines_strategie.pine` (versie 1.5.0)
 Gebaseerd op: `trade_lines.pine` (indicator, versie 1.10.0)
 
 ## 1. Wat doet dit script
@@ -34,11 +34,6 @@ Er wordt alleen een trade geopend als **al deze voorwaarden** gelden:
 4. Het signaal valt binnen de backtest-periode.
 5. Er is nog geen positie open (zolang *Nieuwe signalen negeren zolang er een positie open is* aan staat).
 6. Het is niet de sluit-candle van het vaste sluituur (zolang die optie aan staat).
-7. **Flip** (tradeplan, standaard aan): de eerste 30m-candle **na** de breakout-candle is aan **beide** eisen voldaan:
-   - hij is tegengesteld aan de breakout-candle (bearish bij Long, bullish bij Short), met een body (open − close) van minimaal **0,12R**
-   - hij valt niet meer dan **0,6R** terug vanaf de close van de breakout-candle (standaard gemeten op de wick: low bij Long, high bij Short)
-
-   R is hier de R van de breakout-candle. Haalt de flip-candle één van beide niet, dan geldt de trade als niet mogelijk.
 
 **Niet-mogelijke trades worden volledig genegeerd:** geen trade, geen lijnen, geen label. In de berekening tellen ze nog wel mee: net als in de indicator start zo'n signaal een signaalvenster. Een nieuwe break in dezelfde richting binnen dat venster telt dan niet als nieuw signaal.
 
@@ -46,8 +41,7 @@ Er wordt alleen een trade geopend als **al deze voorwaarden** gelden:
 
 | Onderdeel | Regel |
 |---|---|
-| **Entry met flip** (standaard) | Na een geldige flip komt er een **stop-order op de break-prijs** (close van de breakout-candle). Hij wordt gevuld zodra de prijs daar terugkomt. R, SL en TP blijven precies die van de breakout-candle. De order vervalt na *x* 30m-candles (standaard 4). Hij wordt ook geannuleerd als de prijs eerst de SL raakt, op het sluituur of bij een nieuw signaal. Optioneel: market op de close van de flip-candle (SL en TP op dezelfde prijzen, positiegrootte op de werkelijke afstand tot de SL). |
-| **Entry zonder flip** | Market op de close van de signaal-candle (`process_orders_on_close`) |
+| **Entry** | Market op de close van de signaal-candle (`process_orders_on_close`) |
 | **SL** | Long: low van de signaal-candle − *SL: aantal ticks van wick*. Short: high + ticks. |
 | **R** | Afstand entry → SL (berekend op de close van de rekenfeed) |
 | **TP** | Entry ± *TP: Risk/Reward ratio* × R |
@@ -78,8 +72,7 @@ Het resultaat wordt naar beneden afgerond op *Afronding positiegrootte*, met min
 3. **De entry vult op de chart-feed, SL en TP komen van de rekenfeed.** Staat *Berekeningen op andere feed dan de chart* aan, dan komen signaal, SL en TP van FXCM. De fill komt dan op de chart-prijs, bijvoorbeeld FTMO_OANDA. De werkelijke R en R/R in de backtest wijken daardoor iets af van wat de indicator toont. Dat is realistisch voor hoe je handelt. Voor een test op één feed zet je de optie uit.
 4. **De trailing SL beweegt alleen in je voordeel.** In de indicator kan hij ook verder van de prijs komen.
 5. **De positiegrootte groeit mee met de equity** (standaard), in plaats van een vaste accountgrootte.
-6. **Flip en break-even uit het tradeplan.** De indicator kent geen flip: hij toont de trade direct bij de break. De strategie wacht standaard op de flip-candle en zet dan pas een stop-order op de break-prijs. Een deel van de trades die de indicator toont, valt daardoor af of wordt nooit gevuld.
-   **Break-even:** De indicator heeft geen break-even. De strategie verplaatst de SL naar de entry zodra de prijs +0,8R haalt. Een trade die daarna terugvalt, sluit op ongeveer 0R. Je verliest dan alleen de commissie (en in de praktijk de spread).
+6. **Break-even uit het tradeplan.** De indicator heeft geen break-even. De strategie verplaatst de SL naar de entry zodra de prijs +0,8R haalt. Een trade die daarna terugvalt, sluit op ongeveer 0R. Je verliest dan alleen de commissie (en in de praktijk de spread).
 7. **Wat er op de chart staat is anders:**
    - lijnen per trade blijven in de historie staan
    - de "doorbroken"-lijn, de "Target bij break"-lijn, het "Trade niet mogelijk"-blok, de Freeze-optie en de alerts zijn weggelaten
@@ -87,19 +80,6 @@ Het resultaat wordt naar beneden afgerond op *Afronding positiegrootte*, met min
 ## 7. Instellingen die bij de strategie horen
 
 De groepen *Rekenfeed*, *Stop Loss*, *Support / Resistance*, *Signaal instellingen* en *Trade Mogelijkheid* werken precies zoals in de indicator.
-
-### Groep "Flip"
-
-| Instelling | Standaard | Betekenis |
-|---|---|---|
-| Flip vereist | aan | Entry-criterium uit het tradeplan |
-| Flip: minimale body (R) | 0,12 | Minimale tegengestelde body van de flip-candle |
-| Overslaan als de flip-candle meer dan x R terugvalt | 0,6 | Gemeten vanaf de close van de breakout-candle |
-| Terugval meten op | Wick | Wick = low (Long) / high (Short). Close = close van de flip-candle. |
-| Entry na de flip | Op break-prijs (stop-order) | Of: market op de close van de flip-candle |
-| Stop-order vervalt na x 30m-candles | 4 | Gerekend vanaf de close van de flip-candle |
-
-**Let op:** de flip en de *Rejection candle*-check (groep Trade Mogelijkheid) zijn tegengestelde regels. De rejection-check keurt een tegengestelde tweede 15m-candle **binnen** de breakout-candle af. De flip vraagt juist om een tegengestelde candle **na** de breakout-candle. De rejection-check staat standaard uit.
 
 ### Groep "Break-even"
 

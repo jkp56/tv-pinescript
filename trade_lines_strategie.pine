@@ -1,5 +1,7 @@
 //@version=6
-// Versie: 1.4.0
+// Versie: 1.5.0
+//   1.5.0 - Flip volledig verwijderd (wordt later opnieuw vastgelegd). Entry
+//           weer market op de close van de signaal-candle.
 //   1.4.0 - Break-tolerantie als % van het S/R-level (standaard 0,01%) i.p.v.
 //           10 ticks (indicator v1.10.0). Alleen de close telt, wicks niet.
 //   1.3.0 - Flip (tradeplan, entry-criterium): volgende 30m-candle tegengesteld
@@ -21,10 +23,7 @@
 //
 // Is de trade op de signaal-candle mogelijk (zelfde voorwaarde als waarbij de
 // indicator een TP-lijn tekent), dan opent de strategie een positie:
-//   - Flip (standaard aan): de volgende 30m-candle moet tegengesteld zijn met
-//            body >= 0,12R en mag niet meer dan 0,6R terugvallen. Daarna een
-//            stop-order op de break-prijs (close van de signaal-candle).
-//   - Entry zonder flip: market op de close van de signaal-candle.
+//   - Entry: market op de close van de signaal-candle.
 //   - SL:    low - x ticks (Long) / high + x ticks (Short) van de signaal-candle.
 //            Met "SL: trailing" aan schuift de SL mee binnen het signaalvenster,
 //            maar alleen in het voordeel van de trade.
@@ -49,7 +48,7 @@ strategy("Trade Lijnen strategie (SL/S/R)", shorttitle = "Trade Lijnen strat", o
      max_lines_count = 500, max_labels_count = 500, max_bars_back = 500)
 
 // Versie-info: zichtbaar in het Inputs-tabblad van de instellingen.
-scriptVersion = input.string("1.4.0", "Versie", options = ["1.4.0"], group = "Info")
+scriptVersion = input.string("1.5.0", "Versie", options = ["1.5.0"], group = "Info")
 
 // ============================================================
 // REKENFEED: alle berekeningen (levels, signalen, SL/TP, Range-check) kunnen
@@ -117,19 +116,6 @@ slSignalWindow = input.int(2, "Signaalvenster (aantal 30m-candles)", minval=1, g
 beOn      = input.bool(true, "Break-even aan", group="Break-even")
 beTrigger = input.float(0.8, "SL verplaatsen zodra prijs (R) haalt", minval=0.01, step=0.1, group="Break-even")
 beLevel   = input.float(0.0, "SL verplaatsen naar (R t.o.v. entry, 0 = break-even)", minval=-1.0, step=0.1, group="Break-even")
-
-// Flip (tradeplan, entry-criterium): de eerste 30m-candle NA de breakout-
-// candle moet tegengesteld zijn (bearish bij Long, bullish bij Short) met een
-// body van minimaal flipMinRR * R. Valt die candle meer dan flipMaxRR * R
-// terug vanaf de close van de breakout-candle, dan wordt de trade
-// overgeslagen. R, SL en TP blijven die van de breakout-candle; de entry komt
-// na de flip als stop-order op de break-prijs (close van de breakout-candle).
-flipOn        = input.bool(true, "Flip vereist (volgende 30m-candle tegengesteld aan de breakout-candle)", group="Flip")
-flipMinRR     = input.float(0.12, "Flip: minimale body (R)", minval=0.0, step=0.01, group="Flip")
-flipMaxRR     = input.float(0.6, "Overslaan als de flip-candle meer dan x R terugvalt vanaf de break-close", minval=0.01, step=0.05, group="Flip")
-flipPullMode  = input.string("Wick", "Terugval meten op", options=["Wick", "Close"], group="Flip", tooltip="Wick: low (Long) / high (Short) van de flip-candle. Close: de close van de flip-candle.")
-flipEntryMode = input.string("Op break-prijs (stop-order)", "Entry na de flip", options=["Op break-prijs (stop-order)", "Market op close flip-candle"], group="Flip", tooltip="Stop-order: entry zodra de prijs terugkomt op de close van de breakout-candle; R, SL en TP precies zoals bij de break. Market: direct op de close van de flip-candle, SL en TP blijven op dezelfde prijzen.")
-flipOrderBars = input.int(4, "Stop-order vervalt na x 30m-candles", minval=1, group="Flip", tooltip="Ook geannuleerd als de prijs eerst de SL raakt, op het sluituur of bij een nieuw signaal.")
 
 // ============================================================
 // RESISTANCE / SUPPORT (volledig automatisch, altijd op 30m-candles)
@@ -711,36 +697,17 @@ f_tradeLine(int startT, int endT, float price, color col, string txt) =>
     if showTradeLabels
         label.new(endT, price, txt, xloc.bar_time, yloc.price, color.new(col, 80), label.style_label_left, col, size.small)
 
-// Laatst gesloten 30m-candle van de rekenfeed, voor de flip-check. Zelfde
-// barstate.isconfirmed-aanpak als f_calc30m: nooit een lopende 30m-candle.
-f_bar30() =>
-    var float o = na
-    var float h = na
-    var float l = na
-    var float c = na
-    var int   t = na
-    if barstate.isconfirmed
-        o := open
-        h := high
-        l := low
-        c := close
-        t := time
-    [o, h, l, c, t]
-
-[f30Open, f30High, f30Low, f30Close, f30Time] = request.security(calcTicker, calcTF, f_bar30(), lookahead=barmerge.lookahead_off)
-
-// Plaatst entry + SL/TP-exit en tekent de lijnen. stopPx = na -> market op
-// de close, anders een stop-order op stopPx. qtyR = afstand waarop de
-// positiegrootte berekend wordt. Retourneert de positiegrootte (0 = niet geplaatst).
-f_placeTrade(int d, int startT, float entry, float sl, float tp, float r, float qtyR, float stopPx) =>
+// Plaatst een market-entry op de close + SL/TP-exit en tekent de lijnen.
+// Retourneert de positiegrootte (0 = niet geplaatst).
+f_placeTrade(int d, int startT, float entry, float sl, float tp, float r) =>
     id  = d == 1 ? "Long" : "Short"
-    qty = qtyR > 0 ? nz(f_tradeQty(qtyR)) : 0.0
+    qty = r > 0 ? nz(f_tradeQty(r)) : 0.0
     if qty > 0
-        strategy.entry(id, d == 1 ? strategy.long : strategy.short, qty = qty, stop = stopPx, comment = id + " R " + str.tostring(r, format.mintick))
+        strategy.entry(id, d == 1 ? strategy.long : strategy.short, qty = qty, comment = id + " R " + str.tostring(r, format.mintick))
         strategy.exit(id + " exit", id, stop = sl, limit = tp, comment_loss = "SL", comment_profit = "TP")
         if showTradeLines
             endT = startT + lineLen * barMs
-            f_tradeLine(startT, endT, entry, color.blue, id + (na(stopPx) ? " entry" : " stop-entry") + srcTag + ": " + str.tostring(entry, format.mintick) + " · " + str.tostring(qty / contractSize, "0.00") + " lot · R " + str.tostring(r, format.mintick))
+            f_tradeLine(startT, endT, entry, color.blue, id + " entry" + srcTag + ": " + str.tostring(entry, format.mintick) + " · " + str.tostring(qty / contractSize, "0.00") + " lot · R " + str.tostring(r, format.mintick))
             f_tradeLine(startT, endT, sl, d == 1 ? color.green : color.red, "SL" + srcTag + ": " + str.tostring(sl, format.mintick))
             f_tradeLine(startT, endT, tp, color.blue, "TP" + srcTag + " (" + str.tostring(tpRR, "#.##") + " R/R): " + str.tostring(tp, format.mintick))
     qty
@@ -754,66 +721,7 @@ var float posR             = na
 var int   posEntryBar      = na
 var bool  beDone           = false
 
-// Signaal dat wacht op de flip-candle.
-var int   pendDir   = 0
-var int   pendBreak = na
-var float pendEntry = na
-var float pendSL    = na
-var float pendTP    = na
-var float pendR     = na
-
-// Openstaande stop-order (entry op break-prijs na de flip).
-var bool  ordActive = false
-var int   ordExpiry = na
-
-var int lastF30 = na
-newF30 = isSupportedTF and not na(f30Time) and (na(lastF30) or f30Time != lastF30)
-if newF30
-    lastF30 := f30Time
-
-// --- 1. Openstaande stop-order: gevuld, of annuleren (SL eerst geraakt,
-// verlopen, sluituur). ---
-if ordActive
-    filled = posDir == 1 ? strategy.position_size > 0 : strategy.position_size < 0
-    if filled
-        ordActive   := false
-        posEntryBar := bar_index
-    else
-        slTouched = posDir == 1 ? low <= posSL : high >= posSL
-        if slTouched or exitBar or time_close >= ordExpiry
-            strategy.cancel(posDir == 1 ? "Long" : "Short")
-            ordActive := false
-
-// --- 2. Flip-check op de eerste gesloten 30m-candle na de breakout-candle.
-// Niet gehaald = trade niet mogelijk = genegeerd (geen label). ---
-if pendDir != 0 and newF30 and f30Time > pendBreak
-    d       = pendDir
-    body    = (f30Close - f30Open) * d
-    flipOk  = body < 0 and -body >= flipMinRR * pendR
-    pull    = d == 1 ? pendEntry - (flipPullMode == "Wick" ? f30Low : f30Close) : (flipPullMode == "Wick" ? f30High : f30Close) - pendEntry
-    tooDeep = pull > flipMaxRR * pendR
-    busy    = ignoreInPos and strategy.position_size != 0
-    atBreak = flipEntryMode == "Op break-prijs (stop-order)"
-    if flipOk and not tooDeep and not busy and not exitBar and inWindow
-        // Market: positiegrootte op de werkelijke afstand close -> SL.
-        qtyR = atBreak ? pendR : (close - pendSL) * d
-        qty  = f_placeTrade(d, f30Time, atBreak ? pendEntry : close, pendSL, pendTP, pendR, qtyR, atBreak ? pendEntry : na)
-        if qty > 0
-            posDir       := d
-            posBreakTime := pendBreak
-            posSL        := pendSL
-            posTP        := pendTP
-            posR         := pendR
-            beDone       := false
-            if atBreak
-                ordActive   := true
-                ordExpiry   := f30Time + (flipOrderBars + 1) * barMs
-                posEntryBar := na
-            else
-                posEntryBar := bar_index
-    pendDir := 0
-
-// --- 3. Nieuw signaal: calcBreakTime verandert alleen bij een nieuwe break
+// Nieuw signaal: calcBreakTime verandert alleen bij een nieuwe break
 // en komt precies 1x binnen, ook op de 15m-chart. ---
 newBreak = isSupportedTF and not na(calcBreakTime) and (na(lastHandledBreak) or calcBreakTime != lastHandledBreak)
 
@@ -830,29 +738,16 @@ if newBreak
     busy   = ignoreInPos and strategy.position_size != 0
     id     = isLong ? "Long" : "Short"
 
-    // Een nieuw signaal vervangt een nog niet gevulde stop-order.
-    if ordActive
-        strategy.cancel(posDir == 1 ? "Long" : "Short")
-        ordActive := false
-
     if ok and dirOk and inWindow and not busy and not exitBar
-        if flipOn
-            pendDir   := d
-            pendBreak := calcBreakTime
-            pendEntry := entry
-            pendSL    := sl
-            pendTP    := tp
-            pendR     := r
-        else
-            qty = f_placeTrade(d, calcBreakTime, entry, sl, tp, r, r, na)
-            if qty > 0
-                posDir       := d
-                posBreakTime := calcBreakTime
-                posSL        := sl
-                posTP        := tp
-                posR         := r
-                posEntryBar  := bar_index
-                beDone       := false
+        qty = f_placeTrade(d, calcBreakTime, entry, sl, tp, r)
+        if qty > 0
+            posDir       := d
+            posBreakTime := calcBreakTime
+            posSL        := sl
+            posTP        := tp
+            posR         := r
+            posEntryBar  := bar_index
+            beDone       := false
     else if ok and showNoTrade and inWindow
         string reason = not dirOk ? "richting staat uit" : busy ? "positie al open" : "sluituur"
         label.new(calcBreakTime, isLong ? calcLongBreakLevel : calcShortBreakLevel, id + " geen trade" + srcTag + "\n" + reason, xloc.bar_time, yloc.price, color.new(color.orange, 20), isLong ? label.style_label_up : label.style_label_down, color.black, size.small)

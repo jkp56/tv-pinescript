@@ -10,7 +10,7 @@ Vaste uitgangspunten (bevestigd):
 - Er zijn **twee sessies**: **06:00–10:00** en **12:00–16:00**, beide in de tijdzone **Europe/Amsterdam** (nu UTC+1, in de zomer UTC+2). Het plan noemt alleen de eerste sessie; de tweede is een aanvulling van de gebruiker.
 - **De indicator toont bewust alle mogelijke trades van de dag**, ook buiten de sessies. Dat laat zien hoeveel trades er optreden, genomen of niet. Of een trade binnen of buiten een sessie viel, legt de gebruiker vast in de eigen logging. Er komt dus **geen sessiefilter** in de indicator, en ook **niet in de strategie**.
 - **"1 TP of 1 SL per dag" en het aantal trades per dag** worden ook in de logging bijgehouden. De scripts beperken het aantal trades per dag niet.
-- **Of een trade binnen een sessie valt, bepaalt het moment van de break**: de close van de break-candle valt binnen 06:00–10:00 of 12:00–16:00. De entry (bijv. de fill na de flip) mag daarna komen. Een break-candle die precies om 10:00 of 16:00 sluit, telt mee. De sessiegrenzen worden op het scherm met ongeveer ±15 minuten marge getoond; hoe strikt de grenzen worden gerespecteerd, is de beslissing van de gebruiker.
+- **Of een trade binnen een sessie valt, bepaalt het moment van de break**: de close van de break-candle valt binnen 06:00–10:00 of 12:00–16:00. De entry mag daarna komen. Een break-candle die precies om 10:00 of 16:00 sluit, telt mee. De sessiegrenzen worden op het scherm met ongeveer ±15 minuten marge getoond; hoe strikt de grenzen worden gerespecteerd, is de beslissing van de gebruiker.
 - **Een trade die eenmaal gezet is, loopt door** tot TP, SL of break-even, ook na het einde van de sessie.
 - **De ranges worden doorlopend geëvalueerd**, na elke 30m-candle. Dat doet het script al. "Vóór 06:00 intekenen" betekent dus niet dat de levels voor de hele sessie vastliggen.
 
@@ -130,24 +130,27 @@ Voorstel voor de standaardwaarde tussen haakjes. Alles komt als instelling in he
 - [ ] **Zwakke break-out:** valt de close onder de break-tolerantie, of ligt minder dan Y% van de body voorbij de lijn?
 - [ ] **Regel 4** ("op de 30m de 15m-candle tegen"): geldt die alleen voor een 30m-trade? En telt elke tegengestelde 15m-candle, of alleen vanaf een minimale body?
 
-## 4. Flip-regel in de strategie (voorlopig, v1.3.0)
+## 4. Flip-regel (geparkeerd)
 
-**Tradeplan:** "Flip van minimaal 0,12R: de candle na de break tegengesteld aan de breakout candle. Trade overslaan als die candle 0,6R voorbij schiet." En: "Break even: op 0,8R schuif je de SL naar break even."
+**Status (2026-11-06):** de flip is volledig verwijderd uit `trade_lines_strategie.pine` (v1.5.0). De indicator had geen flip. Zodra de flip weer een rol speelt, wordt de regel hier eerst goed vastgelegd en pas daarna gebouwd.
 
-**Voorlopig gebouwd in `trade_lines_strategie.pine` v1.3.0:**
+**Tradeplan:** "Flip van minimaal 0,12R: de candle na de break tegengesteld aan de breakout candle. Trade overslaan als die candle 0,6R voorbij schiet." En: "De flip is alleen ongeldig als de prijs voorbij 0,6R schiet zónder flip."
 
-- Alleen de eerstvolgende 30m-candle wordt gecontroleerd. Die moet een tegengestelde body van ≥ 0,12R hebben.
-- De terugval vanaf de break-close wordt gemeten op de wick. Dat is een aanname.
-- Entry is een stop-order op de break-prijs, die vervalt na 4 × 30m. Ook een aanname.
+**Wat de gebruiker er al over gezegd heeft:**
 
-**Nog open:**
+- De flip is een korte retracement tegen de richting van de breakout-candle. Die candle kan een 15m- of een 30m-candle zijn.
+- Alleen de candle direct na de breakout-candle telt als flip-candle.
+- De flip is een extra bevestiging van de trade. De candle na de flip-candle "doet wat hij moet doen" en wordt niet apart gecontroleerd.
+- De 0,12R is alleen een check of de flip genoeg kracht had.
 
-- [ ] In realtime kan de flip kort of juist relatief lang duren. Is het altijd de eerstvolgende candle?
-- [ ] Telt een 15m-variant mee ("de 2e 15m-candle na de 1e")?
-- [ ] Wordt de terugval van 0,6R gemeten op de wick of op de close?
-- [ ] Hoe lang blijft de stop-order staan?
-- Wacht op een live voorbeeld en een check door de expert van de strategie.
-- **Nieuw uit het tradingplan (punt 5):** "De flip is alleen ongeldig als de prijs voorbij 0,6R schiet zónder flip." Dat wijst erop dat de flip **niet** per se op de eerstvolgende candle hoeft te komen. Je wacht op de flip, en schiet de prijs eerst 0,6R door, dan sla je de trade over. De strategie kijkt nu alleen naar de eerstvolgende 30m-candle en is dus waarschijnlijk te streng.
+**Schets van de gebruiker (2026-11-06), voorbeeld Long:** de breakout-candle sluit bullish boven het level. De candle daarna opent, zakt eerst terug richting het level (hij is dan even bearish) en draait daarna om: hij stijgt en sluit bullish, ver boven de open. Dat omslaan van bearish naar bullish **binnen** de volgende candle is de flip. Hij helpt om een fakeout-trade te vermijden. Bij Short is het het spiegelbeeld.
+
+Gevolgen van deze lezing:
+- De flip-candle **sluit in de richting van de break**. De retracement zit in de onderwick (Long) of bovenwick (Short). De versie in v1.3.0 eiste het omgekeerde (tegengestelde close) en was dus fout.
+- Waarschijnlijk: de 0,12R is de diepte van die retracement en de 0,6R betekent dat de candle 0,6R in de trade-richting doorschiet zonder eerst terug te zakken. Dan heb je de flip gemist en sla je de trade over. Dit moet nog bevestigd worden.
+- Voor een backtest is de 30m-candle alleen niet genoeg: uit open/high/low/close blijkt niet of de dip vóór of ná de stijging kwam. Dat moet dan op een lager timeframe (15m of kleiner) worden bekeken.
+
+**Nog vast te leggen als de flip terugkomt:** hoe de 0,12R gemeten wordt (body of terugval), hoe de 0,6R gemeten wordt (wick of close), en waar en hoe lang de entry-order staat.
 
 ---
 
@@ -182,8 +185,8 @@ Legenda: ✅ zit erin en klopt · ⚠️ zit erin, maar wijkt af of is anders ui
 |---|---|---|
 | Duidelijke break-out candle op je range, 15m of 30m | 30m-close ≥ 0,01% voorbij S/R (v1.10.0), geen 15m | ⚠️ Zie punt 1 en 2 |
 | 1,5RR vanuit een conservatieve stop loss | Zie check 1 | ⚠️ |
-| Flip van 0,12 | Alleen in de strategie: tegengestelde body ≥ 0,12R op de eerstvolgende 30m-candle | ⚠️ Zie punt 4 |
-| De flip is alleen ongeldig als de prijs voorbij 0,6R schiet zonder flip. Dan sla je hem over | De strategie keurt af als de flip-candle zelf meer dan 0,6R terugvalt | ⚠️ Andere lezing, zie punt 4 |
+| Flip van 0,12 | Niet gebouwd (geparkeerd) | ⏸️ Zie punt 4 |
+| De flip is alleen ongeldig als de prijs voorbij 0,6R schiet zonder flip. Dan sla je hem over | Niet gebouwd (geparkeerd) | ⏸️ Zie punt 4 |
 | Doorschuiven: kun je niet instappen, of pakt de break-out candle je Target al? Ga naar de volgende range erboven of eronder en check opnieuw | Ligt de close al voorbij het Target, dan is de Range negatief en is de trade "niet mogelijk". Er wordt niet doorgeschoven naar de volgende range | ❌ |
 
 ### Niet spelen en 15m/30m tegelijk

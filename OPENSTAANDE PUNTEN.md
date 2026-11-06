@@ -146,7 +146,8 @@ Voorstel voor de standaardwaarde tussen haakjes. Alles komt als instelling in he
 **Schets van de gebruiker (2026-11-06), voorbeeld Long:** de breakout-candle sluit bullish boven het level. De candle daarna opent, zakt eerst terug richting het level (hij is dan even bearish) en draait daarna om: hij stijgt en sluit bullish, ver boven de open. Dat omslaan van bearish naar bullish **binnen** de volgende candle is de flip. Hij helpt om een fakeout-trade te vermijden. Bij Short is het het spiegelbeeld.
 
 Gevolgen van deze lezing:
-- De flip-candle **sluit in de richting van de break**. De retracement zit in de onderwick (Long) of bovenwick (Short). De versie in v1.3.0 eiste het omgekeerde (tegengestelde close) en was dus fout.
+- De flip wordt beoordeeld op de **body terwijl de candle zich vormt**, niet op de wick: de candle is eerst rood (bij Long) en wordt daarna groen. De flip-candle **sluit dus in de richting van de break**. De versie in v1.3.0 eiste het omgekeerde (tegengestelde close) en was dus fout.
+- Let op bij het bouwen: zodra de candle gesloten is, is het rode deel uit de vormingsfase niet meer als body te zien. Het is dan de onderwick (Long) of bovenwick (Short). Een script dat achteraf op de 30m-candle kijkt, kan de flip dus alleen herkennen via de wick, of via een kleiner timeframe.
 - Waarschijnlijk: de 0,12R is de diepte van die retracement en de 0,6R betekent dat de candle 0,6R in de trade-richting doorschiet zonder eerst terug te zakken. Dan heb je de flip gemist en sla je de trade over. Dit moet nog bevestigd worden.
 - Voor een backtest is de 30m-candle alleen niet genoeg: uit open/high/low/close blijkt niet of de dip vóór of ná de stijging kwam. Dat moet dan op een lager timeframe (15m of kleiner) worden bekeken.
 

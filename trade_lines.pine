@@ -145,7 +145,7 @@ breakPct = input.float(0.01, "Break-tolerantie: close voorbij S/R (% van het lev
 // ============================================================
 showTradeCheck = input.bool(true, "Toon TP-lijn en Trade-mogelijkheid check", group="Trade Mogelijkheid")
 tpRR           = input.float(1.2, "TP: Risk/Reward ratio", minval=0.01, step=0.1, group="Trade Mogelijkheid")
-minRangeRR     = input.float(1.0, "Minimaal benodigde R/R-ruimte in de Range", minval=0.01, step=0.1, group="Trade Mogelijkheid")
+minRangeRR     = input.float(1.5, "Minimaal benodigde R/R-ruimte in de Range", minval=0.01, step=0.1, group="Trade Mogelijkheid")
 maxRTicks      = input.int(1000, "Maximaal toegestane R (ticks)", minval=1, group="Trade Mogelijkheid")
 rejectionOn    = input.bool(false, "Rejection candle (15m) maakt trade ongeldig", group="Trade Mogelijkheid")
 rejectionTicks = input.int(50, "Rejection candle: minimale tegengestelde body (ticks)", minval=1, group="Trade Mogelijkheid")

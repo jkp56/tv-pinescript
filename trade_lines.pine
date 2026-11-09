@@ -1,52 +1,39 @@
 //@version=6
-// Versie: 1.11.0 - zie CHANGELOG.md voor de wijzigingsgeschiedenis.
+// Versie: 1.13.0 - zie CHANGELOG.md voor de wijzigingsgeschiedenis.
 //
 // Alle berekeningen (Support/Resistance, Targets, signalen, SL, TP en de
 // Range-check) draaien via request.security() altijd op het 30m-timeframe van
 // de rekenfeed. Lijnen/labels gebruiken tijd-coördinaten (xloc.bar_time),
-// zodat ze op zowel de 30m- als de 15m-chart op dezelfde plek staan. Ze
-// volgen de 30m-klok: bijwerken gebeurt bij het sluiten van een 30m-candle,
-// ook als je op 15m kijkt. Andere timeframes worden niet ondersteund.
+// zodat ze op zowel de 30m- als de 15m-chart op dezelfde plek staan.
+// Breakout-candle: elke 15m-candle die voorbij Support/Resistance sluit
+// (instelling "Breakout-candle"); entry, SL, R en TP komen van die 15m-candle.
+// Een breakout op de 1e 15m-candle van een 30m-candle verschijnt op de
+// 15m-chart direct bij het sluiten van die 15m-candle; al het andere wordt
+// bijgewerkt bij het sluiten van een 30m-candle.
+// Andere timeframes dan 15m en 30m worden niet ondersteund.
 indicator("Trade Lijnen (SL/S/R)", overlay=true, max_lines_count=30, max_labels_count=30)
 
 // ============================================================
-// VERSIE-INFO: bovenaan geplaatst zodat de huidige versie direct
-// zichtbaar is in het Inputs-tabblad van de instellingen, zonder in de
-// code te hoeven kijken. Zie CHANGELOG.md voor de wijzigingsgeschiedenis.
+// VERSIE-INFO
 // ============================================================
-scriptVersion = input.string("1.11.0", "Versie", options=["1.11.0"], group="Info")
+scriptVersion = input.string("1.13.0", "Versie", options=["1.13.0"], group="Info")
 
 // ============================================================
 // REKENFEED: alle berekeningen (levels, signalen, SL/TP, Range-check) kunnen
 // op een andere broker-feed van hetzelfde symbool draaien dan de chart zelf.
-// Zo neem je de beslissing op FXCM (betrouwbaardere candles/overgangen)
-// terwijl je op de FTMO_OANDA-chart kijkt en handelt. De lijnen staan dan op
-// de FXCM-prijzen; tijd-coördinaten lopen gelijk, want beide feeds hebben
-// dezelfde 30m-candles.
 // ============================================================
 useSourceFeed  = input.bool(true, "Berekeningen op andere feed dan de chart", group="Rekenfeed")
 sourceExchange = input.string("FX", "Exchange-prefix van de rekenfeed (FXCM = FX)", group="Rekenfeed")
 
 // ============================================================
-// FREEZE-TOGGLE: direct onder de versie-info geplaatst (eigen groep, los
-// van "Trade Mogelijkheid") zodat deze zonder scrollen bovenaan het
-// Inputs-tabblad van de instellingen staat.
+// FREEZE-TOGGLE
 // ============================================================
 freezeOnValidTrade = input.bool(false, "Lijnen bevriezen zodra een geldige trade ontstaat (handmatig uit/aan = reset)", group="Freeze")
 
-// Vast timeframe waarop alle berekeningen draaien. De indicator ondersteunt
-// alleen dit timeframe en het kortere "15" timeframe waarop de lijnen van
-// dit timeframe blijven getoond.
 calcTF        = "30"
 lowerTF       = "15"
 isSupportedTF = timeframe.period == calcTF or timeframe.period == lowerTF
 
-// Rekenfeed = zelfde ticker, andere exchange-prefix (bijv. FX:XAUUSD op een
-// FTMO_OANDA:XAUUSD-chart; TradingView gebruikt voor FXCM de prefix FX).
-// srcTag komt in de labels zodat zichtbaar is dat de waarden niet van de
-// chart-feed zijn.
-// OANDA noemt indices/grondstoffen anders dan FXCM (NAS100USD vs NAS100);
-// f_fxcmTicker vertaalt die namen, andere tickers blijven ongewijzigd.
 f_fxcmTicker(string t) =>
     switch t
         "NAS100USD" => "NAS100"
@@ -70,17 +57,6 @@ srcTag         = usingOtherFeed ? " (" + (sourceExchange == "FX" ? "FXCM" : sour
 
 // ============================================================
 // STOP LOSS LIJNEN
-// - Long SL = low van laatst gesloten 30m-candle min x ticks (wick telt mee)
-// - Short SL = high van laatst gesloten 30m-candle plus x ticks (wick telt mee)
-// - Slechts 1 lijn tegelijk zichtbaar. Op de signaal-candle wordt de SL
-//   altijd gezet, ongeacht de kleur van die candle (na een gap kan een
-//   break-candle bearish zijn). Met trailing werken daarna alleen bullish
-//   (Long) resp. bearish (Short) candles de SL bij; een doji nooit.
-// - De SL-lijn wordt alleen daadwerkelijk getoond als, naast bovenstaande
-//   voorwaarden, de candle ook binnen het "signaalvenster" valt: er moet een
-//   LONG-signaal (voor Long SL) resp. SHORT-signaal (voor Short SL) zijn
-//   geweest binnen de laatste `slSignalWindow` 30m-candles (de signaal-
-//   candle zelf telt als candle 1 van het venster).
 // ============================================================
 showSL         = input.bool(true, "Toon SL lijnen", group="Stop Loss lijnen")
 trailSL        = input.bool(false, "SL: trailing (bijwerken bij elke nieuwe candle in het venster)", group="Stop Loss lijnen")
@@ -91,10 +67,7 @@ longColor      = input.color(color.new(color.green, 0), "Kleur Long SL", group="
 shortColor     = input.color(color.new(color.red, 0), "Kleur Short SL", group="Stop Loss lijnen")
 
 // ============================================================
-// RESISTANCE / SUPPORT (volledig automatisch, altijd op 30m-candles)
-// Zie "T4G daytrade rules.md" voor de volledige detectielogica (bullish->
-// bearish resp. bearish->bullish overgang op body-niveau, wick-gratieperiode
-// voor de Target-lijnen, body-toleranties, dagsluiting/weekend-gap, enz.).
+// RESISTANCE / SUPPORT
 // ============================================================
 maxScanBars      = input.int(450, "Max bars terugzoeken", minval=10, maxval=500, group="Support / Resistance")
 autoTargetTicks  = input.int(100, "Fallback afstand target lijnen (ticks, alleen als geen geldige overgang gevonden wordt)", minval=1, group="Support / Resistance")
@@ -110,66 +83,43 @@ sessionGapOpen   = input.bool(true, "Overgang over dagsluiting/weekend: level = 
 // ============================================================
 // SIGNAAL INSTELLINGEN
 // ============================================================
-// Break-tolerantie als percentage van het S/R-level: de 30m-close moet
-// minimaal breakPct % voorbij Resistance (Long) resp. Support (Short) sluiten.
-// Alleen de close telt, wicks spelen geen rol. Een percentage schaalt vanzelf
-// mee met instrument en koersniveau (0,01% = ca. 0,40 op XAUUSD ~4000 en
-// ca. 2,7 punt op NAS100 ~27000) en is direct na te meten met de price
-// range tool van TradingView.
-breakPct = input.float(0.01, "Break-tolerantie: close voorbij S/R (% van het level)", minval=0, step=0.005, group="Signaal instellingen", tooltip="De 30m-close moet minimaal dit percentage voorbij Resistance/Support sluiten. Wicks tellen niet mee. 0,01% = ca. 0,40 op XAUUSD (~4000) en ca. 2,7 punt op NAS100 (~27000). Na te meten met de price range tool van TradingView.")
+breakPct = input.float(0.01, "Break-tolerantie: close voorbij S/R (% van het level)", minval=0, step=0.005, group="Signaal instellingen", tooltip="De close moet minimaal dit percentage voorbij Resistance/Support sluiten. Wicks tellen niet mee. 0,01% = ca. 0,40 op XAUUSD (~4000) en ca. 2,7 punt op NAS100 (~27000). Na te meten met de price range tool van TradingView.")
+
+// Breakout op de 1e 15m-candle van een 30m-candle.
+// Sluit die 15m-candle al voorbij S/R, dan is DAT het (enige) signaal:
+// entry = close van die 15m-candle, SL = low/high van die 15m-candle -/+ x
+// ticks, flip-candle = de 2e 15m-candle. Een 30m-signaal op dezelfde 30m-
+// candle vervalt dan. Op de 15m-chart verschijnt het signaal (lijnen + alert)
+// direct bij het sluiten van de 1e 15m-candle; op de 30m-chart pas bij het
+// sluiten van de 30m-candle.
+bkMode     = input.string("Elke 15m-candle", "Breakout-candle", options=["Elke 15m-candle", "30m-candle + 1e 15m"], group="Signaal instellingen", tooltip="Elke 15m-candle: elke 15m-candle die voorbij S/R sluit is de breakout-candle; entry, SL, R en TP komen van die 15m-candle. 30m-candle + 1e 15m: alleen de 1e 15m-candle telt apart; sluit pas de 30m-candle voorbij S/R, dan is de hele 30m-candle de breakout-candle (gedrag t/m 1.11.0 plus het vroege 15m-signaal).")
+every15 = bkMode == "Elke 15m-candle"
+signal15On = input.bool(true, "Ook breakout op de 1e 15m-candle van de 30m (vroeg signaal)", group="Signaal instellingen", tooltip="Sluit de eerste 15m-candle van een 30m-candle al voorbij Resistance/Support, dan is dat het signaal (entry, SL en R van die 15m-candle). Per breakout is er maar één signaal: 15m of 30m.")
 
 // ============================================================
 // TRADE MOGELIJKHEID: TP (bij ingestelde R/R) + Range-check
-// - R = verschil tussen de close van de signaal-candle en de waarde van de
-//   SL-lijn bij dat signaal (zelfde formule als de Long/Short SL):
-//     Long:  SL = low  van de signaal-candle - x ticks  ->  R = close - SL
-//     Short: SL = high van de signaal-candle + x ticks  ->  R = SL - close
-// - TP = entry (= close van de signaal-candle) +/- tpRR * R.
-// - Range = vrije ruimte voor de trade: afstand tussen entry en Target
-//   Resistance (Long), resp. tussen entry en Target Support (Short) - het
-//   Target zoals het op de chart stond op het moment van de break (de
-//   PRE-update waarde, net als de doorbroken Resistance/Support zelf), dus
-//   niet zoals het op de signaal-candle of daarna opnieuw getekend wordt.
-//   Bewust NIET gemeten
-//   vanaf het (verschoven) Resistance/Support-level: dat kan vlak bij het
-//   Target liggen, waardoor de Range kunstmatig klein wordt terwijl de
-//   trade zelf ruim baan heeft.
-// - Trade alleen mogelijk als die Range minimaal minRangeRR * R kan bevatten
-//   EN R (in ticks) niet groter is dan maxRTicks. Zo niet: geen TP-lijn,
-//   maar een "Trade niet mogelijk"-blok (vaste schermpositie) met de reden(en).
-// - Rejection candle (optioneel, standaard uit - komt uit de NASDAQ-
-//   strategie): sluit de tweede 15m-candle van de breakout-30m-candle tegen
-//   de trade-richting in (bearish bij Long, bullish bij Short) met een body
-//   van minimaal rejectionTicks, dan is de trade ook niet mogelijk. Een doji
-//   of kleinere tegengestelde body telt niet als rejection.
 // ============================================================
 showTradeCheck = input.bool(true, "Toon TP-lijn en Trade-mogelijkheid check", group="Trade Mogelijkheid")
 tpRR           = input.float(1.2, "TP: Risk/Reward ratio", minval=0.01, step=0.1, group="Trade Mogelijkheid")
 minRangeRR     = input.float(1.5, "Minimaal benodigde R/R-ruimte in de Range", minval=0.01, step=0.1, group="Trade Mogelijkheid")
 maxRTicks      = input.int(1000, "Maximaal toegestane R (ticks)", minval=1, group="Trade Mogelijkheid")
-rejectionOn    = input.bool(false, "Rejection candle (15m) maakt trade ongeldig", group="Trade Mogelijkheid")
+rejectionOn    = input.bool(false, "Rejection candle (15m) maakt trade ongeldig (alleen bij 30m-signaal)", group="Trade Mogelijkheid")
 rejectionTicks = input.int(50, "Rejection candle: minimale tegengestelde body (ticks)", minval=1, group="Trade Mogelijkheid")
 tpColor        = input.color(color.new(color.blue, 0), "Kleur TP-lijn", group="Trade Mogelijkheid")
 noTradeColor   = input.color(color.new(color.orange, 0), "Kleur 'Trade niet mogelijk'-blok", group="Trade Mogelijkheid")
 noTradePosStr  = input.string("Rechtsboven", "Positie 'Trade niet mogelijk'-blok", options=["Rechtsboven", "Rechtsmidden", "Rechtsonder", "Middenboven", "Middenonder", "Linksboven", "Linksmidden", "Linksonder"], group="Trade Mogelijkheid")
 
-// Flip-hulplijnen (alleen visueel, beslissen niets): bij een mogelijke trade
-// twee lijnen vanaf de candle na de breakout-candle. "Flip" = flipMinRR * R
-// terug vanaf de entry (break-close) richting het level: zo diep moet de body
-// van de volgende candle tijdens zijn vorming tegen de break in komen.
-// "Te ver" = flipMaxRR * R voorbij de entry in de trade-richting: komt de
-// prijs daar zonder flip, dan is de flip gemist (tradeplan).
-showFlipLines = input.bool(false, "Toon flip-hulplijnen (0,12R terug / 0,6R door)", group="Flip-hulplijnen")
-flipMinRR     = input.float(0.12, "Flip: diepte terug vanaf de entry (R)", minval=0.0, step=0.01, group="Flip-hulplijnen")
+// Flip-hulplijnen (alleen visueel, beslissen niets), vanaf de flip-candle
+// (de eerstvolgende candle na de breakout-candle). "Flip" = 0,12 x de body
+// van de breakout-candle terug vanaf de entry (Gann box: close = 0, open = 1).
+// "Te ver" = 0,6 x R voorbij de entry in de trade-richting (risk-to-reward).
+showFlipLines = input.bool(false, "Toon flip-hulplijnen (0,12 body terug / 0,6R door)", group="Flip-hulplijnen")
+flipMinRR     = input.float(0.12, "Flip: diepte terug vanaf de entry (deel van de body van de breakout-candle, Gann box)", minval=0.0, step=0.01, group="Flip-hulplijnen")
 flipMaxRR     = input.float(0.6, "Te ver zonder flip: voorbij de entry (R)", minval=0.0, step=0.05, group="Flip-hulplijnen")
 flipColor     = input.color(color.new(color.purple, 0), "Kleur flip-hulplijnen", group="Flip-hulplijnen")
 
 // ============================================================
-// LOTGROOTTE: bij een geldige trade toont het TP-label ook de lotgrootte,
-// zelfde formule als de Lotcalculator:
-//   lot = (account * risico%) / (R * contractgrootte * koers-naar-USD + commissie per lot)
-// naar beneden afgerond op 0.01 lot (minimaal 0.01). Accountvaluta is USD.
-// R is de vaste R van de signaal-candle (zelfde als in het TP-label).
+// LOTGROOTTE
 // ============================================================
 showLots     = input.bool(true, "Toon lotgrootte in TP-label", group="Lotgrootte")
 accountSize  = input.float(10000, "Accountgrootte ($)", minval=1, group="Lotgrootte")
@@ -182,12 +132,9 @@ slOffset = tickOffset * tickSize
 bodyTol  = bodyTolTicks * tickSize
 laterTol = laterTolEnabled ? laterTolTicks * tickSize : 0.0
 
-// Omrekenkoers van de noteringsvaluta naar USD (1 voor XAUUSD en andere
-// xxxUSD-symbolen).
 fxRate     = request.currency_rate(syminfo.currency, "USD", ignore_invalid_currency=true)
 quoteToUsd = syminfo.currency == "USD" ? 1.0 : nz(fxRate, 1.0)
 
-// Lotgrootte + werkelijk risico in $ bij een gegeven R (prijsafstand).
 f_lots(float r) =>
     perLot = r * contractSize * quoteToUsd + commPerLot
     exact  = perLot > 0 ? accountSize * riskPct / 100 / perLot : na
@@ -198,8 +145,6 @@ f_lotText(float r) =>
     [lots, riskUsd, tooSmall] = f_lots(r)
     "\nLot " + str.tostring(lots, "0.00") + " · risico $" + str.tostring(riskUsd, "0.00") + " (" + str.tostring(riskUsd / accountSize * 100, "0.00") + "%)" + (tooSmall ? " · min. lot, boven je risico!" : "")
 
-// Range uitgedrukt in R, naar beneden afgerond op 2 decimalen: zo toont een
-// net-niet-gehaalde check (bijv. 0.997R) nooit misleidend "1R < 1R".
 f_fmtRR(float x) =>
     na(x) ? "-" : str.tostring(math.floor(x * 100) / 100, "0.00")
 
@@ -210,22 +155,12 @@ max_bars_back(low, 500)
 max_bars_back(time, 500)
 
 // ============================================================
-// PURE HELPER FUNCTIES.
-// Deze functies geven een OFFSET ("aantal candles terug") terug i.p.v.
-// een absolute bar_index, zodat we er zowel de tekst ("X candles terug")
-// als de exacte tijd (via time[offset]) uit kunnen afleiden - nodig om de
-// lijnen straks tijd-gebaseerd te kunnen tekenen.
+// PURE HELPER FUNCTIES (ongewijzigd t.o.v. 1.11.0)
 // ============================================================
 f_bodyTop(i) => math.max(open[i], close[i])
 f_bodyBottom(i) => math.min(open[i], close[i])
 f_validBar(i) => open[i] > 0 and close[i] > 0 and high[i] > 0 and low[i] > 0
 
-// Ligt er tussen de pivot-candle (offset i+1) en de reversal-candle (offset
-// i) een tijdsgat (dagsluiting of weekend)? Dan is de close van de pivot-
-// candle geen betrouwbaar level: die valt vlak voor de sluiting (dunne
-// handel, brede spread) en kan per broker flink verschillen. Het level wordt
-// dan de open van de reversal-candle - de eerste prijs na de gap - zowel bij
-// een gap up als een gap down. Zonder tijdsgat: gewoon de body van de pivot.
 f_sessionGap(i) => sessionGapOpen and time[i] - time[i + 1] > timeframe.in_seconds(calcTF) * 1000
 f_supportLevel(i) => f_sessionGap(i) ? open[i] : f_bodyBottom(i + 1)
 f_resistanceLevel(i) => f_sessionGap(i) ? open[i] : f_bodyTop(i + 1)
@@ -244,18 +179,6 @@ f_safeLowest(length) =>
             m := na(m) ? low[i] : math.min(m, low[i])
     m
 
-// Body-geldigheid van een Support-kandidaat (pivot op offset i+1, reversal-
-// candle op offset i). minTo1 = laagste body-onderkant van candles 0..i-1,
-// minTo2 = idem van candles 0..i-2 (dus zonder de candle direct na de
-// reversal-candle). Strikt: geen enkele latere body onder het level.
-// Body-tolerantie (optioneel): de candle direct na de reversal-candle mag met
-// zijn body maximaal bodyTol onder het level komen, mits die candle zelf
-// bullish is (de respecterende richting voor Support) - zo'n candle opent
-// net iets lager maar sluit erboven.
-// Body-tolerantie latere candles (optioneel, laterTol): ELKE latere body -
-// ongeacht kleur - mag maximaal laterTol onder het level komen. Vangt feed-
-// ruis op waarbij bijv. een break-candle op de ene broker net onder en op de
-// andere net boven het level sluit. Staat die uit, dan is laterTol 0 (strikt).
 f_supportBodyValid(i, candidate, minTo1, minTo2, excludeReversal) =>
     bottomI = f_bodyBottom(i)
     fullMin = excludeReversal ? minTo1 : (na(minTo1) ? bottomI : math.min(minTo1, bottomI))
@@ -267,9 +190,6 @@ f_supportBodyValid(i, candidate, minTo1, minTo2, excludeReversal) =>
             valid := true
     valid
 
-// Spiegelbeeld voor Resistance: maxTo1/maxTo2 = hoogste body-bovenkant, de
-// candle na de reversal-candle moet bearish zijn om de tolerantie te krijgen.
-// laterTol werkt hier boven het level.
 f_resistanceBodyValid(i, candidate, maxTo1, maxTo2, excludeReversal) =>
     topI = f_bodyTop(i)
     fullMax = excludeReversal ? maxTo1 : (na(maxTo1) ? topI : math.max(maxTo1, topI))
@@ -281,12 +201,6 @@ f_resistanceBodyValid(i, candidate, maxTo1, maxTo2, excludeReversal) =>
             valid := true
     valid
 
-// Wick-check voor de Target-lijnen. De reversal-candle (offset pivotOffset-1)
-// hoort bij de overgang zelf en wordt niet gecontroleerd. De eerste candle NA
-// de overgang (offset pivotOffset-2) mag het level met een wick raken
-// (gratie), maar alleen als hij in de respecterende richting sluit: bearish
-// bij Resistance, bullish bij Support. Elke candle daarna - ongeacht kleur -
-// maakt het level ongeldig ("uitgenomen") zodra de wick het raakt.
 f_wickValidAboveLevel(pivotOffset, level) =>
     bool valid = true
     if pivotOffset >= 2
@@ -309,11 +223,6 @@ f_wickValidBelowLevel(pivotOffset, level) =>
                     break
     valid
 
-// Resistance: bullish -> bearish overgang, body-top. Eerste geldige
-// (bodyValid) pivot-level, ongeacht wicks - dit is puur de dichtstbijzijnde
-// aanzet; of dit level uiteindelijk het getoonde Resistance-level blijft of
-// verschuift naar een tussenliggend level hangt af van de Target-zoektocht
-// verderop (zie f_autoTargetResistance). Retourneert [level, barsBack].
 f_autoResistance(maxScan, excludeReversal) =>
     float level = na
     int barsBack = na
@@ -331,7 +240,6 @@ f_autoResistance(maxScan, excludeReversal) =>
             maxTo1 := na(maxTo1) ? f_bodyTop(i) : math.max(maxTo1, f_bodyTop(i))
     [level, barsBack]
 
-// Support: spiegelbeeld van Resistance. Retourneert [level, barsBack].
 f_autoSupport(maxScan, excludeReversal) =>
     float level = na
     int barsBack = na
@@ -349,17 +257,6 @@ f_autoSupport(maxScan, excludeReversal) =>
             minTo1 := na(minTo1) ? f_bodyBottom(i) : math.min(minTo1, f_bodyBottom(i))
     [level, barsBack]
 
-// Target Resistance: EIGEN zoektocht. Zoekt het EERSTE bodyValid pivot-level
-// dat ZOWEL ver genoeg (minDistance) van Resistance ligt ALS wick-valid is -
-// dat wordt het Target, en de zoektocht stopt daar. Onderweg wordt ook het
-// LAATSTE bodyValid level bijgehouden dat niet aan beide eisen voldeed (dus
-// te dichtbij lag, of al eerder met een wick geraakt is) - dat is het level
-// waar Resistance eventueel naar verschuift. Resistance vereist zelf GEEN
-// wick-validiteit (net als f_autoResistance) - alleen de Target-lijn zelf
-// moet nog "schoon" (ongeraakt) zijn (zie f_calc30m: shift gebeurt alleen als
-// er een Target gevonden is EN er zo'n tussenliggend level bestaat; anders
-// blijven Resistance en Target zoals ze zijn). Retourneert
-// [level, barsBack, shiftLevel, shiftBarsBack].
 f_autoTargetResistance(maxScan, resistanceLevel, minDistance, excludeReversal) =>
     float level = na
     int barsBack = na
@@ -384,9 +281,6 @@ f_autoTargetResistance(maxScan, resistanceLevel, minDistance, excludeReversal) =
             maxTo1 := na(maxTo1) ? f_bodyTop(i) : math.max(maxTo1, f_bodyTop(i))
     [level, barsBack, shiftLevel, shiftBarsBack]
 
-// Target Support: spiegelbeeld van f_autoTargetResistance. Support vereist
-// zelf GEEN wick-validiteit (net als f_autoSupport) - alleen de Target-lijn
-// zelf moet nog "schoon" zijn. Retourneert [level, barsBack, shiftLevel, shiftBarsBack].
 f_autoTargetSupport(maxScan, supportLevel, minDistance, excludeReversal) =>
     float level = na
     int barsBack = na
@@ -411,10 +305,8 @@ f_autoTargetSupport(maxScan, supportLevel, minDistance, excludeReversal) =>
             minTo1 := na(minTo1) ? f_bodyBottom(i) : math.min(minTo1, f_bodyBottom(i))
     [level, barsBack, shiftLevel, shiftBarsBack]
 
-// Trade Mogelijkheid voor een signaal, dir = 1 (Long) of -1 (Short). R en
-// Range zijn afstanden in de trade-richting: R = entry -> SL, Range = entry
-// -> Target. body2 = close - open van de tweede 15m-candle van de signaal-
-// candle (na als die niet beschikbaar is). Retourneert [tp, rangeRR, r, ok, reden].
+// Trade Mogelijkheid voor een signaal, dir = 1 (Long) of -1 (Short).
+// Retourneert [tp, rangeRR, r, ok, reden].
 f_tradeCheck(float entry, float sl, float target, int dir, float body2) =>
     r           = (entry - sl) * dir
     rTicks      = r / tickSize
@@ -434,12 +326,7 @@ f_tradeCheck(float entry, float sl, float target, int dir, float body2) =>
     [entry + dir * tpRR * r, r > 0 ? rangeAvail / r : na, r, r > 0 and rangeOk and not rTooLarge and not rejected, reason]
 
 // ============================================================
-// ALLE BEREKENINGEN: draait via request.security() altijd op het 30m-
-// timeframe, ook als de chart zelf op 15m staat. De "var" + barstate.
-// isconfirmed-combinatie zorgt ervoor dat er nooit in een nog lopende
-// (niet-afgesloten) 30m-candle gekeken wordt (geen repainting): zolang die
-// candle nog loopt, blijven alle velden gewoon op hun laatst bevestigde
-// waarde staan.
+// ALLE BEREKENINGEN op 30m (via request.security)
 // ============================================================
 f_calc30m() =>
     var float resistance       = na
@@ -470,6 +357,11 @@ f_calc30m() =>
     var int  lastLongBar  = na
     var int  lastShortBar = na
 
+    // blokkade voor de VOLGENDE 30m-candle (nodig voor het vroege
+    // 15m-signaal op de chart, dat vóór de 30m-close beslist).
+    var bool blockLongNext  = false
+    var bool blockShortNext = false
+
     var float longTrailSL  = na
     var float shortTrailSL = na
     var slSide             = bool(na)
@@ -480,6 +372,11 @@ f_calc30m() =>
     var float shortBreakTarget = na
     var int   breakTime       = na
     var breakSide             = bool(na)
+    // kwam het laatste signaal van de 1e 15m-candle?
+    var bool  sig15           = false
+    // welke helft van de 30m-candle was de breakout-candle?
+    // 0 = de 30m-candle zelf, 1 = 1e 15m-candle, 2 = 2e 15m-candle.
+    var int   sigHalf         = 0
 
     var bool   longTradeOk    = false
     var float  longTP         = na
@@ -487,6 +384,7 @@ f_calc30m() =>
     var float  longRangeRR    = na
     var float  longEntry      = na
     var float  longR          = na
+    var float  longBody       = na
 
     var bool   shortTradeOk    = false
     var float  shortTP         = na
@@ -494,12 +392,25 @@ f_calc30m() =>
     var float  shortRangeRR    = na
     var float  shortEntry      = na
     var float  shortR          = na
+    var float  shortBody       = na
 
-    // De 15m-candles binnen deze 30m-candle (geneste request, draait dus ook
-    // op de rekenfeed). Body van de tweede 15m-candle = close - open; na als
-    // de 30m-candle niet uit twee 15m-candles bestaat (bijv. na een gap).
-    bodies15 = request.security_lower_tf(calcTicker, lowerTF, close - open)
-    float body2 = bodies15.size() == 2 ? bodies15.last() : na
+    // De 15m-candles binnen deze 30m-candle (geneste request op de
+    // rekenfeed). body2 = body van de 2e 15m-candle (rejection-check, zoals
+    // in 1.11.0). OHLC van de 1e 15m-candle, alleen als die echt op
+    // het begin van deze 30m-candle valt (niet na een gap).
+    [t15, o15, h15, l15, c15] = request.security_lower_tf(calcTicker, lowerTF, [time, open, high, low, close])
+    float body2  = c15.size() == 2 ? c15.last() - o15.last() : na
+    bool  has15a = c15.size() >= 1 ? t15.first() == time : false
+    float c15a   = has15a ? c15.first() : na
+    float h15a   = has15a ? h15.first() : na
+    float l15a   = has15a ? l15.first() : na
+    float o15a   = has15a ? o15.first() : na
+    // 2e 15m-candle (alleen als die echt op time + 15 min begint)
+    bool  has15b = c15.size() == 2 ? t15.last() == time + 15 * 60000 : false
+    float c15b   = has15b ? c15.last() : na
+    float h15b   = has15b ? h15.last() : na
+    float l15b   = has15b ? l15.last() : na
+    float o15b   = has15b ? o15.last() : na
 
     if barstate.isconfirmed
         barTime       := time
@@ -523,10 +434,6 @@ f_calc30m() =>
         [rawTargetResistance, trBack, rShiftLevel, rShiftBarsBack] = f_autoTargetResistance(maxScanBars, resistance, minTargetDistance * tickSize, excludeReversalCandle)
         [rawTargetSupport, tsBack, sShiftLevel, sShiftBarsBack]    = f_autoTargetSupport(maxScanBars, support, minTargetDistance * tickSize, excludeReversalCandle)
 
-        // Resistance/Support verschuiven naar het laatste geldige tussenliggende
-        // level vóór het gevonden Target - maar alleen als er ook daadwerkelijk
-        // een Target gevonden is én er zo'n tussenliggend level bestaat. Is dat
-        // niet het geval, dan blijven Resistance/Support en Target ongewijzigd.
         if not na(rawTargetResistance) and not na(rShiftLevel)
             resistance := rShiftLevel
             rBarsBack  := rShiftBarsBack
@@ -551,21 +458,35 @@ f_calc30m() =>
         bullishLevel = prevResistance * (1 + breakPct / 100)
         bearishLevel = prevSupport * (1 - breakPct / 100)
 
-        // Was er al een actief signaal in dezelfde richting (op basis van de
-        // ORIGINELE lastLongBar/lastShortBar, dus vóór de eventuele update
-        // hieronder)? Zo ja, dan mag dit geen nieuwe break tellen: Support/
-        // Resistance kan van candle op candle flink verspringen (het dichtst-
-        // bijzijnde nog-niet-gebroken level verandert na een sterke beweging),
-        // waardoor prevSupport/prevResistance - en dus bullishLevel/bearish-
-        // Level - kan verschuiven zonder dat de markt echt opnieuw een level
-        // doorbreekt. Zonder deze check vuurt zo'n verschuiving een tweede
-        // (spurious) breakout af met een compleet andere, vaak veel grotere R,
-        // puur omdat de drempel zelf is bijgesteld.
         wasLongActive  = not na(lastLongBar) and (bar_index - lastLongBar) < slSignalWindow
         wasShortActive = not na(lastShortBar) and (bar_index - lastShortBar) < slSignalWindow
 
-        bullishBreakNow = not na(prevResistance) and close > bullishLevel and close[1] <= bullishLevel and not wasLongActive
-        bearishBreakNow = not na(prevSupport) and close < bearishLevel and close[1] >= bearishLevel and not wasShortActive
+        // 15m-breakout op de 1e 15m-candle van deze 30m-candle. De
+        // vorige close (close[1]) is de close van de vorige 30m-candle = de
+        // close van de 15m-candle vóór deze. Een 15m-signaal gaat vóór: dan
+        // telt de 30m-close van dezelfde candle niet meer (1 signaal).
+        long15  = signal15On and has15a and not na(prevResistance) and c15a > bullishLevel and close[1] <= bullishLevel and not wasLongActive
+        short15 = signal15On and has15a and not na(prevSupport) and c15a < bearishLevel and close[1] >= bearishLevel and not wasShortActive
+        any15   = long15 or short15
+
+        bullishBreakNow = long15 or (not any15 and not na(prevResistance) and close > bullishLevel and close[1] <= bullishLevel and not wasLongActive)
+        bearishBreakNow = short15 or (not any15 and not na(prevSupport) and close < bearishLevel and close[1] >= bearishLevel and not wasShortActive)
+
+        // Breakout-candle: de 1e 15m-candle, de 2e 15m-candle (modus "Elke
+        // 15m-candle": de 30m-close is de close van die 2e 15m-candle) of de
+        // 30m-candle zelf.
+        use15b   = not any15 and every15 and has15b
+        brkClose = any15 ? c15a : use15b ? c15b : close
+        brkHigh  = any15 ? h15a : use15b ? h15b : high
+        brkLow   = any15 ? l15a : use15b ? l15b : low
+        brkOpen  = any15 ? o15a : use15b ? o15b : open
+        // Rejection-check (2e 15m-candle) hoort bij een 30m-signaal; bij een
+        // 15m-signaal is die 2e 15m-candle de flip-candle, dus geen check.
+        brkBody2 = (any15 or use15b) ? float(na) : body2
+
+        if bullishBreakNow or bearishBreakNow
+            sig15   := any15 or use15b
+            sigHalf := any15 ? 1 : use15b ? 2 : 0
 
         if bullishBreakNow
             lastLongBar    := bar_index
@@ -583,37 +504,35 @@ f_calc30m() =>
 
         longActive  := not na(lastLongBar) and (bar_index - lastLongBar) < slSignalWindow
         shortActive := not na(lastShortBar) and (bar_index - lastShortBar) < slSignalWindow
+        blockLongNext  := not na(lastLongBar) and (bar_index + 1 - lastLongBar) < slSignalWindow
+        blockShortNext := not na(lastShortBar) and (bar_index + 1 - lastShortBar) < slSignalWindow
 
-        // --- SL-weergave: op de signaal-candle zelf wordt de SL altijd gezet,
-        // ongeacht de kleur van die candle (zelfde SL als in de Range-check
-        // hieronder). Staat trailSL aan, dan werkt elke volgende candle van de
-        // "juiste" kleur binnen het venster de getoonde SL nog bij; staat
-        // trailSL uit (default), dan blijft de SL vanaf de signaal-candle vast
-        // staan - net als de TP-lijn. ---
+        // --- SL-weergave ---
         if bullishBreakNow or (trailSL and longActive and close > open)
-            longTrailSL := low - slOffset
+            longTrailSL := (bullishBreakNow ? brkLow : low) - slOffset
             slSide      := true
         if bearishBreakNow or (trailSL and shortActive and close < open)
-            shortTrailSL := high + slOffset
+            shortTrailSL := (bearishBreakNow ? brkHigh : high) + slOffset
             slSide       := false
 
-        // --- Trade Mogelijkheid: TP + Range-check, vast bepaald op de
-        // signaal-candle zelf, blijft ongewijzigd zolang het venster loopt ---
+        // --- Trade Mogelijkheid ---
         if bullishBreakNow and not na(prevTargetResistance)
-            [lTp, lRangeRR, lR, lOk, lReason] = f_tradeCheck(close, low - slOffset, prevTargetResistance, 1, body2)
+            [lTp, lRangeRR, lR, lOk, lReason] = f_tradeCheck(brkClose, brkLow - slOffset, prevTargetResistance, 1, brkBody2)
             longTP         := lTp
             longRangeRR    := lRangeRR
-            longEntry      := close
+            longEntry      := brkClose
             longR          := lR
+            longBody       := math.abs(brkClose - brkOpen)
             longTradeOk    := lOk
             longReasonText := lReason
 
         if bearishBreakNow and not na(prevTargetSupport)
-            [sTp, sRangeRR, sR, sOk, sReason] = f_tradeCheck(close, high + slOffset, prevTargetSupport, -1, body2)
+            [sTp, sRangeRR, sR, sOk, sReason] = f_tradeCheck(brkClose, brkHigh + slOffset, prevTargetSupport, -1, brkBody2)
             shortTP         := sTp
             shortRangeRR    := sRangeRR
-            shortEntry      := close
+            shortEntry      := brkClose
             shortR          := sR
+            shortBody       := math.abs(brkClose - brkOpen)
             shortTradeOk    := sOk
             shortReasonText := sReason
 
@@ -626,15 +545,10 @@ f_calc30m() =>
      longTrailSL, shortTrailSL, slSide,
      longBreakLevel, shortBreakLevel, longBreakTarget, shortBreakTarget, breakTime, breakSide,
      longTradeOk, longTP, longReasonText, longRangeRR, longEntry, longR,
-     shortTradeOk, shortTP, shortReasonText, shortRangeRR, shortEntry, shortR]
+     shortTradeOk, shortTP, shortReasonText, shortRangeRR, shortEntry, shortR,
+     sig15, blockLongNext, blockShortNext, sigHalf, longBody, shortBody]
 
-// Let op: request.security() krijgt hier bewust een TUPLE van simpele
-// waarden terug (niet een object van een user-defined type). Dat is de
-// vorm die request.security() al sinds jaar en dag ondubbelzinnig
-// ondersteunt; een UDT-object teruggeven bleek in de praktijk niet
-// betrouwbaar te worden gevuld (alle velden bleven op hun startwaarde
-// staan, waardoor er nergens meer iets werd getekend).
-[calcResistance, calcSupport, calcTargetResistance, calcTargetSupport, calcRFallback, calcSFallback, calcTrFallback, calcTsFallback, calcRPivotTime, calcSPivotTime, calcTrPivotTime, calcTsPivotTime, calcRBarsBack, calcSBarsBack, calcTrBarsBack, calcTsBarsBack, calcBarTime, calcLongActive, calcShortActive, calcLongTrailSL, calcShortTrailSL, calcSlSide, calcLongBreakLevel, calcShortBreakLevel, calcLongBreakTarget, calcShortBreakTarget, calcBreakTime, calcBreakSide, calcLongTradeOk, calcLongTP, calcLongReasonText, calcLongRangeRR, calcLongEntry, calcLongR, calcShortTradeOk, calcShortTP, calcShortReasonText, calcShortRangeRR, calcShortEntry, calcShortR] = request.security(calcTicker, calcTF, f_calc30m(), lookahead=barmerge.lookahead_off)
+[calcResistance, calcSupport, calcTargetResistance, calcTargetSupport, calcRFallback, calcSFallback, calcTrFallback, calcTsFallback, calcRPivotTime, calcSPivotTime, calcTrPivotTime, calcTsPivotTime, calcRBarsBack, calcSBarsBack, calcTrBarsBack, calcTsBarsBack, calcBarTime, calcLongActive, calcShortActive, calcLongTrailSL, calcShortTrailSL, calcSlSide, calcLongBreakLevel, calcShortBreakLevel, calcLongBreakTarget, calcShortBreakTarget, calcBreakTime, calcBreakSide, calcLongTradeOk, calcLongTP, calcLongReasonText, calcLongRangeRR, calcLongEntry, calcLongR, calcShortTradeOk, calcShortTP, calcShortReasonText, calcShortRangeRR, calcShortEntry, calcShortR, calcSig15, calcBlockLongNext, calcBlockShortNext, calcSigHalf, calcLongBody, calcShortBody] = request.security(calcTicker, calcTF, f_calc30m(), lookahead=barmerge.lookahead_off)
 
 // ============================================================
 // Waarschuwing bij niet-ondersteund timeframe.
@@ -648,20 +562,19 @@ if barstate.islast
         label.delete(tfWarnLabel)
         tfWarnLabel := na
 
-// newData wordt precies 1x waar bij het sluiten van elke nieuwe 30m-candle,
-// ongeacht of de chart zelf op 30m of 15m staat - dat is het moment waarop
-// alle lijnen/labels hieronder herbouwd worden.
 var int lastDrawnBarTime = na
-newData = isSupportedTF and not na(calcBarTime) and (na(lastDrawnBarTime) or calcBarTime != lastDrawnBarTime)
+// pas tekenen als de 30m-candle van de rekenfeed (calcBarTime)
+// ook op de chart zelf voorbij is: de chart-candle is gesloten
+// (barstate.isconfirmed) of de chart staat al in een latere 30m-periode. Live
+// en historisch verandert dit niets; in Bar Replay (vooral met een andere
+// chart-feed dan de rekenfeed) voorkomt het dat een signaal verschijnt
+// terwijl de breakout-candle op de chart nog loopt.
+calcBarEnd  = calcBarTime + timeframe.in_seconds(calcTF) * 1000
+calcBarDone = not na(calcBarTime) and time_close >= calcBarEnd and (barstate.isconfirmed or time >= calcBarEnd)
+newData = isSupportedTF and calcBarDone and (na(lastDrawnBarTime) or calcBarTime != lastDrawnBarTime)
 
 // ============================================================
-// FREEZE: als "Lijnen bevriezen zodra een geldige trade ontstaat" aan staat,
-// blijven ALLE lijnen/labels precies staan zoals ze waren op het moment dat
-// er een geldige long/short trade ontstond (calcLongTradeOk/calcShortTradeOk
-// bij een actief signaal). Vanaf dat moment wordt er niet meer bijgewerkt,
-// ook niet bij volgende 30m-candles, totdat de gebruiker deze instelling
-// handmatig uit- en weer aanzet (dat "reset" de bevriezing, zodat de
-// volgende geldige trade opnieuw bevroren wordt).
+// FREEZE
 // ============================================================
 var bool linesFrozen = false
 if not freezeOnValidTrade
@@ -669,19 +582,65 @@ if not freezeOnValidTrade
 
 effectiveNewData = newData and not linesFrozen
 
-// Actief signaal: er is er hooguit 1 tegelijk, de laatste break
-// (calcBreakSide) bepaalt de richting.
 longSig    = calcLongActive and calcBreakSide
 shortSig   = calcShortActive and not calcBreakSide
 sigTradeOk = (longSig and calcLongTradeOk) or (shortSig and calcShortTradeOk)
+
+// ============================================================
+// VROEG 15m-SIGNAAL (alleen op de 15m-chart): bij het sluiten van de
+// 1e 15m-candle van een 30m-candle wordt dezelfde controle gedaan als in
+// f_calc30m (zelfde S/R/Target zoals ze nu op de chart staan = de PRE-update
+// waarden, zelfde vorige close), zodat lijnen en alert direct verschijnen.
+// Bij het sluiten van de 30m-candle neemt f_calc30m het over met precies
+// hetzelfde signaal.
+// ============================================================
+[pvC, pvH, pvL, pvCPrev, pvO] = request.security(calcTicker, lowerTF, [close, high, low, close[1], open], lookahead=barmerge.lookahead_off)
+is15Chart   = timeframe.period == lowerTF
+pvFirst15   = is15Chart and timeframe.change(calcTF)
+pvBullLevel = calcResistance * (1 + breakPct / 100)
+pvBearLevel = calcSupport * (1 - breakPct / 100)
+pvLong  = signal15On and pvFirst15 and barstate.isconfirmed and not linesFrozen and not na(pvBullLevel) and pvC > pvBullLevel and pvCPrev <= pvBullLevel and not calcBlockLongNext
+pvShort = signal15On and pvFirst15 and barstate.isconfirmed and not linesFrozen and not na(pvBearLevel) and pvC < pvBearLevel and pvCPrev >= pvBearLevel and not calcBlockShortNext
+pvFire  = pvLong or pvShort
+pvDir   = pvLong ? 1 : -1
+pvSL    = pvLong ? pvL - slOffset : pvH + slOffset
+[pvTp, pvRangeRR, pvR, pvOk, pvReason] = f_tradeCheck(pvC, pvSL, pvLong ? calcTargetResistance : calcTargetSupport, pvDir, float(na))
+
+// Weergavewaarden: normaal die van f_calc30m, bij een vroeg 15m-signaal die
+// van het 15m-signaal. drawNow = moment om de signaal-lijnen te herbouwen.
+drawNow    = effectiveNewData or pvFire
+dLongSig   = pvFire ? pvLong : longSig
+dShortSig  = pvFire ? pvShort : shortSig
+dSig15     = pvFire ? true : calcSig15
+dBreakTime = pvFire ? time : calcBreakTime
+// begin van de signaal-lijnen en plaats van de BO-marker =
+// de candle waarvan de CLOSE de breakout bepaalt. Bij een 30m-signaal op de
+// 15m-chart is dat de 2e 15m-candle (de 30m-close = de close van die 15m-
+// candle); bij een 15m-signaal de 1e 15m-candle; op de 30m-chart de 30m-candle.
+dHalf      = pvFire ? 1 : calcSigHalf
+dLineStart = (dHalf != 1 and timeframe.period == lowerTF) ? dBreakTime + timeframe.in_seconds(lowerTF) * 1000 : dBreakTime
+dBreakLvl  = pvFire ? (pvLong ? pvBullLevel : pvBearLevel) : (longSig ? calcLongBreakLevel : calcShortBreakLevel)
+dBreakTgt  = pvFire ? (pvLong ? calcTargetResistance : calcTargetSupport) : (longSig ? calcLongBreakTarget : calcShortBreakTarget)
+dTradeOk   = pvFire ? pvOk : sigTradeOk
+dReason    = pvFire ? pvReason : (longSig ? calcLongReasonText : shortSig ? calcShortReasonText : "")
+dTP        = pvFire ? pvTp : (longSig ? calcLongTP : calcShortTP)
+dEntry     = pvFire ? pvC : (longSig ? calcLongEntry : calcShortEntry)
+dR         = pvFire ? pvR : (longSig ? calcLongR : calcShortR)
+dBody      = pvFire ? math.abs(pvC - pvO) : (longSig ? calcLongBody : calcShortBody)
+dRangeRR   = pvFire ? pvRangeRR : (longSig ? calcLongRangeRR : calcShortRangeRR)
+calcLongSL  = calcLongActive and calcSlSide and not na(calcLongTrailSL)
+calcShortSL = calcShortActive and not calcSlSide and not na(calcShortTrailSL)
+dSlShow    = pvFire ? true : (calcLongSL or calcShortSL)
+dSlLong    = pvFire ? pvLong : calcLongSL
+dSlValue   = pvFire ? pvSL : (calcLongSL ? calcLongTrailSL : calcShortTrailSL)
+// Signaal-timeframe in alle labels: (15m) of (30m).
+dTag15     = dSig15 ? " (15m)" : " (30m)"
 
 f_nameText(string name, bool fallback, int barsBack) =>
     name + srcTag + (fallback ? " [FALLBACK]" : " [pivot " + str.tostring(barsBack) + " candles terug]")
 
 // ============================================================
-// Resistance / Support / Target-lijnen + labels. Alle tekenblokken hieronder
-// verwijderen bij elke nieuwe 30m-candle hun lijnen/labels en tekenen opnieuw
-// wat nog actief is (line.delete/label.delete op na doet niets).
+// Resistance / Support / Target-lijnen + labels (ongewijzigd)
 // ============================================================
 var line  rLine       = na
 var line  sLine       = na
@@ -713,21 +672,16 @@ if effectiveNewData and not na(calcResistance)
     tsNameLabel := label.new(calcBarTime, calcTargetSupport, f_nameText("Target Support", calcTsFallback, calcTsBarsBack), xloc.bar_time, yloc.price, color.new(color.green, 100), label.style_label_left, labelTextColor, size.small)
 
 // ============================================================
-// Break-lijn van het actieve signaal. De break-, SL- en TP-lijn lopen
-// `lineLen` 30m-candles vanaf de breakout-candle; daar begint hun label.
-// Daarnaast de target-lijn bij de break: het Target Resistance/Support zoals
-// het op de chart stond op het moment van de break (PRE-update), dus precies
-// het target waar de Range-check mee rekent. Het Target op de chart zelf
-// wordt na de break opnieuw berekend en kan dan elders liggen.
+// Break-lijn van het actieve signaal + target-lijn bij de break.
 // ============================================================
-labelTime = calcBreakTime + lineLen * timeframe.in_seconds(calcTF) * 1000
+labelTime = dBreakTime + lineLen * timeframe.in_seconds(calcTF) * 1000
 
 var line  breakLine        = na
 var label breakLabel       = na
 var line  breakTargetLine  = na
 var label breakTargetLabel = na
 
-if showSL and effectiveNewData
+if showSL and drawNow
     line.delete(breakLine)
     label.delete(breakLabel)
     line.delete(breakTargetLine)
@@ -737,29 +691,46 @@ if showSL and effectiveNewData
     breakTargetLine  := na
     breakTargetLabel := na
 
-    if longSig or shortSig
-        breakLevel = longSig ? calcLongBreakLevel : calcShortBreakLevel
-        breakLine  := line.new(calcBreakTime, breakLevel, labelTime, breakLevel, xloc.bar_time, extend.left, color.black, line.style_dashed, 1)
-        breakLabel := label.new(labelTime, breakLevel, (longSig ? "Resistance" : "Support") + " doorbroken" + srcTag + ": " + str.tostring(breakLevel, format.mintick), xloc.bar_time, yloc.price, color.new(color.black, 100), label.style_label_left, labelTextColor, size.small)
+    if dLongSig or dShortSig
+        breakLine  := line.new(dLineStart, dBreakLvl, labelTime, dBreakLvl, xloc.bar_time, extend.left, color.black, line.style_dashed, 1)
+        breakLabel := label.new(labelTime, dBreakLvl, (dLongSig ? "Resistance" : "Support") + " doorbroken" + dTag15 + srcTag + ": " + str.tostring(dBreakLvl, format.mintick), xloc.bar_time, yloc.price, color.new(color.black, 100), label.style_label_left, labelTextColor, size.small)
 
-        breakTarget = longSig ? calcLongBreakTarget : calcShortBreakTarget
-        if not na(breakTarget)
-            targetColor      = longSig ? color.red : color.green
-            breakTargetLine  := line.new(calcBreakTime, breakTarget, labelTime, breakTarget, xloc.bar_time, extend.left, targetColor, line.style_dotted, 1)
-            breakTargetLabel := label.new(labelTime, breakTarget, "Target " + (longSig ? "Resistance" : "Support") + " bij break" + srcTag + ": " + str.tostring(breakTarget, format.mintick), xloc.bar_time, yloc.price, color.new(color.black, 100), label.style_label_left, labelTextColor, size.small)
+        if not na(dBreakTgt)
+            targetColor      = dLongSig ? color.red : color.green
+            breakTargetLine  := line.new(dLineStart, dBreakTgt, labelTime, dBreakTgt, xloc.bar_time, extend.left, targetColor, line.style_dotted, 1)
+
+            // overlap met de Resistance/Support- en Target-labels
+            // voorkomen. Valt het Target-bij-break precies op een lijn die al
+            // een label heeft (huidig Target of verschoven Resistance/Support),
+            // dan krijgt dat label de toevoeging "= Target bij break" in plaats
+            // van een tweede label op dezelfde plek. Anders: de hoogste van
+            // Target-bij-break en Resistance/Support krijgt zijn tekst BOVEN de
+            // lijn, de laagste ONDER de lijn (zelfde regel als bij de flip).
+            curTgt = dLongSig ? calcTargetResistance : calcTargetSupport
+            curSR  = dLongSig ? calcResistance : calcSupport
+            tgtLbl = dLongSig ? trNameLabel : tsNameLabel
+            srLbl  = dLongSig ? rNameLabel : sNameLabel
+            halfTick = tickSize / 2
+            label mergeLbl = not na(curTgt) and math.abs(dBreakTgt - curTgt) < halfTick ? tgtLbl : not na(curSR) and math.abs(dBreakTgt - curSR) < halfTick ? srLbl : na
+            if not na(mergeLbl)
+                txt = label.get_text(mergeLbl)
+                if not str.contains(txt, "bij break")
+                    label.set_text(mergeLbl, txt + " = Target bij break")
+            else
+                breakTargetLabel := label.new(labelTime, dBreakTgt, "Target " + (dLongSig ? "Resistance" : "Support") + " bij break" + srcTag + ": " + str.tostring(dBreakTgt, format.mintick), xloc.bar_time, yloc.price, color.new(color.black, 100), label.style_label_left, labelTextColor, size.small)
+                if not na(srLbl) and not na(curSR)
+                    tgtAbove = dBreakTgt > curSR
+                    label.set_style(breakTargetLabel, tgtAbove ? label.style_label_lower_left : label.style_label_upper_left)
+                    label.set_style(srLbl, tgtAbove ? label.style_label_upper_left : label.style_label_lower_left)
 
 // ============================================================
-// "Trade niet mogelijk": bij een actief signaal waarvan de trade niet
-// mogelijk is, wordt GEEN SL-lijn getekend. De reden staat dan in een
-// tabelblok op een instelbare vaste plek op het scherm (standaard
-// rechtsboven), zodat het niet over candles of S/R-lijnen heen valt.
+// "Trade niet mogelijk"-blok
 // ============================================================
 var string noTradeMsg = ""
 
-if effectiveNewData
-    noTradeReason = longSig ? calcLongReasonText : shortSig ? calcShortReasonText : ""
-    noTradeBlocked = showTradeCheck and (longSig or shortSig) and not sigTradeOk and noTradeReason != ""
-    noTradeMsg := noTradeBlocked ? (longSig ? "Long" : "Short") + " trade niet mogelijk" + srcTag + "\n" + noTradeReason : ""
+if drawNow
+    noTradeBlocked = showTradeCheck and (dLongSig or dShortSig) and not dTradeOk and dReason != ""
+    noTradeMsg := noTradeBlocked ? (dLongSig ? "Long" : "Short") + " trade niet mogelijk" + dTag15 + srcTag + "\n" + dReason : ""
 
 f_tablePos(string s) =>
     switch s
@@ -781,59 +752,59 @@ if barstate.islast
         table.clear(noTradeTable, 0, 0)
 
 // ============================================================
-// SL-lijn (trailing binnen het signaalvenster). Niet getekend als de trade
-// niet mogelijk is (zie het blok hierboven).
+// SL-lijn
 // ============================================================
 var line  slLine  = na
 var label slLabel = na
+var label boLabel = na
 
-if showSL and effectiveNewData
+if showSL and drawNow
     line.delete(slLine)
     label.delete(slLabel)
+    label.delete(boLabel)
     slLine  := na
     slLabel := na
+    boLabel := na
 
-    longSL  = calcLongActive and calcSlSide and not na(calcLongTrailSL)
-    shortSL = calcShortActive and not calcSlSide and not na(calcShortTrailSL)
-    if (longSL or shortSL) and noTradeMsg == ""
-        slValue = longSL ? calcLongTrailSL : calcShortTrailSL
-        slColor = longSL ? longColor : shortColor
-        slText  = (longSL ? "Long SL" : "Short SL") + srcTag + ": " + str.tostring(slValue, format.mintick)
-        slLine  := line.new(calcBreakTime, slValue, labelTime, slValue, xloc.bar_time, extend.none, slColor, line.style_dashed, 2)
-        slLabel := label.new(labelTime, slValue, slText, xloc.bar_time, yloc.price, color.new(slColor, 80), label.style_label_left, slColor, size.small)
+    if dSlShow and noTradeMsg == ""
+        slColor = dSlLong ? longColor : shortColor
+        slText  = (dSlLong ? "Long SL" : "Short SL") + dTag15 + srcTag + ": " + str.tostring(dSlValue, format.mintick)
+        slLine  := line.new(dLineStart, dSlValue, labelTime, dSlValue, xloc.bar_time, extend.none, slColor, line.style_dashed, 2)
+        slLabel := label.new(labelTime, dSlValue, slText, xloc.bar_time, yloc.price, color.new(slColor, 80), label.style_label_left, slColor, size.small)
+
+    // marker bij de breakout-candle zelf (ook als de trade niet
+    // mogelijk is), op de hoogte van de SL net voorbij de wick. Bij een 30m-
+    // signaal op de 15m-chart staat hij bij de 1e van de twee 15m-candles.
+    if (dLongSig or dShortSig) and not na(dSlValue)
+        boLabel := label.new(dLineStart, dSlValue, "BO" + dTag15, xloc.bar_time, yloc.price, color.new(dSlLong ? longColor : shortColor, 0), dSlLong ? label.style_label_up : label.style_label_down, color.white, size.small)
 
 // ============================================================
-// TP-lijn. Vereist zowel showSL als showTradeCheck: de TP is afgeleid van
-// de SL/R-berekening, dus zonder SL-lijn heeft een losse TP-lijn geen context.
+// TP-lijn
 // ============================================================
 var line  tpLine  = na
 var label tpLabel = na
 
-if showSL and showTradeCheck and effectiveNewData
+if showSL and showTradeCheck and drawNow
     line.delete(tpLine)
     label.delete(tpLabel)
     tpLine  := na
     tpLabel := na
 
-    if sigTradeOk
-        tp      = longSig ? calcLongTP : calcShortTP
-        entry   = longSig ? calcLongEntry : calcShortEntry
-        r       = longSig ? calcLongR : calcShortR
-        rangeRR = longSig ? calcLongRangeRR : calcShortRangeRR
-        tpText  = "TP" + srcTag + " (" + str.tostring(tpRR, "#.##") + " R/R): " + str.tostring(tp, format.mintick) + " · Entry " + str.tostring(entry, format.mintick) + " · R " + str.tostring(r, format.mintick) + " · Range " + f_fmtRR(rangeRR) + "R" + (showLots ? f_lotText(r) : "")
-        tpLine  := line.new(calcBreakTime, tp, labelTime, tp, xloc.bar_time, extend.none, tpColor, line.style_dashed, 2)
-        tpLabel := label.new(labelTime, tp, tpText, xloc.bar_time, yloc.price, color.new(tpColor, 80), label.style_label_left, tpColor, size.small)
+    if dTradeOk
+        tpText  = "TP" + dTag15 + srcTag + " (" + str.tostring(tpRR, "#.##") + " R/R): " + str.tostring(dTP, format.mintick) + " · Entry " + str.tostring(dEntry, format.mintick) + " · R " + str.tostring(dR, format.mintick) + " · Range " + f_fmtRR(dRangeRR) + "R" + (showLots ? f_lotText(dR) : "")
+        tpLine  := line.new(dLineStart, dTP, labelTime, dTP, xloc.bar_time, extend.none, tpColor, line.style_dashed, 2)
+        tpLabel := label.new(labelTime, dTP, tpText, xloc.bar_time, yloc.price, color.new(tpColor, 80), label.style_label_left, tpColor, size.small)
 
 // ============================================================
-// Flip-hulplijnen: alleen bij een mogelijke trade. Beginnen bij de candle na
-// de breakout-candle (daar wordt de flip beoordeeld) en lopen tot labelTime.
+// Flip-hulplijnen: beginnen bij de flip-candle = de candle na de breakout-
+// candle (bij een 15m-signaal de 2e 15m-candle, anders de volgende 30m).
 // ============================================================
 var line  flipLine      = na
 var label flipLabel     = na
 var line  flipMaxLine   = na
 var label flipMaxLabel  = na
 
-if effectiveNewData
+if drawNow
     line.delete(flipLine)
     label.delete(flipLabel)
     line.delete(flipMaxLine)
@@ -843,40 +814,49 @@ if effectiveNewData
     flipMaxLine  := na
     flipMaxLabel := na
 
-    if showFlipLines and sigTradeOk
-        d        = longSig ? 1 : -1
-        entry    = longSig ? calcLongEntry : calcShortEntry
-        r        = longSig ? calcLongR : calcShortR
-        flipPx   = entry - d * flipMinRR * r
-        maxPx    = entry + d * flipMaxRR * r
-        startT   = calcBreakTime + timeframe.in_seconds(calcTF) * 1000
+    if showFlipLines and dTradeOk
+        d        = dLongSig ? 1 : -1
+        // Flip: 0,12 x de body van de breakout-candle terug vanaf de entry
+        // (Gann box: close = 0, open = 1). Te ver: 0,6 x R voorbij de entry.
+        flipPx   = dEntry - d * flipMinRR * dBody
+        maxPx    = dEntry + d * flipMaxRR * dR
+        // flip-candle = de candle na de breakout-candle: na de 1e 15m-candle
+        // begint die op +15 min, na de 2e 15m-candle of de 30m-candle op +30.
+        startT   = dBreakTime + timeframe.in_seconds(dHalf == 1 ? lowerTF : calcTF) * 1000
         flipLine     := line.new(startT, flipPx, labelTime, flipPx, xloc.bar_time, extend.none, flipColor, line.style_dotted, 1)
-        flipLabel    := label.new(labelTime, flipPx, "Flip " + str.tostring(flipMinRR, "#.##") + "R" + srcTag + ": " + str.tostring(flipPx, format.mintick), xloc.bar_time, yloc.price, color.new(flipColor, 100), label.style_label_left, flipColor, size.small)
+        // Tegen overlap met het "doorbroken"-label (de 0,12-lijn ligt vaak
+        // vlak bij het doorbroken level): de tekst van de hoogste van de twee
+        // lijnen komt BOVEN zijn lijn, die van de laagste ONDER zijn lijn.
+        flipAbove    = flipPx > dBreakLvl
+        flipLabel    := label.new(labelTime, flipPx, "Flip " + str.tostring(flipMinRR, "#.##") + " body" + srcTag + ": " + str.tostring(flipPx, format.mintick), xloc.bar_time, yloc.price, color.new(flipColor, 100), flipAbove ? label.style_label_lower_left : label.style_label_upper_left, flipColor, size.small)
+        if not na(breakLabel)
+            label.set_style(breakLabel, flipAbove ? label.style_label_upper_left : label.style_label_lower_left)
         flipMaxLine  := line.new(startT, maxPx, labelTime, maxPx, xloc.bar_time, extend.none, flipColor, line.style_dotted, 1)
         flipMaxLabel := label.new(labelTime, maxPx, "Te ver zonder flip " + str.tostring(flipMaxRR, "#.##") + "R" + srcTag + ": " + str.tostring(maxPx, format.mintick), xloc.bar_time, yloc.price, color.new(flipColor, 100), label.style_label_left, flipColor, size.small)
 
 if effectiveNewData
     lastDrawnBarTime := calcBarTime
-    // Pas NA het tekenen bevriezen, zodat de lijnen van de geldige trade
-    // zelf nog wel normaal getekend worden op de signaal-candle. Alleen op
-    // de actuele/laatste bar (barstate.islast) laten "vastklikken": anders
-    // zou het aanvinken van deze optie het script vanaf bar 0 laten
-    // herberekenen en al bij de EERSTE geldige trade ooit in de geschiedenis
-    // voorgoed bevriezen, ruim voordat het huidige chart-venster begint -
-    // met als zichtbaar gevolg dat alle lijnen leken te verdwijnen.
     if freezeOnValidTrade and barstate.islast and sigTradeOk
         linesFrozen := true
 
+// Vroeg 15m-signaal met geldige trade bevriest ook (zelfde regel als hierboven).
+if freezeOnValidTrade and barstate.islast and pvFire and pvOk
+    linesFrozen := true
+
 // ============================================================
-// Alerts - vuren éénmalig per nieuw 30m-signaal, ongeacht of je op 30m of
-// 15m kijkt (het duurt hooguit tot de eerstvolgende bar van de huidige
-// chart voordat de bijgewerkte 30m-waarde binnenkomt).
+// Alerts - 1x per signaal. Een vroeg 15m-signaal alert direct bij de close
+// van de 1e 15m-candle (15m-chart); de 30m-alert slaat dat signaal daarna
+// over (zelfde breakTime). Op de 30m-chart komt een 15m-signaal pas bij de
+// 30m-close binnen en alert dan met "(15m)" in de tekst.
 // ============================================================
 var int lastAlertedBreakTime = na
-if isSupportedTF and not na(calcBreakTime) and (na(lastAlertedBreakTime) or calcBreakTime != lastAlertedBreakTime)
+if pvFire
+    alert((pvLong ? "Bullish breakout (15m): close boven Resistance + " : "Bearish breakdown (15m): close onder Support - ") + str.tostring(breakPct) + "%", alert.freq_once_per_bar_close)
+    lastAlertedBreakTime := time
+else if isSupportedTF and not na(calcBreakTime) and (na(lastAlertedBreakTime) or calcBreakTime > lastAlertedBreakTime)
     if longSig
-        alert("Bullish breakout: close boven Resistance + " + str.tostring(breakPct) + "%", alert.freq_once_per_bar_close)
+        alert("Bullish breakout" + (calcSig15 ? " (15m)" : " (30m)") + ": close boven Resistance + " + str.tostring(breakPct) + "%", alert.freq_once_per_bar_close)
         lastAlertedBreakTime := calcBreakTime
     else if shortSig
-        alert("Bearish breakdown: close onder Support - " + str.tostring(breakPct) + "%", alert.freq_once_per_bar_close)
+        alert("Bearish breakdown" + (calcSig15 ? " (15m)" : " (30m)") + ": close onder Support - " + str.tostring(breakPct) + "%", alert.freq_once_per_bar_close)
         lastAlertedBreakTime := calcBreakTime

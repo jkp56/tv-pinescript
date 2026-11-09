@@ -3,6 +3,30 @@
 Alle noemenswaardige wijzigingen aan `trade_lines.pine` worden hier bijgehouden.
 Versienummering volgt [Semantic Versioning](https://semver.org/lang/nl/) (MAJOR.MINOR.PATCH).
 
+## 1.13.0 — 2026-11-09
+
+Wijzigingen ten opzichte van 1.11.0 (getest als 1.12.0-test t/m 1.13.0-test).
+
+### Signalen
+- **Breakout op elke 15m-candle** (nieuwe instelling "Breakout-candle", standaard "Elke 15m-candle"): sluit een 15m-candle voorbij Support/Resistance, dan is die 15m-candle de breakout-candle. Entry, SL, R, TP, de Range-check en de max-R-controle (1000 ticks) komen van die 15m-candle. "30m-candle + 1e 15m" geeft het oude gedrag plus het vroege 15m-signaal.
+- **Vroeg 15m-signaal:** een breakout op de 1e 15m-candle van een 30m-candle verschijnt op de 15m-chart direct bij het sluiten van die 15m-candle (lijnen en alert). Per breakout is er maar één signaal.
+- **Geen signaal vóór de close:** lijnen en signalen verschijnen pas als de breakout-candle ook op de chart zelf gesloten is (voorkwam te vroege signalen in Bar Replay met een andere chart-feed).
+
+### Weergave
+- Labels en alerts tonen **(15m)** of **(30m)**.
+- **BO-marker** bij de breakout-candle ("BO (15m)" / "BO (30m)").
+- Op de 15m-chart beginnen lijnen en marker bij de candle waarvan de close de breakout bepaalt.
+- **Geen overlap meer** tussen het "doorbroken"-label en het flip-label, en tussen "Target bij break" en de Resistance/Support/Target-labels (samengevoegd of boven/onder de lijn).
+
+### Flip-hulplijnen
+- **Flip-lijn op de body** van de breakout-candle: 0,12 × body terug vanaf de entry (Gann box: close = 0, open = 1), volgens de uitleg van de coach. Was 0,12 × R.
+- "Te ver"-lijn ongewijzigd: 0,6 × R voorbij de entry.
+- De lijnen beginnen bij de flip-candle: de eerstvolgende candle na de breakout-candle.
+
+### Standaardwaarden
+- Minimaal benodigde ruimte tot het Target: **1,5R** (TP blijft 1,2R).
+
+
 ## [1.11.0]
 
 ### Toegevoegd

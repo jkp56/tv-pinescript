@@ -1,5 +1,5 @@
 //@version=6
-// Versie: 1.13.0 - zie CHANGELOG.md voor de wijzigingsgeschiedenis.
+// Versie: 1.14.0 - zie CHANGELOG.md voor de wijzigingsgeschiedenis.
 //
 // Alle berekeningen (Support/Resistance, Targets, signalen, SL, TP en de
 // Range-check) draaien via request.security() altijd op het 30m-timeframe van
@@ -16,7 +16,7 @@ indicator("Trade Lijnen (SL/S/R)", overlay=true, max_lines_count=30, max_labels_
 // ============================================================
 // VERSIE-INFO
 // ============================================================
-scriptVersion = input.string("1.13.0", "Versie", options=["1.13.0"], group="Info")
+scriptVersion = input.string("1.14.0", "Versie", options=["1.14.0"], group="Info")
 
 // ============================================================
 // REKENFEED: alle berekeningen (levels, signalen, SL/TP, Range-check) kunnen
@@ -847,16 +847,25 @@ if freezeOnValidTrade and barstate.islast and pvFire and pvOk
 // Alerts - 1x per signaal. Een vroeg 15m-signaal alert direct bij de close
 // van de 1e 15m-candle (15m-chart); de 30m-alert slaat dat signaal daarna
 // over (zelfde breakTime). Op de 30m-chart komt een 15m-signaal pas bij de
-// 30m-close binnen en alert dan met "(15m)" in de tekst.
+// 30m-close binnen en alert dan met "(15m)" in de tekst. De 30m-alert wacht,
+// net als de lijnen, tot de 30m-candle ook op de chart gesloten is
+// (calcBarDone): live op de 15m-chart geen alert op een lopende 30m-waarde.
+// De tekst bevat symbool, entry, SL, TP en of de trade mogelijk is.
 // ============================================================
+f_px(float x) =>
+    na(x) ? "-" : str.tostring(x, format.mintick)
+
+f_alertText(bool isLong, string tag) =>
+    head = syminfo.ticker + srcTag + " " + (isLong ? "Bullish breakout" + tag + ": close boven Resistance + " : "Bearish breakdown" + tag + ": close onder Support - ") + str.tostring(breakPct) + "%"
+    lvls = " | Entry " + f_px(dEntry) + " · SL " + f_px(dSlValue) + (showTradeCheck ? " · TP " + f_px(dTP) : "")
+    stat = showTradeCheck ? (dTradeOk ? " | Trade mogelijk" : " | Trade niet mogelijk" + (dReason != "" ? ": " + dReason : "")) : ""
+    head + lvls + stat
+
 var int lastAlertedBreakTime = na
 if pvFire
-    alert((pvLong ? "Bullish breakout (15m): close boven Resistance + " : "Bearish breakdown (15m): close onder Support - ") + str.tostring(breakPct) + "%", alert.freq_once_per_bar_close)
+    alert(f_alertText(pvLong, " (15m)"), alert.freq_once_per_bar_close)
     lastAlertedBreakTime := time
-else if isSupportedTF and not na(calcBreakTime) and (na(lastAlertedBreakTime) or calcBreakTime > lastAlertedBreakTime)
-    if longSig
-        alert("Bullish breakout" + (calcSig15 ? " (15m)" : " (30m)") + ": close boven Resistance + " + str.tostring(breakPct) + "%", alert.freq_once_per_bar_close)
-        lastAlertedBreakTime := calcBreakTime
-    else if shortSig
-        alert("Bearish breakdown" + (calcSig15 ? " (15m)" : " (30m)") + ": close onder Support - " + str.tostring(breakPct) + "%", alert.freq_once_per_bar_close)
+else if isSupportedTF and calcBarDone and not na(calcBreakTime) and (na(lastAlertedBreakTime) or calcBreakTime > lastAlertedBreakTime)
+    if longSig or shortSig
+        alert(f_alertText(longSig, calcSig15 ? " (15m)" : " (30m)"), alert.freq_once_per_bar_close)
         lastAlertedBreakTime := calcBreakTime

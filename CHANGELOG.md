@@ -3,6 +3,12 @@
 Alle noemenswaardige wijzigingen aan `trade_lines.pine` worden hier bijgehouden.
 Versienummering volgt [Semantic Versioning](https://semver.org/lang/nl/) (MAJOR.MINOR.PATCH).
 
+## 1.14.0 — 2026-11-10
+
+### Alerts
+- **Uitgebreide alerttekst:** symbool (+ rekenfeed), richting, (15m)/(30m), entry, SL, TP en "Trade mogelijk" / "Trade niet mogelijk: <reden>". TP en trade-status alleen als "Toon TP-lijn en Trade-mogelijkheid check" aanstaat.
+- **Geen alert op een lopende 30m-candle:** de 30m-alert wacht nu, net als de lijnen, tot de 30m-candle ook op de chart gesloten is. Voorheen kon live op de 15m-chart (met het vroege 15m-signaal uit) al bij de close van de 1e 15m-candle een "(30m)"-alert afgaan op een nog lopende 30m-waarde.
+
 ## 1.13.0 — 2026-11-09
 
 Wijzigingen ten opzichte van 1.11.0 (getest als 1.12.0-test t/m 1.13.0-test).

@@ -3,6 +3,15 @@
 Alle noemenswaardige wijzigingen aan `trade_lines.pine` worden hier bijgehouden.
 Versienummering volgt [Semantic Versioning](https://semver.org/lang/nl/) (MAJOR.MINOR.PATCH).
 
+## 1.15.0 — 2026-11-10
+
+### Signalen
+- **Doorschuiven na "Trade niet mogelijk"** (tradeplan): binnen het signaalvenster blokkeert een vorig signaal in dezelfde richting nu alleen nog als dat een **mogelijke** trade was. Was het vorige signaal "Trade niet mogelijk", dan telt een breakout van een **verder liggend niveau** (hogere Resistance bij Long, lagere Support bij Short) direct als nieuw signaal, met eigen entry, SL, TP en Range-check. Een verspringende lijn op of terug richting het vorige niveau blijft geblokkeerd. Geldt ook voor het vroege 15m-signaal.
+- Gevolg: het signaal hangt niet meer af van de waarde van *SL: lijn actief na signaal* zolang het vorige signaal niet mogelijk was. Voorbeeld XAUUSD 10-11-2026: short 17:00 "niet mogelijk" (Range 0,55R), daarna breakout van de volgende Support om 17:30, trade mogelijk. Met venster 2 werd die tweede breakout tot nu toe geblokkeerd, met venster 1 niet.
+
+### Instellingen
+- Tooltip bij *SL: lijn actief na signaal* legt de twee functies uit: zichtbaarheid van de lijnen en de blokkade na een mogelijke trade.
+
 ## 1.14.0 — 2026-11-10
 
 ### Alerts

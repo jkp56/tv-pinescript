@@ -1,5 +1,5 @@
 //@version=6
-// Versie: 1.14.0 - zie CHANGELOG.md voor de wijzigingsgeschiedenis.
+// Versie: 1.15.0 - zie CHANGELOG.md voor de wijzigingsgeschiedenis.
 //
 // Alle berekeningen (Support/Resistance, Targets, signalen, SL, TP en de
 // Range-check) draaien via request.security() altijd op het 30m-timeframe van
@@ -16,7 +16,7 @@ indicator("Trade Lijnen (SL/S/R)", overlay=true, max_lines_count=30, max_labels_
 // ============================================================
 // VERSIE-INFO
 // ============================================================
-scriptVersion = input.string("1.14.0", "Versie", options=["1.14.0"], group="Info")
+scriptVersion = input.string("1.15.0", "Versie", options=["1.15.0"], group="Info")
 
 // ============================================================
 // REKENFEED: alle berekeningen (levels, signalen, SL/TP, Range-check) kunnen
@@ -62,7 +62,7 @@ showSL         = input.bool(true, "Toon SL lijnen", group="Stop Loss lijnen")
 trailSL        = input.bool(false, "SL: trailing (bijwerken bij elke nieuwe candle in het venster)", group="Stop Loss lijnen")
 tickOffset     = input.int(50, "SL: aantal ticks van wick", minval=1, group="Stop Loss lijnen")
 lineLen        = input.int(5, "SL/TP/doorbroken: lengte lijn tot label (aantal 30m-candles vanaf breakout)", minval=1, group="Stop Loss lijnen")
-slSignalWindow = input.int(2, "SL: lijn actief na signaal (aantal 30m-candles)", minval=1, group="Stop Loss lijnen")
+slSignalWindow = input.int(2, "SL: lijn actief na signaal (aantal 30m-candles)", minval=1, group="Stop Loss lijnen", tooltip="Hoe lang (in 30m-candles, de signaal-candle telt mee) de SL-, TP- en break-lijnen zichtbaar blijven. Binnen dit venster telt na een MOGELIJKE trade geen nieuw signaal in dezelfde richting. Na 'Trade niet mogelijk' telt een breakout van een verder liggend niveau wel direct (doorschuiven).")
 longColor      = input.color(color.new(color.green, 0), "Kleur Long SL", group="Stop Loss lijnen")
 shortColor     = input.color(color.new(color.red, 0), "Kleur Short SL", group="Stop Loss lijnen")
 
@@ -461,16 +461,25 @@ f_calc30m() =>
         wasLongActive  = not na(lastLongBar) and (bar_index - lastLongBar) < slSignalWindow
         wasShortActive = not na(lastShortBar) and (bar_index - lastShortBar) < slSignalWindow
 
+        // Doorschuiven (tradeplan): binnen het signaalvenster blokkeert een
+        // vorig signaal in dezelfde richting alleen als dat een MOGELIJKE trade
+        // was. Was het "Trade niet mogelijk", dan telt een breakout van een
+        // VERDER liggend niveau (hogere Resistance bij Long, lagere Support bij
+        // Short) direct als nieuw signaal. Een verspringende lijn op of terug
+        // richting het vorige niveau blijft geblokkeerd.
+        blockLong  = wasLongActive and (longTradeOk or na(longBreakLevel) or not (bullishLevel > longBreakLevel))
+        blockShort = wasShortActive and (shortTradeOk or na(shortBreakLevel) or not (bearishLevel < shortBreakLevel))
+
         // 15m-breakout op de 1e 15m-candle van deze 30m-candle. De
         // vorige close (close[1]) is de close van de vorige 30m-candle = de
         // close van de 15m-candle vóór deze. Een 15m-signaal gaat vóór: dan
         // telt de 30m-close van dezelfde candle niet meer (1 signaal).
-        long15  = signal15On and has15a and not na(prevResistance) and c15a > bullishLevel and close[1] <= bullishLevel and not wasLongActive
-        short15 = signal15On and has15a and not na(prevSupport) and c15a < bearishLevel and close[1] >= bearishLevel and not wasShortActive
+        long15  = signal15On and has15a and not na(prevResistance) and c15a > bullishLevel and close[1] <= bullishLevel and not blockLong
+        short15 = signal15On and has15a and not na(prevSupport) and c15a < bearishLevel and close[1] >= bearishLevel and not blockShort
         any15   = long15 or short15
 
-        bullishBreakNow = long15 or (not any15 and not na(prevResistance) and close > bullishLevel and close[1] <= bullishLevel and not wasLongActive)
-        bearishBreakNow = short15 or (not any15 and not na(prevSupport) and close < bearishLevel and close[1] >= bearishLevel and not wasShortActive)
+        bullishBreakNow = long15 or (not any15 and not na(prevResistance) and close > bullishLevel and close[1] <= bullishLevel and not blockLong)
+        bearishBreakNow = short15 or (not any15 and not na(prevSupport) and close < bearishLevel and close[1] >= bearishLevel and not blockShort)
 
         // Breakout-candle: de 1e 15m-candle, de 2e 15m-candle (modus "Elke
         // 15m-candle": de 30m-close is de close van die 2e 15m-candle) of de
@@ -599,8 +608,12 @@ is15Chart   = timeframe.period == lowerTF
 pvFirst15   = is15Chart and timeframe.change(calcTF)
 pvBullLevel = calcResistance * (1 + breakPct / 100)
 pvBearLevel = calcSupport * (1 - breakPct / 100)
-pvLong  = signal15On and pvFirst15 and barstate.isconfirmed and not linesFrozen and not na(pvBullLevel) and pvC > pvBullLevel and pvCPrev <= pvBullLevel and not calcBlockLongNext
-pvShort = signal15On and pvFirst15 and barstate.isconfirmed and not linesFrozen and not na(pvBearLevel) and pvC < pvBearLevel and pvCPrev >= pvBearLevel and not calcBlockShortNext
+// Zelfde doorschuif-regel als in f_calc30m: het venster blokkeert alleen na
+// een mogelijke trade, of als het niveau niet verder ligt dan het vorige.
+pvBlockLong  = calcBlockLongNext and (calcLongTradeOk or na(calcLongBreakLevel) or not (pvBullLevel > calcLongBreakLevel))
+pvBlockShort = calcBlockShortNext and (calcShortTradeOk or na(calcShortBreakLevel) or not (pvBearLevel < calcShortBreakLevel))
+pvLong  = signal15On and pvFirst15 and barstate.isconfirmed and not linesFrozen and not na(pvBullLevel) and pvC > pvBullLevel and pvCPrev <= pvBullLevel and not pvBlockLong
+pvShort = signal15On and pvFirst15 and barstate.isconfirmed and not linesFrozen and not na(pvBearLevel) and pvC < pvBearLevel and pvCPrev >= pvBearLevel and not pvBlockShort
 pvFire  = pvLong or pvShort
 pvDir   = pvLong ? 1 : -1
 pvSL    = pvLong ? pvL - slOffset : pvH + slOffset

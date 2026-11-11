@@ -1,5 +1,5 @@
 //@version=6
-// Versie: 1.15.1 - zie CHANGELOG.md voor de wijzigingsgeschiedenis.
+// Versie: 1.17.0 - zie CHANGELOG.md voor de wijzigingsgeschiedenis.
 //
 // Alle berekeningen (Support/Resistance, Targets, signalen, SL, TP en de
 // Range-check) draaien via request.security() altijd op het 30m-timeframe van
@@ -16,7 +16,7 @@ indicator("Trade Lijnen (SL/S/R)", overlay=true, max_lines_count=30, max_labels_
 // ============================================================
 // VERSIE-INFO
 // ============================================================
-scriptVersion = input.string("1.15.1", "Versie", options=["1.15.1"], group="Info")
+scriptVersion = input.string("1.17.0", "Versie", options=["1.17.0"], group="Info")
 
 // ============================================================
 // REKENFEED: alle berekeningen (levels, signalen, SL/TP, Range-check) kunnen
@@ -111,7 +111,7 @@ signal15On = input.bool(true, "Ook breakout op de 1e 15m-candle van de 30m (vroe
 showTradeCheck = input.bool(true, "Toon TP-lijn en Trade-mogelijkheid check", group="Trade Mogelijkheid")
 tpRR           = input.float(1.2, "TP: Risk/Reward ratio", minval=0.01, step=0.1, group="Trade Mogelijkheid")
 minRangeRR     = input.float(1.5, "Minimaal benodigde R/R-ruimte in de Range", minval=0.01, step=0.1, group="Trade Mogelijkheid")
-maxRTicks      = input.int(1000, "Maximaal toegestane R (ticks)", minval=1, group="Trade Mogelijkheid")
+maxRPoints     = input.float(10.0, "Maximaal toegestane R (punten)", minval=0.01, step=1, group="Trade Mogelijkheid", tooltip="Maximale afstand entry - SL in punten (prijseenheden), zoals de price range tool die toont. XAUUSD: 10 (= 100 pips, $10). Nasdaq (US100 / NAS100): 110 (110 indexpunten, waarde van de coach). Stel per chart in.")
 rejectionOn    = input.bool(false, "Rejection candle (15m) maakt trade ongeldig (alleen bij 30m-signaal)", group="Trade Mogelijkheid")
 rejectionTicks = input.int(50, "Rejection candle: minimale tegengestelde body (ticks)", minval=1, group="Trade Mogelijkheid")
 tpColor        = input.color(color.new(color.blue, 0), "Kleur TP-lijn", group="Trade Mogelijkheid")
@@ -318,18 +318,17 @@ f_autoTargetSupport(maxScan, supportLevel, minDistance, excludeReversal) =>
 // Retourneert [tp, rangeRR, r, ok, reden].
 f_tradeCheck(float entry, float sl, float target, int dir, float body2) =>
     r           = (entry - sl) * dir
-    rTicks      = r / tickSize
     rangeAvail  = (target - entry) * dir
     rangeNeeded = minRangeRR * r
     rangeOk     = rangeAvail >= rangeNeeded
-    rTooLarge   = rTicks > maxRTicks
+    rTooLarge   = r > maxRPoints
     rejTicks    = -body2 * dir / tickSize
     rejected    = rejectionOn and not na(body2) and rejTicks >= rejectionTicks
     string reason = ""
     if not rangeOk
         reason := "Range " + f_fmtRR(rangeAvail / r) + "R < " + str.tostring(minRangeRR, "#.##") + "R (" + str.tostring(rangeAvail, format.mintick) + " < " + str.tostring(rangeNeeded, format.mintick) + ")"
     if rTooLarge
-        reason := reason + (reason != "" ? "\n" : "") + "R " + str.tostring(rTicks, "#.##") + " ticks > max " + str.tostring(maxRTicks) + " ticks"
+        reason := reason + (reason != "" ? "\n" : "") + "R " + str.tostring(r, format.mintick) + " > max " + str.tostring(maxRPoints, "#.##") + " punten"
     if rejected
         reason := reason + (reason != "" ? "\n" : "") + "Rejection candle 15m (" + str.tostring(rejTicks, "#") + " ticks >= " + str.tostring(rejectionTicks) + ")"
     [entry + dir * tpRR * r, r > 0 ? rangeAvail / r : na, r, r > 0 and rangeOk and not rTooLarge and not rejected, reason]
@@ -605,24 +604,39 @@ shortSig   = calcShortActive and not calcBreakSide
 sigTradeOk = (longSig and calcLongTradeOk) or (shortSig and calcShortTradeOk)
 
 // ============================================================
-// VROEG 15m-SIGNAAL (alleen op de 15m-chart): bij het sluiten van de
+// VROEG 15m-SIGNAAL: bij het sluiten van de
 // 1e 15m-candle van een 30m-candle wordt dezelfde controle gedaan als in
 // f_calc30m (zelfde S/R/Target zoals ze nu op de chart staan = de PRE-update
 // waarden, zelfde vorige close), zodat lijnen en alert direct verschijnen.
 // Bij het sluiten van de 30m-candle neemt f_calc30m het over met precies
 // hetzelfde signaal.
+// - 15m-chart: op de gesloten 1e 15m-candle.
+// - 30m-chart (1.16.0): live, tijdens de lopende 30m-candle. Zodra de 2e
+//   15m-candle van de rekenfeed begonnen is, is de 1e 15m-candle definitief;
+//   die wordt dan gecontroleerd. Historische 30m-candles zijn al gesloten en
+//   lopen via f_calc30m, zoals voorheen.
 // ============================================================
-[pvC, pvH, pvL, pvCPrev, pvO] = request.security(calcTicker, lowerTF, [close, high, low, close[1], open], lookahead=barmerge.lookahead_off)
+[pv15C, pv15H, pv15L, pv15CPrev, pv15O] = request.security(calcTicker, lowerTF, [close, high, low, close[1], open], lookahead=barmerge.lookahead_off)
+[q30T, q30O, q30H, q30L, q30C] = request.security_lower_tf(calcTicker, lowerTF, [time, open, high, low, close])
+calcPrevClose = request.security(calcTicker, calcTF, close[1], lookahead=barmerge.lookahead_off)
 is15Chart   = timeframe.period == lowerTF
-pvFirst15   = is15Chart and timeframe.change(calcTF)
+is30Chart   = timeframe.period == calcTF
+pvFirst15   = is15Chart and timeframe.change(calcTF) and barstate.isconfirmed
+pvLive30    = is30Chart and not barstate.isconfirmed and q30T.size() >= 2 and q30T.first() == time
+pvC     = pvLive30 ? q30C.first() : pv15C
+pvH     = pvLive30 ? q30H.first() : pv15H
+pvL     = pvLive30 ? q30L.first() : pv15L
+pvO     = pvLive30 ? q30O.first() : pv15O
+pvCPrev = pvLive30 ? calcPrevClose : pv15CPrev
+pvCheck = pvFirst15 or pvLive30
 pvBullLevel = calcResistance * (1 + breakPct / 100)
 pvBearLevel = calcSupport * (1 - breakPct / 100)
 // Zelfde doorschuif-regel als in f_calc30m: het venster blokkeert alleen na
 // een mogelijke trade, of als het niveau niet verder ligt dan het vorige.
 pvBlockLong  = calcBlockLongNext and (calcLongTradeOk or na(calcLongBreakLevel) or not (pvBullLevel > calcLongBreakLevel))
 pvBlockShort = calcBlockShortNext and (calcShortTradeOk or na(calcShortBreakLevel) or not (pvBearLevel < calcShortBreakLevel))
-pvLong  = signal15On and pvFirst15 and barstate.isconfirmed and not linesFrozen and not na(pvBullLevel) and pvC > pvBullLevel and pvCPrev <= pvBullLevel and not pvBlockLong
-pvShort = signal15On and pvFirst15 and barstate.isconfirmed and not linesFrozen and not na(pvBearLevel) and pvC < pvBearLevel and pvCPrev >= pvBearLevel and not pvBlockShort
+pvLong  = signal15On and pvCheck and not linesFrozen and not na(pvBullLevel) and pvC > pvBullLevel and pvCPrev <= pvBullLevel and not pvBlockLong
+pvShort = signal15On and pvCheck and not linesFrozen and not na(pvBearLevel) and pvC < pvBearLevel and pvCPrev >= pvBearLevel and not pvBlockShort
 pvFire  = pvLong or pvShort
 pvDir   = pvLong ? 1 : -1
 pvSL    = pvLong ? pvL - slOffset : pvH + slOffset
@@ -867,9 +881,11 @@ if freezeOnValidTrade and barstate.islast and pvFire and pvOk
 
 // ============================================================
 // Alerts - 1x per signaal. Een vroeg 15m-signaal alert direct bij de close
-// van de 1e 15m-candle (15m-chart); de 30m-alert slaat dat signaal daarna
-// over (zelfde breakTime). Op de 30m-chart komt een 15m-signaal pas bij de
-// 30m-close binnen en alert dan met "(15m)" in de tekst. De 30m-alert wacht,
+// van de 1e 15m-candle (15m-chart) of, op de 30m-chart, bij de eerste tick
+// daarna (1x per candle); de 30m-alert slaat dat signaal daarna over (zelfde
+// breakTime, of op de 30m-chart: hetzelfde live 15m-signaal). Was de 30m-
+// chart niet live tijdens die candle, dan alert het 15m-signaal bij de
+// 30m-close met "(15m)" in de tekst. De 30m-alert wacht,
 // net als de lijnen, tot de 30m-candle ook op de chart gesloten is
 // (calcBarDone): live op de 15m-chart geen alert op een lopende 30m-waarde.
 // De tekst bevat symbool, entry, SL, TP en of de trade mogelijk is.
@@ -884,10 +900,16 @@ f_alertText(bool isLong, string tag) =>
     head + lvls + stat
 
 var int lastAlertedBreakTime = na
+// Al live gealert op de 30m-chart: het 15m-signaal van de 1e 15m-candle van
+// deze (nu gesloten) realtime 30m-candle.
+alertedLive30 = is30Chart and barstate.isrealtime and signal15On and calcSigHalf == 1 and calcBreakTime == time
 if pvFire
-    alert(f_alertText(pvLong, " (15m)"), alert.freq_once_per_bar_close)
+    if pvLive30
+        alert(f_alertText(pvLong, " (15m)"), alert.freq_once_per_bar)
+    else
+        alert(f_alertText(pvLong, " (15m)"), alert.freq_once_per_bar_close)
     lastAlertedBreakTime := time
-else if isSupportedTF and calcBarDone and not na(calcBreakTime) and (na(lastAlertedBreakTime) or calcBreakTime > lastAlertedBreakTime)
+else if isSupportedTF and calcBarDone and not alertedLive30 and not na(calcBreakTime) and (na(lastAlertedBreakTime) or calcBreakTime > lastAlertedBreakTime)
     if longSig or shortSig
         alert(f_alertText(longSig, calcSig15 ? " (15m)" : " (30m)"), alert.freq_once_per_bar_close)
         lastAlertedBreakTime := calcBreakTime

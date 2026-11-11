@@ -3,6 +3,23 @@
 Alle noemenswaardige wijzigingen aan `trade_lines.pine` worden hier bijgehouden.
 Versienummering volgt [Semantic Versioning](https://semver.org/lang/nl/) (MAJOR.MINOR.PATCH).
 
+## 1.17.0 — 2026-11-11
+
+### Trade Mogelijkheid
+- **Max R in punten in plaats van ticks:** "Maximaal toegestane R (ticks)" (`maxRTicks`, 1000) is vervangen door **"Maximaal toegestane R (punten)"** (`maxRPoints`, standaard **10**). Punten zijn prijseenheden, zoals de price range tool ze toont; voor XAUUSD is 10 punten hetzelfde als de oude 1000 ticks (100 pips, $10). Ticks en "pips" waren per instrument verwarrend: op US100 is 1000 ticks maar 10 punten, waardoor vrijwel elke trade werd afgekeurd.
+- Tooltip met richtwaarden: XAUUSD 10, Nasdaq 110 (110 indexpunten, waarde van de coach).
+- Reden in het "Trade niet mogelijk"-blok nu in punten, bijv. "R 46.50 > max 10 punten".
+- **Let op bij updaten:** de instelling is nieuw, dus TradingView zet hem op elke chart op de standaard 10. Zet hem op de Nasdaq-charts handmatig op 110.
+
+## 1.16.0 — 2026-11-11
+
+### Signalen
+- **Vroeg 15m-signaal ook op de 30m-chart:** een breakout op de 1e 15m-candle van een 30m-candle verscheen tot nu toe op de 15m-chart bij het sluiten van die 15m-candle, maar op de 30m-chart pas bij de 30m-close. Daardoor toonden een 15m- en een 30m-chart naast elkaar een kwartier lang verschillende signalen (bijv. US100 11-11-2026 09:15: links nog de oude short, rechts al de nieuwe long). Nu kijkt het script op de 30m-chart tijdens de lopende 30m-candle naar de 15m-candles van de rekenfeed: zodra de 2e 15m-candle begonnen is, is de 1e definitief en wordt die met dezelfde controle beoordeeld (zelfde niveaus, blokkade/doorschuiven, entry, SL, R, Range- en max-R-check). Bij de 30m-close neemt de gewone 30m-verwerking het over met hetzelfde signaal.
+- Alleen live: historische 30m-candles zijn al gesloten en zien er hetzelfde uit als voorheen.
+
+### Alerts
+- Op de 30m-chart gaat de alert van zo'n vroeg 15m-signaal af bij de eerste tick na het sluiten van de 1e 15m-candle (1x per candle). Bij de 30m-close volgt voor hetzelfde signaal geen tweede alert. Staat er op een 15m- én een 30m-chart een alert, dan krijg je er twee (van elke chart één).
+
 ## 1.15.1 — 2026-11-11
 
 ### Rekenfeed

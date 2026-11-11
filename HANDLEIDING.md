@@ -1,6 +1,6 @@
 # Handleiding – Trade Lijnen (SL/S/R)
 
-Gebruikershandleiding voor `trade_lines.pine`, versie **1.15.1**. Voor de technische wijzigingsgeschiedenis zie [CHANGELOG.md](CHANGELOG.md); voor de exacte detectielogica zie [T4G daytrade rules.md](T4G%20daytrade%20rules.md). Dit document beschrijft hoe je het script gebruikt en wat elke instelling in het Inputs-tabblad wel en niet doet.
+Gebruikershandleiding voor `trade_lines.pine`, versie **1.17.0**. Voor de technische wijzigingsgeschiedenis zie [CHANGELOG.md](CHANGELOG.md); voor de exacte detectielogica zie [T4G daytrade rules.md](T4G%20daytrade%20rules.md). Dit document beschrijft hoe je het script gebruikt en wat elke instelling in het Inputs-tabblad wel en niet doet.
 
 ## 1. Wat doet dit script
 
@@ -21,9 +21,9 @@ De Support/Resistance- en Target-niveaus worden **altijd op de 30-minuten candle
 
 - **Alleen de 15m- en 30m-chart worden ondersteund.** Op elk ander timeframe verschijnt een rood waarschuwingslabel ("Trade Lijnen: alleen 30m en 15m worden ondersteund") en tekent het script niets.
 - Op de 15m-chart zie je exact dezelfde lijnen/niveaus als op de 30m-chart, omdat alles tijd-gebaseerd (`xloc.bar_time`) getekend wordt in plaats van bar-gebaseerd.
-- **Timing:** zie §4. Kort: een breakout op de **1e 15m-candle** van een 30m-candle zie je op de 15m-chart direct bij het sluiten van die 15m-candle (vroeg signaal). Al het andere (ook een breakout op de 2e 15m-candle) verschijnt bij het sluiten van de 30m-candle. Op de 30m-chart zie je dus alles pas bij de 30m-close; wil je zo vroeg mogelijk weten of een trade mogelijk is, kijk dan op de 15m-chart.
+- **Timing:** zie §4. Kort: een breakout op de **1e 15m-candle** van een 30m-candle zie je direct bij het sluiten van die 15m-candle (vroeg signaal), op de 15m-chart én (sinds v1.16.0, live) op de 30m-chart. Al het andere (ook een breakout op de 2e 15m-candle) verschijnt bij het sluiten van de 30m-candle.
 - Het script is repaint-vrij voor de nog lopende candle: zolang een candle nog niet is afgesloten, blijven alle lijnen op hun laatst bevestigde waarde staan. Een signaal verschijnt pas als de breakout-candle ook op je **eigen chart** gesloten is, ook als de rekenfeed (FXCM) al verder is. Dat voorkomt te vroege signalen in Bar Replay of bij een andere chart-feed.
-- De standaardwaarde van `maxRTicks` (zie hieronder) is afgestemd op **XAUUSD** (tick-grootte 0,01). Gebruik je een ander symbool, controleer en herzie dan in elk geval deze instelling.
+- De standaardwaarde van `maxRPoints` (zie hieronder) is afgestemd op **XAUUSD**: 10 punten = 100 pips. Op de Nasdaq (US100/NAS100) gebruik je 110. Gebruik je een ander symbool, controleer en herzie dan in elk geval deze instelling, net als de contractgrootte (groep Lotgrootte).
 
 ## 3. Wat zie je op de chart
 
@@ -45,7 +45,7 @@ De Support/Resistance- en Target-niveaus worden **altijd op de 30-minuten candle
 ## 4. Wanneer wordt er bijgewerkt?
 
 - Alle lijnen/labels worden **herbouwd bij elke gesloten 30m-candle** (nooit tussentijds op een tick).
-- **Uitzondering, het vroege 15m-signaal** (`signal15On`): sluit de 1e 15m-candle van een 30m-candle voorbij Resistance/Support, dan verschijnen op de **15m-chart** lijnen, BO-marker en alert direct bij het sluiten van die 15m-candle. Bij de 30m-close wordt dat signaal niet nog eens gegeven: per breakout is er maar één signaal, 15m of 30m.
+- **Uitzondering, het vroege 15m-signaal** (`signal15On`): sluit de 1e 15m-candle van een 30m-candle voorbij Resistance/Support, dan verschijnen lijnen, BO-marker en alert direct bij het sluiten van die 15m-candle. Op de 15m-chart bij de close van die candle; op de 30m-chart (sinds v1.16.0) bij de eerste tick daarna, terwijl de 30m-candle nog loopt. Dat werkt alleen live: in de geschiedenis is elke 30m-candle al gesloten. Bij de 30m-close wordt dat signaal niet nog eens gegeven: per breakout is er maar één signaal, 15m of 30m.
 - Een breakout op de **2e 15m-candle** (bij "Elke 15m-candle") verschijnt bij de 30m-close, maar met entry, SL en R van die 2e 15m-candle. Lijnen en marker beginnen dan bij die 15m-candle.
 - Een signaal verschijnt nooit voordat de breakout-candle op je eigen chart gesloten is (zie §2).
 - **Signaalvenster en doorschuiven** (`slSignalWindow`): na een mogelijke trade telt binnen het venster geen nieuw signaal in dezelfde richting. Was het signaal "Trade niet mogelijk", dan telt een breakout van een verder liggend niveau wel direct (doorschuiven naar de volgende range, sinds v1.15.0).
@@ -61,9 +61,10 @@ Er vuurt automatisch een alert bij elk nieuw signaal (werkt met `alert()`, dus j
 De tekst bevat het symbool met de rekenfeed, de richting, (15m) of (30m), het ingestelde percentage, Entry, SL, TP en of de trade mogelijk is, met de reden als dat niet zo is (sinds v1.14.0). Staat `showTradeCheck` uit, dan vervallen TP en de status. De prijzen zijn die van de rekenfeed.
 
 Elke alert vuurt **precies één keer per signaal**:
-- een vroeg 15m-signaal alert op de 15m-chart direct bij het sluiten van de 1e 15m-candle;
+- een vroeg 15m-signaal alert op de 15m-chart direct bij het sluiten van de 1e 15m-candle, op de 30m-chart bij de eerste tick daarna (sinds v1.16.0);
 - een 30m-signaal, of een breakout op de 2e 15m-candle, alert bij het sluiten van de 30m-candle **op de chart zelf** (niet eerder op een lopende 30m-waarde);
-- op de 30m-chart komt ook een 15m-signaal pas bij de 30m-close binnen, met "(15m)" in de tekst.
+- op de 30m-chart volgt bij de 30m-close geen tweede alert voor een signaal dat al live gealert is. Was de chart tijdens die candle niet live (bijv. net geopend), dan komt het 15m-signaal bij de 30m-close binnen, met "(15m)" in de tekst.
+- Staat er op een 15m- én een 30m-chart een alert, dan krijg je van elke chart een melding.
 
 De alert wordt **niet** onderdrukt als de trade "niet mogelijk" is; dat staat in de tekst en in het "Trade niet mogelijk"-blok.
 
@@ -73,7 +74,7 @@ De alert wordt **niet** onderdrukt als de trade "niet mogelijk" is; dat staat in
 
 | Instelling | Default | Wat het doet | Wat het niet doet |
 |---|---|---|---|
-| Versie | `1.15.1` | Puur informatief: toont de actieve scriptversie boven in de instellingen, zodat je niet in de code hoeft te kijken. | Heeft geen enkele invloed op de berekeningen of weergave; er is ook maar 1 optie beschikbaar. |
+| Versie | `1.17.0` | Puur informatief: toont de actieve scriptversie boven in de instellingen, zodat je niet in de code hoeft te kijken. | Heeft geen enkele invloed op de berekeningen of weergave; er is ook maar 1 optie beschikbaar. |
 
 ### Groep "Rekenfeed"
 
@@ -119,7 +120,7 @@ De alert wordt **niet** onderdrukt als de trade "niet mogelijk" is; dat staat in
 |---|---|---|---|
 | Break-tolerantie: close voorbij S/R (% van het level) (`breakPct`) | 0,01% | Hoe ver de close van de breakout-candle (15m of 30m) voorbij Resistance (Long) of onder Support (Short) moet sluiten, als percentage van het level, voordat een LONG/SHORT-signaal (en dus ook de SL/TP-berekening) getriggerd wordt. Alleen de close telt, wicks spelen geen rol. 0,01% = ca. 0,40 op XAUUSD (~4000) en ca. 2,7 punt op NAS100 (~27000). Na te meten met de price range tool van TradingView (de "%"-waarde). | Heeft geen invloed op waar Resistance/Support zelf getekend wordt — alleen op de drempel voor het signaal. |
 | Breakout-candle (`bkMode`) | Elke 15m-candle | **Elke 15m-candle:** elke 15m-candle die voorbij S/R sluit is de breakout-candle; entry, SL, R, TP, Range- en max-R-check komen van die 15m-candle. **30m-candle + 1e 15m:** alleen de 1e 15m-candle telt apart; sluit pas de 30m-candle voorbij S/R, dan is de hele 30m-candle de breakout-candle (gedrag t/m 1.11.0 plus het vroege 15m-signaal). | Verandert niets aan hoe S/R en Targets berekend worden (altijd op 30m). |
-| Ook breakout op de 1e 15m-candle van de 30m (vroeg signaal) (`signal15On`) | Aan | Sluit de 1e 15m-candle al voorbij S/R, dan is dat het signaal, met entry, SL en R van die 15m-candle. Op de 15m-chart zie je het direct bij het sluiten van die 15m-candle. | Per breakout is er maar één signaal: 15m of 30m. Uit = de 1e 15m-candle telt niet apart. |
+| Ook breakout op de 1e 15m-candle van de 30m (vroeg signaal) (`signal15On`) | Aan | Sluit de 1e 15m-candle al voorbij S/R, dan is dat het signaal, met entry, SL en R van die 15m-candle. Je ziet het direct bij het sluiten van die 15m-candle, op de 15m-chart én live op de 30m-chart (sinds v1.16.0). | Per breakout is er maar één signaal: 15m of 30m. Uit = de 1e 15m-candle telt niet apart. |
 
 ### Groep "Trade Mogelijkheid"
 
@@ -128,7 +129,7 @@ De alert wordt **niet** onderdrukt als de trade "niet mogelijk" is; dat staat in
 | Toon TP-lijn en Trade-mogelijkheid check (`showTradeCheck`) | Aan | Schakelt de TP-lijn en de Range/R-controle (en dus het "Trade niet mogelijk"-blok) in of uit. | Uitzetten onderdrukt **niet** de LONG/SHORT-alert, de break-lijn of de SL-lijn zelf — alleen de TP-gerelateerde weergave verdwijnt. Vereist bovendien dat `showSL` ook aanstaat, anders verschijnt er sowieso geen TP-lijn. |
 | TP: Risk/Reward ratio (`tpRR`) | 1.2 | Bepaalt de TP-afstand als veelvoud van R (het risico): `TP = entry ± tpRR × R`. | Heeft geen invloed op of de trade "mogelijk" is — dat wordt apart bepaald door `minRangeRR` en `maxRTicks`. |
 | Minimaal benodigde R/R-ruimte in de Range (`minRangeRR`) | 1.5 | De beschikbare ruimte tussen de entry en de bijbehorende Target-lijn (Target Resistance bij Long, Target Support bij Short), zoals die lijn op de chart stond op het moment van de break, moet minimaal `minRangeRR × R` zijn, anders is de trade "niet mogelijk" (geen TP- en SL-lijn, wel het "Trade niet mogelijk"-blok met de reden). De gemeten Range staat altijd in R in het label: bij een mogelijke trade achter de TP-waarde, samen met entry en R ("TP (1.2 R/R): 4279.86 · Entry 4284.16 · R 3.58 · Range 1.62R"), bij een niet-mogelijke trade in de reden (bijv. "Range 1.17R < 1.5R (10.23 < 13.11)": de ruimte is 10.23, nodig is 1,5 × R = 13.11). Volgens het tradeplan is 1,5R ruimte nodig voor een trade met een TP van 1,2R (default weer 1.5 sinds v1.13.0; v1.9.23 t/m 1.12 was het 1.0). | Entry en R komen van de breakout-candle (15m of 30m). Omdat R en de S/R-niveaus per feed iets verschillen, kan een grensgeval op de ene broker net wel en op de andere net niet slagen — beoordeel dat zelf aan de hand van de getoonde R-waarde. Is onafhankelijk van de `maxRTicks`-check hieronder; beide voorwaarden kunnen los van elkaar (of tegelijk) een trade blokkeren. |
-| Maximaal toegestane R (ticks) (`maxRTicks`) | 1000 | Als het risico R (in ticks) van de breakout-candle groter is dan deze waarde, is de trade sowieso "niet mogelijk", ongeacht de Range-check. | **Let op:** deze default (1000 ticks = 100 pips / $10 SL) is specifiek afgestemd op **XAUUSD** (tick-grootte 0,01). Op een ander symbool of een andere tick-grootte moet je deze waarde zelf opnieuw bepalen — het script doet dat niet automatisch. |
+| Maximaal toegestane R (punten) (`maxRPoints`) | 10 | Als het risico R (entry tot SL, in punten = prijseenheden) van de breakout-candle groter is dan deze waarde, is de trade sowieso "niet mogelijk", ongeacht de Range-check. Reden in het blok bijv. "R 46.50 > max 10 punten". Punten zijn wat de price range tool als prijsverschil toont. Richtwaarden (tooltip): **XAUUSD 10** (= 100 pips, $10 SL), **Nasdaq 110** (110 indexpunten, waarde van de coach). Tot v1.16.0 stond deze instelling in ticks (`maxRTicks`, 1000). | Wordt niet automatisch per symbool bepaald: stel hem per chart in. Pas op met "pips": bij goud is 1 pip 0,10, bij indices meestal 1 punt. |
 | Rejection candle (15m) maakt trade ongeldig, alleen bij 30m-signaal (`rejectionOn`) | Uit | Geldt alleen voor een 30m-signaal. Kijkt naar de twee 15m-candles van de breakout-30m-candle, op de rekenfeed. Sluit de **tweede** 15m-candle tegen de trade-richting in (bearish bij Long, bullish bij Short) met een body van minimaal `rejectionTicks`, dan is de trade "niet mogelijk". Het "Trade niet mogelijk"-blok toont dan bijv. "Rejection candle 15m (85 ticks >= 50)". | Een doji of een kleinere tegengestelde body telt niet als rejection. Latere candles in het signaalvenster worden niet gecontroleerd. De LONG/SHORT-alert gaat gewoon af. Komt uit de NASDAQ-strategie, daarom standaard uit; zet hem per chart aan. |
 | Rejection candle: minimale tegengestelde body (`rejectionTicks`) | 50 | Minimale body (in ticks, verschil tussen open en close) van de tegengestelde tweede 15m-candle om als rejection te tellen. | **Let op:** ticks zijn per symbool anders. Op XAUUSD is 50 ticks $0,50; controleer de tick-grootte van je NASDAQ-symbool en stel de waarde daarop af. |
 | Kleur TP-lijn (`tpColor`) | Blauw | Kleur van de TP-lijn/label wanneer de trade mogelijk is. | — |
@@ -178,7 +179,7 @@ Schakel de chart naar het 30m- of 15m-timeframe; op elk ander timeframe tekent h
 Ja — de indicator roept `alert()` aan, maar je moet in TradingView zelf nog een alert aanmaken op deze indicator (Conditie: "Trade Lijnen (SL/S/R)") om een notificatie te ontvangen.
 
 **Waarom geeft mijn 15m-chart een ander signaal dan mijn 30m-chart (of een andere broker)?**
-Mogelijke oorzaken: (1) de rekenfeed staat op de ene chart aan en op de andere uit, of de feeds verschillen (FXCM vs FTMO_OANDA); (2) een verschillende `slSignalWindow`; (3) timing: op de 15m-chart zie je een vroeg 15m-signaal al na de 1e 15m-candle, op de 30m-chart pas bij de 30m-close. Vergelijk daarom ook de instellingen van beide charts.
+Mogelijke oorzaken: (1) de rekenfeed staat op de ene chart aan en op de andere uit, of de feeds verschillen (FXCM vs FTMO_OANDA); (2) een verschillende `slSignalWindow`; (3) timing: een breakout op de 2e 15m-candle verschijnt op beide charts pas bij de 30m-close; tot v1.15.1 verscheen ook het vroege 15m-signaal op de 30m-chart pas bij de 30m-close. Vergelijk daarom ook de instellingen van beide charts.
 
 **Er kwam "Trade niet mogelijk" en daarna toch een nieuw signaal in dezelfde richting. Klopt dat?**
 Ja, sinds v1.15.0 (doorschuiven). Was de trade niet mogelijk, dan blokkeert het signaalvenster niet: breekt de koers daarna een verder liggend niveau (hogere Resistance bij Long, lagere Support bij Short), dan is dat een nieuw signaal met een eigen Range-check. Na een mogelijke trade blijft de blokkade binnen het venster wel gelden.

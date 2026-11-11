@@ -1,5 +1,5 @@
 //@version=6
-// Versie: 1.18.0 - zie CHANGELOG.md voor de wijzigingsgeschiedenis.
+// Versie: 1.18.2 - zie CHANGELOG.md voor de wijzigingsgeschiedenis.
 //
 // Alle berekeningen (Support/Resistance, Targets, signalen, SL, TP en de
 // Range-check) draaien via request.security() altijd op het 30m-timeframe van
@@ -16,7 +16,7 @@ indicator("Trade Lijnen (SL/S/R)", overlay=true, max_lines_count=30, max_labels_
 // ============================================================
 // VERSIE-INFO
 // ============================================================
-scriptVersion = input.string("1.18.0", "Versie", options=["1.18.0"], group="Info")
+scriptVersion = input.string("1.18.2", "Versie", options=["1.18.2"], group="Info")
 
 // ============================================================
 // REKENFEED: alle berekeningen (levels, signalen, SL/TP, Range-check) kunnen
@@ -72,6 +72,7 @@ trailSL        = input.bool(false, "SL: trailing (bijwerken bij elke nieuwe cand
 tickOffset     = input.int(50, "SL: aantal ticks van wick", minval=1, group="Stop Loss lijnen")
 lineLen        = input.int(5, "SL/TP/doorbroken: lengte lijn tot label (aantal 30m-candles vanaf breakout)", minval=1, group="Stop Loss lijnen")
 slSignalWindow = input.int(2, "SL: lijn actief na signaal (aantal 30m-candles)", minval=1, group="Stop Loss lijnen", tooltip="Hoe lang (in 30m-candles, de signaal-candle telt mee) de SL-, TP- en break-lijnen zichtbaar blijven. Binnen dit venster telt na een MOGELIJKE trade geen nieuw signaal in dezelfde richting. Na 'Trade niet mogelijk' telt een breakout van een verder liggend niveau wel direct (doorschuiven).")
+showAltLines   = input.bool(true, "Breakout om :00/:30: ook SL/TP-lijnen van de andere variant (dun gestippeld)", group="Stop Loss lijnen", tooltip="Om :00/:30 sluiten 15m en 30m tegelijk. De variant uit 'Breakout om :00/:30 ... SL/TP-lijnen van' krijgt de gewone dikke gestreepte lijnen; de andere variant dunne, lichtere gestippelde lijnen met een kort label (15m)/(30m). Alleen als die andere variant mogelijk is.")
 longColor      = input.color(color.new(color.green, 0), "Kleur Long SL", group="Stop Loss lijnen")
 shortColor     = input.color(color.new(color.red, 0), "Kleur Short SL", group="Stop Loss lijnen")
 
@@ -870,9 +871,10 @@ if barstate.islast
     table.clear(noTradeTable, 0, 0, 2, 6)
     if dualShow
         // kolom 1 = 15m, kolom 2 = 30m; de getekende variant krijgt "◀ lijnen"
-        bgHead = color.new(color.gray, 70)
-        bgCell = color.new(color.white, 10)
-        bgDraw = color.new(tpColor, 85)
+        // ondoorzichtig, zodat lijnen niet door de tabel heen lopen
+        bgHead = color.rgb(217, 217, 217)
+        bgCell = color.rgb(255, 255, 255)
+        bgDraw = color.rgb(214, 226, 247)
         f_dualCell(0, 0, (dualLong ? "Long" : "Short") + srcTag, bgHead, true)
         for col = 1 to 2
             is15col = col == 1
@@ -891,7 +893,7 @@ if barstate.islast
             f_dualCell(col, 3, str.tostring(r, format.mintick), bg)
             f_dualCell(col, 4, str.tostring(tp, format.mintick), bg)
             f_dualCell(col, 5, f_fmtRR(rng) + "R", bg)
-            f_dualCell(col, 6, f_status(ok, why), ok ? color.new(color.green, 70) : noTradeColor)
+            f_dualCell(col, 6, f_status(ok, why), ok ? color.rgb(198, 224, 180) : color.new(noTradeColor, 0))
         f_dualCell(0, 1, "Entry", bgHead)
         f_dualCell(0, 2, "SL", bgHead)
         f_dualCell(0, 3, "R", bgHead)
@@ -944,6 +946,46 @@ if showSL and showTradeCheck and drawNow
         tpText  = "TP" + dTag15 + srcTag + " (" + str.tostring(tpRR, "#.##") + " R/R): " + str.tostring(dTP, format.mintick) + " · Entry " + str.tostring(dEntry, format.mintick) + " · R " + str.tostring(dR, format.mintick) + " · Range " + f_fmtRR(dRangeRR) + "R" + (showLots ? f_lotText(dR) : "")
         tpLine  := line.new(dLineStart, dTP, labelTime, dTP, xloc.bar_time, extend.none, tpColor, line.style_dashed, 2)
         tpLabel := label.new(labelTime, dTP, tpText, xloc.bar_time, yloc.price, color.new(tpColor, 80), label.style_label_left, tpColor, size.small)
+
+// ============================================================
+// 1.18.1: SL/TP-lijnen van de ANDERE variant bij een breakout om :00/:30
+// (dun gestippeld, lichter). Labels kort. Het label van de getekende variant
+// blijft op zijn plek (anders kan het over een S/R-label vallen); alleen het
+// dunne label wijkt uit: boven de lijn als die hoger ligt, anders eronder.
+// ============================================================
+var line  altSlLine  = na
+var label altSlLabel = na
+var line  altTpLine  = na
+var label altTpLabel = na
+
+if showSL and drawNow
+    line.delete(altSlLine)
+    label.delete(altSlLabel)
+    line.delete(altTpLine)
+    label.delete(altTpLabel)
+    altSlLine  := na
+    altSlLabel := na
+    altTpLine  := na
+    altTpLabel := na
+
+    if showAltLines and dualShow and dualAOk
+        altTag   = dualIs15 ? " (30m)" : " (15m)"
+        // begin = de candle waarvan de close de breakout bepaalt: de 30m-
+        // candle zelf, of (andere variant = 15m) de 2e 15m-candle op de 15m-chart
+        altStart = (not dualIs15 and timeframe.period == lowerTF) ? dBreakTime + timeframe.in_seconds(lowerTF) * 1000 : dBreakTime
+        aSlCol   = color.new(dualLong ? longColor : shortColor, 35)
+        aTpCol   = color.new(tpColor, 35)
+        altSlLine  := line.new(altStart, dualASL, labelTime, dualASL, xloc.bar_time, extend.none, aSlCol, line.style_dotted, 1)
+        altSlLabel := label.new(labelTime, dualASL, (dualLong ? "Long SL" : "Short SL") + altTag + srcTag + ": " + str.tostring(dualASL, format.mintick), xloc.bar_time, yloc.price, color.new(color.black, 100), label.style_label_left, aSlCol, size.small)
+        if showTradeCheck
+            altTpLine  := line.new(altStart, dualATP, labelTime, dualATP, xloc.bar_time, extend.none, aTpCol, line.style_dotted, 1)
+            altTpLabel := label.new(labelTime, dualATP, "TP" + altTag + srcTag + ": " + str.tostring(dualATP, format.mintick) + " · R " + str.tostring(dualAR, format.mintick), xloc.bar_time, yloc.price, color.new(color.black, 100), label.style_label_left, aTpCol, size.small)
+        if not na(slLabel)
+            altAbove = dualASL > dualPSL
+            label.set_style(altSlLabel, altAbove ? label.style_label_lower_left : label.style_label_upper_left)
+        if not na(tpLabel) and not na(altTpLabel)
+            altAbove = dualATP > dualPTP
+            label.set_style(altTpLabel, altAbove ? label.style_label_lower_left : label.style_label_upper_left)
 
 // ============================================================
 // Flip-hulplijnen: beginnen bij de flip-candle = de candle na de breakout-

@@ -226,6 +226,32 @@ Zie punt 3. Geen van de vier "niet spelen"-regels en geen van de vier 30m-voorke
 
 ---
 
+## 6. Instrumentprofiel (idee 11-11-2026, eerst live observeren)
+
+Doel: bij het toevoegen van de indicator automatisch de juiste waarden per instrument. Pine Script kan standaardwaarden van inputs niet per symbool laten verschillen; "Opslaan als standaard" in TradingView bewaart één set voor alle symbolen.
+
+Voorstel:
+- Nieuwe instelling **"Instrumentprofiel": Automatisch (standaard) / Handmatig.**
+- **Automatisch:** het script herkent het symbool en gebruikt de waarden uit HANDLEIDING.md (groep Lotgrootte, "Instellingen per instrument"):
+  - ticker bevat XAU (XAUUSD, GOLD) → goud: SL-buffer 50, fallback target 100, min. afstand Target 300, body-toleranties 50/50, max R 10 punten, rejection 50, contractgrootte 100, commissie 6;
+  - NAS100, US100, NAS100USD → Nasdaq: 200, 700, 2100, 350/350, 110, 350, 1, 0;
+  - iets anders → de handmatige instellingen.
+- **Handmatig:** zoals nu, de waarden uit het Inputs-tabblad.
+- Het actieve profiel zichtbaar op de chart (bijv. "Profiel: Nasdaq (auto)").
+
+Nadelen:
+- Bij Automatisch tonen het Inputs-tabblad en de alertnaam de handmatige waarden, niet de profielwaarden; controleren via de alertnaam kan dan niet meer.
+- Een profielwaarde aanpassen = nieuwe versie van het script.
+
+Alternatief (minder voorkeur): tick-instellingen in % van de koers, zoals de break-tolerantie. Verandert de betekenis van instellingen die nu goed werken; max R van de coach blijft per instrument verschillen.
+
+Nog te beslissen voordat het gebouwd wordt:
+1. Alleen goud en Nasdaq, of ook andere instrumenten (US30, DAX, …)? Daarvoor zijn nog geen waarden vastgesteld.
+2. Accountgrootte en risico % buiten het profiel laten (horen bij het account, niet bij het instrument)?
+3. Waar het profiel tonen: in het TP-label, als regel in de tabel, of als klein label linksboven?
+
+---
+
 ## Vragen voor de expert (samengevat)
 
 1. Wat is een "duidelijke break": alleen afstand voorbij het level, of ook een deel van de body? Klopt ongeveer 0,01–0,02% van de koers?
@@ -238,4 +264,4 @@ Zie punt 3. Geen van de vier "niet spelen"-regels en geen van de vier 30m-voorke
 8. Hoeveel candles na de vorming van een level mogen het Target met een wick raken?
 9. Is er een minimale afstand tussen level en Target, los van de 1,5R?
 10. Wanneer schuif je door naar de volgende range ("kun je niet instappen")?
-11. Wat is een pip op NAS100 (voor de 5 pips SL-ruimte en de max 100 pips)?
+11. Wat is een pip op NAS100 (voor de 5 pips SL-ruimte en de max 100 pips)? *(Deels beantwoord 11-11-2026: coach noemt max 110 "pips" voor de Nasdaq; aangenomen = 110 indexpunten, ingesteld als max R 110 punten. Nog bevestigen met een voorbeeld: is een SL van 46,5 punten 46,5 of 465 pips?)*

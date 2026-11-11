@@ -3,6 +3,18 @@
 Alle noemenswaardige wijzigingen aan `trade_lines.pine` worden hier bijgehouden.
 Versienummering volgt [Semantic Versioning](https://semver.org/lang/nl/) (MAJOR.MINOR.PATCH).
 
+## 1.18.2 — 2026-11-11
+
+### Weergave
+- Het SL/TP-label van de gekozen variant blijft weer op zijn plek; alleen het dunne label van de andere variant wijkt uit (boven of onder de lijn). In 1.18.1 kon het SL-label daardoor over het Support/Resistance-label vallen.
+- Tabel 15m/30m ondoorzichtig: lijnen lopen niet meer door de tabel heen.
+
+## 1.18.1 — 2026-11-11
+
+### Weergave
+- **SL/TP-lijnen van de andere variant:** bij een breakout om :00/:30 staan nu ook de SL- en TP-lijn van de niet-gekozen variant (15m of 30m) op de chart, dun gestippeld en lichter van kleur, met een kort label ("Long SL (30m): …", "TP (30m): … · R …"). De gekozen variant houdt de dikke gestreepte lijnen. Liggen de labels dicht bij elkaar, dan komt de tekst van de hoogste boven en die van de laagste onder de lijn.
+- Nieuwe instelling *Breakout om :00/:30: ook SL/TP-lijnen van de andere variant* (groep Stop Loss lijnen, standaard aan). Lijnen alleen als die variant mogelijk is.
+
 ## 1.18.0 — 2026-11-11
 
 ### Signalen

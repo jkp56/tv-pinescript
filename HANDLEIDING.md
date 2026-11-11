@@ -1,6 +1,6 @@
 # Handleiding – Trade Lijnen (SL/S/R)
 
-Gebruikershandleiding voor `trade_lines.pine`, versie **1.18.0**. Voor de technische wijzigingsgeschiedenis zie [CHANGELOG.md](CHANGELOG.md); voor de exacte detectielogica zie [T4G daytrade rules.md](T4G%20daytrade%20rules.md). Dit document beschrijft hoe je het script gebruikt en wat elke instelling in het Inputs-tabblad wel en niet doet.
+Gebruikershandleiding voor `trade_lines.pine`, versie **1.18.2**. Voor de technische wijzigingsgeschiedenis zie [CHANGELOG.md](CHANGELOG.md); voor de exacte detectielogica zie [T4G daytrade rules.md](T4G%20daytrade%20rules.md). Dit document beschrijft hoe je het script gebruikt en wat elke instelling in het Inputs-tabblad wel en niet doet.
 
 ## 1. Wat doet dit script
 
@@ -38,6 +38,7 @@ De Support/Resistance- en Target-niveaus worden **altijd op de 30-minuten candle
 | Gestippelde lijn + label "Target Resistance/Support bij break: …" | Rood (Long) / groen (Short), gestippeld | Het Target zoals het vóór de signaal-candle op de chart stond: het target waarmee de Range-check rekent. Het Target op de chart zelf wordt na de break herberekend en kan verspringen; deze lijn blijft het oorspronkelijke target tonen. Ligt de lijn al aan de verkeerde kant van de close, dan is de Range negatief. Valt het niveau samen met een Resistance/Support/Target-label, dan wordt het samengevoegd ("= Target bij break") of boven/onder dat label gezet, zodat ze niet overlappen. Alleen zichtbaar als *Toon SL lijnen* aan staat (sinds v1.9.38). |
 | SL-lijn | Groen (Long) / rood (Short), gestippeld | Stop loss van het actieve signaal, inclusief prijswaarde in het label. Bepaald op de wick van de breakout-candle (15m of 30m) plus `tickOffset`. Wordt **niet** getekend als de trade niet mogelijk is (sinds v1.9.37). |
 | Tabel 15m/30m (breakout om :00/:30) | Blauw = getekende variant, groen = mogelijk, oranje = niet mogelijk | Om :00 en :30 sluiten de 15m- en de 30m-candle tegelijk. Dan toont een tabel (op de plek van het "Trade niet mogelijk"-blok) beide varianten naast elkaar: Entry, SL, R, TP, Range en Status. De entry is gelijk; SL, R, TP en de Range-check verschillen (wick van de 2e 15m-candle of van de hele 30m-candle). De kolom met "◀ lijnen" is de variant waarvan de SL/TP- en flip-lijnen getekend zijn (instelling `bkMode`). Verschijnt bij elk signaal om :00/:30, ook als beide mogelijk zijn (sinds v1.18.0). |
+| SL/TP-lijnen andere variant (breakout om :00/:30) | Zelfde kleuren, lichter, dun gestippeld | De SL- en TP-lijn van de variant die niet gekozen is, met een kort label, bijv. "Long SL (30m): 4053.36" en "TP (30m): 4067.59 · R 6.47". De gekozen variant houdt de dikke gestreepte lijnen. Het label van de gekozen variant blijft op zijn plek; het dunne label staat boven de lijn als die hoger ligt, anders eronder. Alleen als die andere variant mogelijk is en *Breakout om :00/:30: ook SL/TP-lijnen van de andere variant* aan staat (sinds v1.18.1). |
 | "Trade niet mogelijk"-blok | Oranje | Vast blok op het scherm (default rechtsboven, instelbaar) met richting, feed en de reden(en) waarom het actieve signaal geen geldige trade is. Verdwijnt zodra het signaalvenster afloopt. De "doorbroken"-lijn blijft gewoon staan. |
 | TP-lijn | Blauw, gestippeld | Take-profit niveau, alleen zichtbaar als de trade wél mogelijk is. Het label toont ook entry, R, Range en (sinds v1.9.28) de lotgrootte met het bijbehorende risico in $. |
 | Flip-hulplijnen "Flip 0.12 body" en "Te ver zonder flip 0.6R" | Paars, gestippeld | Alleen als *Toon flip-hulplijnen* aan staat en de trade mogelijk is. Beginnen bij de flip-candle: de eerstvolgende candle na de breakout-candle (op hetzelfde timeframe). "Flip" ligt 0,12 × de body van de breakout-candle terug vanaf de entry (Gann box op de body: close = 0, open = 1); "Te ver zonder flip" ligt 0,6R voorbij de entry. Het flip-label wordt boven of onder het "doorbroken"-label gezet als ze anders overlappen. Puur visueel, het script beslist er niets mee (sinds v1.11.0; op de body sinds v1.13.0). |
@@ -69,13 +70,24 @@ Elke alert vuurt **precies één keer per signaal**:
 
 De alert wordt **niet** onderdrukt als de trade "niet mogelijk" is; dat staat in de tekst en in het "Trade niet mogelijk"-blok.
 
+### Alert aanmaken
+
+1. Open de chart van het symbool (bijv. FX:XAUUSD of FTMO_OANDA:US100.cash) op het timeframe waarop je de alerts wilt (15m of 30m).
+2. Zet **eerst** de instellingen van de indicator goed voor dat symbool (zie §6, groepen "Trade Mogelijkheid" en "Lotgrootte": bijv. Nasdaq max R 110 punten, contractgrootte 1).
+3. Maak een alert met als conditie **Trade Lijnen (SL/S/R) → Any alert() function call**.
+
+**Belangrijk:**
+- **Eén alert per symbool.** Een alert hoort bij het symbool van de chart waarop je hem maakt. Een alert op XAUUSD gaat nooit af voor de Nasdaq; maak voor elk instrument een eigen alert.
+- **Een alert legt de scriptversie en de instellingen vast** op het moment van aanmaken. Werk je het script bij of verander je daarna een instelling, dan blijft de bestaande alert de oude code en de oude instellingen gebruiken (in de lijst met alerts zie je de versie en de waarden in de naam, bijv. "Trade Lijnen (SL/S/R) (1.14.0, …)"). **Verwijder na elke nieuwe versie of gewijzigde instelling de alerts en maak ze opnieuw aan.**
+- Staat er op een 15m- én een 30m-chart van hetzelfde symbool een alert, dan krijg je van elke chart een melding.
+
 ## 6. Instellingen (Inputs-tabblad)
 
 ### Groep "Info"
 
 | Instelling | Default | Wat het doet | Wat het niet doet |
 |---|---|---|---|
-| Versie | `1.18.0` | Puur informatief: toont de actieve scriptversie boven in de instellingen, zodat je niet in de code hoeft te kijken. | Heeft geen enkele invloed op de berekeningen of weergave; er is ook maar 1 optie beschikbaar. |
+| Versie | `1.18.2` | Puur informatief: toont de actieve scriptversie boven in de instellingen, zodat je niet in de code hoeft te kijken. | Heeft geen enkele invloed op de berekeningen of weergave; er is ook maar 1 optie beschikbaar. |
 
 ### Groep "Rekenfeed"
 
@@ -99,6 +111,7 @@ De alert wordt **niet** onderdrukt als de trade "niet mogelijk" is; dat staat in
 | SL: aantal ticks van wick (`tickOffset`) | 50 | Afstand in ticks tussen de wick (low bij Long, high bij Short) van de signaal-/laatste candle en de SL-lijn. | Verandert niets aan hóe de SL bepaald wordt (nog steeds op basis van de wick), alleen de marge eromheen. |
 | SL/TP/doorbroken: lengte lijn tot label (`lineLen`) | 5 | Hoeveel 30m-candles de SL-, TP- en break-lijnen vanaf de breakout-candle naar rechts lopen. Waar de lijn eindigt, begint het label (sinds v1.9.33; daarvoor default 20 en stond het label aan het eind van een lange lijn). | Heeft **geen** effect op de Resistance/Support/Target-lijnen — die lopen altijd onbeperkt door naar rechts, ongeacht deze waarde. |
 | SL: lijn actief na signaal (`slSignalWindow`) | 2 | Bepaalt het "signaalvenster": hoeveel 30m-candles (de signaal-candle zelf telt als candle 1) de SL-, TP- en break-lijnen met hun labels (incl. de "niet mogelijk"-reden) zichtbaar blijven na een signaal. Wordt ook gebruikt om te voorkomen dat een kleine verschuiving van Support/Resistance een tweede, ongewenst signaal in dezelfde richting veroorzaakt terwijl het vorige venster nog loopt. Die blokkade geldt alleen na een **mogelijke** trade: was het vorige signaal "Trade niet mogelijk", dan telt een breakout van een verder liggend niveau (hogere Resistance bij Long, lagere Support bij Short) direct als nieuw signaal (doorschuiven, vanaf 1.15.0). | Heeft geen invloed op de Resistance/Support-lijnen zelf (die blijven gewoon doorlopend zichtbaar, los van dit venster). |
+| Breakout om :00/:30: ook SL/TP-lijnen van de andere variant (`showAltLines`) | Aan | Tekent bij een breakout om :00/:30 ook de SL- en TP-lijn van de niet-gekozen variant, dun gestippeld en lichter, met een kort label (15m)/(30m). | Alleen als die variant mogelijk is; geen BO-marker of flip-lijnen voor die variant. Vereist *Toon SL lijnen*. |
 | Kleur Long SL (`longColor`) | Groen | Kleur van de SL-lijn/label bij een Long-signaal. | — |
 | Kleur Short SL (`shortColor`) | Rood | Kleur van de SL-lijn/label bij een Short-signaal. | — |
 
@@ -157,10 +170,32 @@ Entry, R en body zijn die van de breakout-candle op de rekenfeed (bijv. FXCM), n
 | Toon lotgrootte in TP-label (`showLots`) | Aan | Voegt bij een geldige trade een regel toe aan het TP-label: `Lot 0.27 · risico $98.76 (0.99%)`. Berekening: `account × risico% / (R × contractgrootte × koers-naar-USD + commissie per lot)`, naar beneden afgerond op 0.01 lot. | Verschijnt niet bij een "niet mogelijke" trade (daar is geen TP-label). Spread en swap zijn niet meegerekend. |
 | Accountgrootte ($) (`accountSize`) | 10000 | Basis voor het risicobedrag. Accountvaluta is USD. | Leest je werkelijke accountsaldo niet uit; pas dit zelf aan. |
 | Risico per trade (%) (`riskPct`) | 1.0 | Percentage van de accountgrootte dat je per trade riskeert. | — |
-| Contractgrootte (`contractSize`) | 100 | Aantal eenheden per lot (XAUUSD = 100 oz). | Wordt niet automatisch per symbool bepaald; controleer dit bij een ander instrument. |
-| Commissie per lot ($) (`commPerLot`) | 6 | Wordt per lot bij het risico opgeteld, zodat SL-verlies + commissie samen binnen je risico blijven. | — |
+| Contractgrootte (`contractSize`) | 100 | Aantal eenheden per lot = dollars per punt per lot. **XAUUSD: 100** (100 oz, $100 per $1 koersbeweging). **Nasdaq (US100/NAS100): 1** ($1 per indexpunt per lot). | Wordt niet automatisch per symbool bepaald: stel per chart in. Staat hij op een Nasdaq-chart nog op 100, dan geeft het label een 100× te klein lot (bijv. 0.02 in plaats van 2.13). |
+| Commissie per lot ($) (`commPerLot`) | 6 | Wordt per lot bij het risico opgeteld, zodat SL-verlies + commissie samen binnen je risico blijven. | De $6 geldt voor goud. Bij indices rekenen veel brokers geen commissie; controleer dat en zet hem op een Nasdaq-chart zo nodig op 0. |
 
 De lotgrootte wordt berekend met de R van de rekenfeed (standaard FXCM, zie groep "Rekenfeed"). Staat de rekenfeed uit, dan kan de lotgrootte op FXCM en FTMO_OANDA iets verschillen.
+
+**Instellingen per instrument (stel ze per chart in):**
+
+Instellingen in ticks werken per instrument anders: bij beide is 1 tick 0,01, maar de Nasdaq staat ~7× hoger en beweegt ~7× zoveel punten. Daarom zijn ze voor de Nasdaq ~7× zo groot gezet; de S/R-lijnen bleven daarmee kloppen (getest 11-11-2026). Instellingen in %, R of aantal candles gelden voor beide gelijk.
+
+| Instelling (groep) | XAUUSD | Nasdaq (US100.cash / NAS100) | Waarom |
+|---|---|---|---|
+| SL: aantal ticks van wick (Stop Loss lijnen) | 50 ($0,50) | 200 (2 pt) | Buffer voor spread/commissie; Nasdaq-spread ±1,5–1,8 pt, anders wordt een short-SL op de ask geraakt zonder dat de wick geraakt wordt. |
+| Fallback afstand target lijnen (S/R) | 100 ($1) | 700 (7 pt) | Alleen als er geen overgang gevonden wordt; ~7× zoals de koersbeweging. |
+| Minimale afstand Target t.o.v. S/R (S/R) | 300 ($3) | 2100 (21 pt) | Voorkomt een Target vlak naast S/R; ~7×. |
+| Body-tolerantie (S/R) | 50 ($0,50) | 350 (3,5 pt) | Marge bij het herkennen van body-overgangen; ~7×. |
+| Body-tolerantie latere candles (S/R) | 50 ($0,50) | 350 (3,5 pt) | Idem, voor latere candles; ~7×. |
+| Maximaal toegestane R, punten (Trade Mogelijkheid) | 10 | 110 | Coach: 100 pips goud, 110 punten Nasdaq. |
+| Rejection: min. tegengestelde body (Trade Mogelijkheid) | 50 ($0,50) | 350 (3,5 pt) | Alleen als de rejection-check aan staat; ~7×. |
+| Contractgrootte (Lotgrootte) | 100 | 1 | $ per punt per lot. |
+| Commissie per lot ($) (Lotgrootte) | 6 | 0 | Geen commissie op indices. |
+
+Gelijk voor beide: break-tolerantie 0,01%, TP 1,2R, minimale ruimte 1,5R, flip 0,12 body / 0,6R, signaalvenster 2, max bars 450, lijnlengte 5, account $10.000, risico 1%. Maak na het wijzigen van een instelling de alert opnieuw aan (zie §5).
+
+Voorbeeld Nasdaq, 11-11-2026: R 40.75, account $10.000, 1% risico, contractgrootte 1, commissie $6 → `100 / (40.75 × 1 + 6)` = **Lot 2.13**, risico $99.58. Zonder commissie: 100 / 40.75 = 2.45 lot. Met contractgrootte 100 kwam er ten onrechte 0.02 uit.
+
+**Controleren in het TradingView-handelspaneel:** zet in het orderticket de hoeveelheid op risico ($ of %) en vul de SL uit het script in. Het volume dat TradingView berekent, moet gelijk zijn aan het lot in het TP-label. Is het bijvoorbeeld 10× of 20× kleiner, dan is 1 lot bij die broker $10 of $20 per punt; zet de contractgrootte dan op 10 of 20. Onderaan het ticket staat ook de benodigde margin (lots × contractgrootte × koers ÷ leverage).
 
 ## 7. Veelgestelde vragen
 

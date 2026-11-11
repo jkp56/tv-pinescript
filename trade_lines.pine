@@ -1,5 +1,5 @@
 //@version=6
-// Versie: 1.15.0 - zie CHANGELOG.md voor de wijzigingsgeschiedenis.
+// Versie: 1.15.1 - zie CHANGELOG.md voor de wijzigingsgeschiedenis.
 //
 // Alle berekeningen (Support/Resistance, Targets, signalen, SL, TP en de
 // Range-check) draaien via request.security() altijd op het 30m-timeframe van
@@ -16,7 +16,7 @@ indicator("Trade Lijnen (SL/S/R)", overlay=true, max_lines_count=30, max_labels_
 // ============================================================
 // VERSIE-INFO
 // ============================================================
-scriptVersion = input.string("1.15.0", "Versie", options=["1.15.0"], group="Info")
+scriptVersion = input.string("1.15.1", "Versie", options=["1.15.1"], group="Info")
 
 // ============================================================
 // REKENFEED: alle berekeningen (levels, signalen, SL/TP, Range-check) kunnen
@@ -34,9 +34,18 @@ calcTF        = "30"
 lowerTF       = "15"
 isSupportedTF = timeframe.period == calcTF or timeframe.period == lowerTF
 
-f_fxcmTicker(string t) =>
+// FTMO-namen eindigen op ".cash" (bijv. FTMO_OANDA:US100.CASH): dat
+// achtervoegsel valt weg en de basisnaam wordt naar FXCM vertaald.
+f_fxcmTicker(string tIn) =>
+    t = str.replace(str.upper(tIn), ".CASH", "")
     switch t
         "NAS100USD" => "NAS100"
+        "US100"     => "NAS100"
+        "US500"     => "SPX500"
+        "GER40"     => "GER30"
+        "JP225"     => "JPN225"
+        "EU50"      => "EUSTX50"
+        "HK50"      => "HKG33"
         "US30USD"   => "US30"
         "SPX500USD" => "SPX500"
         "DE30EUR"   => "GER30"

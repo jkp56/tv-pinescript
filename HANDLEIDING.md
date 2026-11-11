@@ -1,6 +1,6 @@
 # Handleiding – Trade Lijnen (SL/S/R)
 
-Gebruikershandleiding voor `trade_lines.pine`, versie **1.15.0**. Voor de technische wijzigingsgeschiedenis zie [CHANGELOG.md](CHANGELOG.md); voor de exacte detectielogica zie [T4G daytrade rules.md](T4G%20daytrade%20rules.md). Dit document beschrijft hoe je het script gebruikt en wat elke instelling in het Inputs-tabblad wel en niet doet.
+Gebruikershandleiding voor `trade_lines.pine`, versie **1.15.1**. Voor de technische wijzigingsgeschiedenis zie [CHANGELOG.md](CHANGELOG.md); voor de exacte detectielogica zie [T4G daytrade rules.md](T4G%20daytrade%20rules.md). Dit document beschrijft hoe je het script gebruikt en wat elke instelling in het Inputs-tabblad wel en niet doet.
 
 ## 1. Wat doet dit script
 
@@ -73,14 +73,14 @@ De alert wordt **niet** onderdrukt als de trade "niet mogelijk" is; dat staat in
 
 | Instelling | Default | Wat het doet | Wat het niet doet |
 |---|---|---|---|
-| Versie | `1.15.0` | Puur informatief: toont de actieve scriptversie boven in de instellingen, zodat je niet in de code hoeft te kijken. | Heeft geen enkele invloed op de berekeningen of weergave; er is ook maar 1 optie beschikbaar. |
+| Versie | `1.15.1` | Puur informatief: toont de actieve scriptversie boven in de instellingen, zodat je niet in de code hoeft te kijken. | Heeft geen enkele invloed op de berekeningen of weergave; er is ook maar 1 optie beschikbaar. |
 
 ### Groep "Rekenfeed"
 
 | Instelling | Default | Wat het doet | Wat het niet doet |
 |---|---|---|---|
 | Berekeningen op andere feed dan de chart (`useSourceFeed`) | Aan | Alle berekeningen (Resistance/Support, Targets, signalen, SL/TP, Range-/R-check, lotgrootte) draaien op de rekenfeed in plaats van op de chart-feed. Op een FTMO_OANDA-chart zie je dan de beslissing van FXCM. In de labels staat de feed erbij, bijv. `Long SL (FXCM): …`. | Rekent de prijzen niet om naar de chart-feed: SL, TP en levels zijn de FXCM-prijzen en kunnen een paar tienden afwijken van de OANDA-candles. |
-| Exchange-prefix van de rekenfeed (`sourceExchange`) | `FX` | De exchange die voor de ticker van de chart wordt gezet. TradingView gebruikt voor FXCM de prefix `FX`, dus `FX` → `FX:XAUUSD` (in de labels staat dan "FXCM"). `FXCM` werkt niet: dat geeft "Invalid symbol". | Is de prefix gelijk aan die van de chart, of leeg, dan rekent het script gewoon op de chart-feed. Het symbool moet op die exchange onder dezelfde naam bestaan; bij `FX` worden afwijkende OANDA-namen vertaald (bijv. `NAS100USD` → `NAS100`, `US30USD` → `US30`). |
+| Exchange-prefix van de rekenfeed (`sourceExchange`) | `FX` | De exchange die voor de ticker van de chart wordt gezet. TradingView gebruikt voor FXCM de prefix `FX`, dus `FX` → `FX:XAUUSD` (in de labels staat dan "FXCM"). `FXCM` werkt niet: dat geeft "Invalid symbol". | Is de prefix gelijk aan die van de chart, of leeg, dan rekent het script gewoon op de chart-feed. Het symbool moet op die exchange onder dezelfde naam bestaan; bij `FX` worden afwijkende OANDA-namen vertaald (bijv. `NAS100USD` → `NAS100`, `US30USD` → `US30`). Bij FTMO-namen met `.cash` valt dat achtervoegsel weg (bijv. `US100.cash` → `NAS100`, `US500.cash` → `SPX500`, `GER40.cash` → `GER30`; sinds v1.15.1). |
 
 ### Groep "Freeze"
 

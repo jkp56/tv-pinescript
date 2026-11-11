@@ -3,6 +3,11 @@
 Alle noemenswaardige wijzigingen aan `trade_lines.pine` worden hier bijgehouden.
 Versienummering volgt [Semantic Versioning](https://semver.org/lang/nl/) (MAJOR.MINOR.PATCH).
 
+## 1.15.1 — 2026-11-11
+
+### Rekenfeed
+- **FTMO-symbolen met ".cash" werken nu:** op een FTMO_OANDA-chart van bijv. `US100.cash` gaf de rekenfeed "Invalid symbol: FX:US100.CASH". Het achtervoegsel `.cash` valt nu weg en de basisnaam wordt naar FXCM vertaald: `US100` → `NAS100`, `US500` → `SPX500`, `GER40` → `GER30`, `JP225` → `JPN225`, `EU50` → `EUSTX50`, `HK50` → `HKG33`. Namen die op FXCM gelijk zijn (bijv. `US30`, `UK100`, `US2000`) blijven ongewijzigd.
+
 ## 1.15.0 — 2026-11-10
 
 ### Signalen

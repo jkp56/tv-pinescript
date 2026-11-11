@@ -3,6 +3,19 @@
 Alle noemenswaardige wijzigingen aan `trade_lines.pine` worden hier bijgehouden.
 Versienummering volgt [Semantic Versioning](https://semver.org/lang/nl/) (MAJOR.MINOR.PATCH).
 
+## 1.18.0 — 2026-11-11
+
+### Signalen
+- **15m of 30m bij een gelijktijdige close (tradeplan):** om :00 en :30 sluiten de 15m- en de 30m-candle tegelijk. Het script rekent nu beide varianten uit: de 2e 15m-candle en de hele 30m-candle (zelfde entry, andere SL, R, TP en Range-check; de rejection-check alleen bij de 30m). Tot nu toe koos de modus vast één variant, waardoor er met de standaardinstelling nooit een "(30m)"-signaal verscheen.
+- De instelling "Breakout-candle" heet nu **"Breakout om :00/:30 (15m en 30m sluiten tegelijk): SL/TP-lijnen van"** met de opties **15m** (standaard, was "Elke 15m-candle") en **30m** (was "30m-candle + 1e 15m"). De gekozen variant bepaalt signaal, SL/TP-lijnen, flip-lijnen, BO-marker en wat meetelt voor het signaalvenster en doorschuiven. Na het updaten staat de instelling op de standaard 15m.
+
+### Weergave
+- **Tabel 15m/30m:** bij elk signaal om :00/:30 staat op de plek van het "Trade niet mogelijk"-blok een tabel met beide varianten naast elkaar (Entry, SL, R, TP, Range, Status). De kolom van de getekende variant is gemarkeerd met "◀ lijnen"; de status is groen (mogelijk) of oranje (niet mogelijk, met reden). Er blijft altijd maar één set SL/TP-lijnen op de chart, voor het plaatsen van orders.
+- Bij een breakout om :15/:45 (alleen 15m) verandert er niets.
+
+### Alerts
+- Bij een breakout om :00/:30 noemt de alert ook de andere variant: `| 30m: SL … · TP … · mogelijk` (of `niet mogelijk: <reden>`). Meerregelige redenen staan in de alert nu op één regel, gescheiden door "; ".
+
 ## 1.17.0 — 2026-11-11
 
 ### Trade Mogelijkheid

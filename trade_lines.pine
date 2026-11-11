@@ -1,5 +1,5 @@
 //@version=6
-// Versie: 1.17.0 - zie CHANGELOG.md voor de wijzigingsgeschiedenis.
+// Versie: 1.18.0 - zie CHANGELOG.md voor de wijzigingsgeschiedenis.
 //
 // Alle berekeningen (Support/Resistance, Targets, signalen, SL, TP en de
 // Range-check) draaien via request.security() altijd op het 30m-timeframe van
@@ -16,7 +16,7 @@ indicator("Trade Lijnen (SL/S/R)", overlay=true, max_lines_count=30, max_labels_
 // ============================================================
 // VERSIE-INFO
 // ============================================================
-scriptVersion = input.string("1.17.0", "Versie", options=["1.17.0"], group="Info")
+scriptVersion = input.string("1.18.0", "Versie", options=["1.18.0"], group="Info")
 
 // ============================================================
 // REKENFEED: alle berekeningen (levels, signalen, SL/TP, Range-check) kunnen
@@ -101,8 +101,8 @@ breakPct = input.float(0.01, "Break-tolerantie: close voorbij S/R (% van het lev
 // candle vervalt dan. Op de 15m-chart verschijnt het signaal (lijnen + alert)
 // direct bij het sluiten van de 1e 15m-candle; op de 30m-chart pas bij het
 // sluiten van de 30m-candle.
-bkMode     = input.string("Elke 15m-candle", "Breakout-candle", options=["Elke 15m-candle", "30m-candle + 1e 15m"], group="Signaal instellingen", tooltip="Elke 15m-candle: elke 15m-candle die voorbij S/R sluit is de breakout-candle; entry, SL, R en TP komen van die 15m-candle. 30m-candle + 1e 15m: alleen de 1e 15m-candle telt apart; sluit pas de 30m-candle voorbij S/R, dan is de hele 30m-candle de breakout-candle (gedrag t/m 1.11.0 plus het vroege 15m-signaal).")
-every15 = bkMode == "Elke 15m-candle"
+bkMode     = input.string("15m", "Breakout om :00/:30 (15m en 30m sluiten tegelijk): SL/TP-lijnen van", options=["15m", "30m"], group="Signaal instellingen", tooltip="Om :00 en :30 sluiten de 15m- en de 30m-candle tegelijk. Volgens het tradeplan speel je standaard de 15m; bij een doji, een 15m-SL op het level, geen wick of een zwakke break-out de 30m. 15m: signaal, SL, TP, Range-check en flip-lijnen van de 2e 15m-candle. 30m: van de hele 30m-candle. De andere variant staat in de tabel en de alert. Een breakout om :15/:45 is altijd 15m.")
+every15 = bkMode == "15m"
 signal15On = input.bool(true, "Ook breakout op de 1e 15m-candle van de 30m (vroeg signaal)", group="Signaal instellingen", tooltip="Sluit de eerste 15m-candle van een 30m-candle al voorbij Resistance/Support, dan is dat het signaal (entry, SL en R van die 15m-candle). Per breakout is er maar één signaal: 15m of 30m.")
 
 // ============================================================
@@ -402,6 +402,17 @@ f_calc30m() =>
     var float  shortR          = na
     var float  shortBody       = na
 
+    // 1.18.0: bij een breakout om :00/:30 (15m en 30m sluiten tegelijk) de
+    // ANDERE variant (30m als de 15m gekozen is en omgekeerd), voor tabel/alert.
+    var bool   altValid   = false
+    var float  altEntry   = na
+    var float  altSL      = na
+    var float  altTP      = na
+    var float  altR       = na
+    var float  altRangeRR = na
+    var bool   altOk      = false
+    var string altReason  = ""
+
     // De 15m-candles binnen deze 30m-candle (geneste request op de
     // rekenfeed). body2 = body van de 2e 15m-candle (rejection-check, zoals
     // in 1.11.0). OHLC van de 1e 15m-candle, alleen als die echt op
@@ -505,6 +516,36 @@ f_calc30m() =>
             sig15   := any15 or use15b
             sigHalf := any15 ? 1 : use15b ? 2 : 0
 
+        // Andere variant bij een gelijktijdige close: gekozen 15m -> de hele
+        // 30m-candle (met rejection-check); gekozen 30m -> de 2e 15m-candle.
+        altOn    = not any15 and has15b
+        altClose = use15b ? close : c15b
+        altHigh  = use15b ? high : h15b
+        altLow   = use15b ? low : l15b
+        altBody2 = use15b ? body2 : float(na)
+        if bullishBreakNow or bearishBreakNow
+            altValid := false
+        if altOn and bullishBreakNow and not na(prevTargetResistance)
+            [aTp, aRangeRR, aR, aOk, aReason] = f_tradeCheck(altClose, altLow - slOffset, prevTargetResistance, 1, altBody2)
+            altValid   := true
+            altEntry   := altClose
+            altSL      := altLow - slOffset
+            altTP      := aTp
+            altR       := aR
+            altRangeRR := aRangeRR
+            altOk      := aOk
+            altReason  := aReason
+        if altOn and bearishBreakNow and not na(prevTargetSupport)
+            [aTp, aRangeRR, aR, aOk, aReason] = f_tradeCheck(altClose, altHigh + slOffset, prevTargetSupport, -1, altBody2)
+            altValid   := true
+            altEntry   := altClose
+            altSL      := altHigh + slOffset
+            altTP      := aTp
+            altR       := aR
+            altRangeRR := aRangeRR
+            altOk      := aOk
+            altReason  := aReason
+
         if bullishBreakNow
             lastLongBar    := bar_index
             breakSide      := true
@@ -563,9 +604,10 @@ f_calc30m() =>
      longBreakLevel, shortBreakLevel, longBreakTarget, shortBreakTarget, breakTime, breakSide,
      longTradeOk, longTP, longReasonText, longRangeRR, longEntry, longR,
      shortTradeOk, shortTP, shortReasonText, shortRangeRR, shortEntry, shortR,
-     sig15, blockLongNext, blockShortNext, sigHalf, longBody, shortBody]
+     sig15, blockLongNext, blockShortNext, sigHalf, longBody, shortBody,
+     altValid, altEntry, altSL, altTP, altR, altRangeRR, altOk, altReason]
 
-[calcResistance, calcSupport, calcTargetResistance, calcTargetSupport, calcRFallback, calcSFallback, calcTrFallback, calcTsFallback, calcRPivotTime, calcSPivotTime, calcTrPivotTime, calcTsPivotTime, calcRBarsBack, calcSBarsBack, calcTrBarsBack, calcTsBarsBack, calcBarTime, calcLongActive, calcShortActive, calcLongTrailSL, calcShortTrailSL, calcSlSide, calcLongBreakLevel, calcShortBreakLevel, calcLongBreakTarget, calcShortBreakTarget, calcBreakTime, calcBreakSide, calcLongTradeOk, calcLongTP, calcLongReasonText, calcLongRangeRR, calcLongEntry, calcLongR, calcShortTradeOk, calcShortTP, calcShortReasonText, calcShortRangeRR, calcShortEntry, calcShortR, calcSig15, calcBlockLongNext, calcBlockShortNext, calcSigHalf, calcLongBody, calcShortBody] = request.security(calcTicker, calcTF, f_calc30m(), lookahead=barmerge.lookahead_off)
+[calcResistance, calcSupport, calcTargetResistance, calcTargetSupport, calcRFallback, calcSFallback, calcTrFallback, calcTsFallback, calcRPivotTime, calcSPivotTime, calcTrPivotTime, calcTsPivotTime, calcRBarsBack, calcSBarsBack, calcTrBarsBack, calcTsBarsBack, calcBarTime, calcLongActive, calcShortActive, calcLongTrailSL, calcShortTrailSL, calcSlSide, calcLongBreakLevel, calcShortBreakLevel, calcLongBreakTarget, calcShortBreakTarget, calcBreakTime, calcBreakSide, calcLongTradeOk, calcLongTP, calcLongReasonText, calcLongRangeRR, calcLongEntry, calcLongR, calcShortTradeOk, calcShortTP, calcShortReasonText, calcShortRangeRR, calcShortEntry, calcShortR, calcSig15, calcBlockLongNext, calcBlockShortNext, calcSigHalf, calcLongBody, calcShortBody, calcAltValid, calcAltEntry, calcAltSL, calcAltTP, calcAltR, calcAltRangeRR, calcAltOk, calcAltReason] = request.security(calcTicker, calcTF, f_calc30m(), lookahead=barmerge.lookahead_off)
 
 // ============================================================
 // Waarschuwing bij niet-ondersteund timeframe.
@@ -764,9 +806,46 @@ if showSL and drawNow
 // ============================================================
 var string noTradeMsg = ""
 
+// 1.18.0: tabel met beide varianten bij een breakout om :00/:30. Waarden
+// worden vastgelegd op het moment van tekenen (blijven ook bij Freeze staan).
+var bool   dualShow  = false
+var bool   dualLong  = false
+var bool   dualIs15  = true
+var float  dualPE    = na
+var float  dualPSL   = na
+var float  dualPR    = na
+var float  dualPTP   = na
+var float  dualPRng  = na
+var bool   dualPOk   = false
+var string dualPWhy  = ""
+var float  dualAE    = na
+var float  dualASL   = na
+var float  dualAR    = na
+var float  dualATP   = na
+var float  dualARng  = na
+var bool   dualAOk   = false
+var string dualAWhy  = ""
+
 if drawNow
     noTradeBlocked = showTradeCheck and (dLongSig or dShortSig) and not dTradeOk and dReason != ""
     noTradeMsg := noTradeBlocked ? (dLongSig ? "Long" : "Short") + " trade niet mogelijk" + dTag15 + srcTag + "\n" + dReason : ""
+    dualShow := showTradeCheck and not pvFire and (dLongSig or dShortSig) and calcAltValid and dHalf != 1
+    dualLong := dLongSig
+    dualIs15 := dHalf == 2
+    dualPE   := dEntry
+    dualPSL  := dSlValue
+    dualPR   := dR
+    dualPTP  := dTP
+    dualPRng := dRangeRR
+    dualPOk  := dTradeOk
+    dualPWhy := dReason
+    dualAE   := calcAltEntry
+    dualASL  := calcAltSL
+    dualAR   := calcAltR
+    dualATP  := calcAltTP
+    dualARng := calcAltRangeRR
+    dualAOk  := calcAltOk
+    dualAWhy := calcAltReason
 
 f_tablePos(string s) =>
     switch s
@@ -779,13 +858,48 @@ f_tablePos(string s) =>
         "Linksonder"   => position.bottom_left
         => position.top_right
 
-var table noTradeTable = table.new(f_tablePos(noTradePosStr), 1, 1, border_width=0)
+var table noTradeTable = table.new(f_tablePos(noTradePosStr), 3, 7, border_width=1, border_color=color.new(color.gray, 60))
+
+f_status(bool ok, string why) =>
+    ok ? "mogelijk" : "niet mogelijk" + (why != "" ? ":\n" + why : "")
+
+f_dualCell(int col, int row, string txt, color bg, bool bold = false) =>
+    table.cell(noTradeTable, col, row, txt, text_color=color.black, text_halign=col == 0 ? text.align_left : text.align_right, text_size=size.normal, bgcolor=bg, text_formatting=bold ? text.format_bold : text.format_none)
 
 if barstate.islast
-    if noTradeMsg != ""
+    table.clear(noTradeTable, 0, 0, 2, 6)
+    if dualShow
+        // kolom 1 = 15m, kolom 2 = 30m; de getekende variant krijgt "◀ lijnen"
+        bgHead = color.new(color.gray, 70)
+        bgCell = color.new(color.white, 10)
+        bgDraw = color.new(tpColor, 85)
+        f_dualCell(0, 0, (dualLong ? "Long" : "Short") + srcTag, bgHead, true)
+        for col = 1 to 2
+            is15col = col == 1
+            prim    = is15col == dualIs15
+            e   = prim ? dualPE : dualAE
+            sl  = prim ? dualPSL : dualASL
+            r   = prim ? dualPR : dualAR
+            tp  = prim ? dualPTP : dualATP
+            rng = prim ? dualPRng : dualARng
+            ok  = prim ? dualPOk : dualAOk
+            why = prim ? dualPWhy : dualAWhy
+            bg  = prim ? bgDraw : bgCell
+            f_dualCell(col, 0, (is15col ? "15m" : "30m") + (prim ? " ◀ lijnen" : ""), prim ? bgDraw : bgHead, true)
+            f_dualCell(col, 1, str.tostring(e, format.mintick), bg)
+            f_dualCell(col, 2, str.tostring(sl, format.mintick), bg)
+            f_dualCell(col, 3, str.tostring(r, format.mintick), bg)
+            f_dualCell(col, 4, str.tostring(tp, format.mintick), bg)
+            f_dualCell(col, 5, f_fmtRR(rng) + "R", bg)
+            f_dualCell(col, 6, f_status(ok, why), ok ? color.new(color.green, 70) : noTradeColor)
+        f_dualCell(0, 1, "Entry", bgHead)
+        f_dualCell(0, 2, "SL", bgHead)
+        f_dualCell(0, 3, "R", bgHead)
+        f_dualCell(0, 4, "TP (" + str.tostring(tpRR, "#.##") + "R)", bgHead)
+        f_dualCell(0, 5, "Range", bgHead)
+        f_dualCell(0, 6, "Status", bgHead)
+    else if noTradeMsg != ""
         table.cell(noTradeTable, 0, 0, noTradeMsg, text_color=color.black, text_halign=text.align_left, text_size=size.normal, bgcolor=noTradeColor)
-    else
-        table.clear(noTradeTable, 0, 0)
 
 // ============================================================
 // SL-lijn
@@ -896,8 +1010,10 @@ f_px(float x) =>
 f_alertText(bool isLong, string tag) =>
     head = syminfo.ticker + srcTag + " " + (isLong ? "Bullish breakout" + tag + ": close boven Resistance + " : "Bearish breakdown" + tag + ": close onder Support - ") + str.tostring(breakPct) + "%"
     lvls = " | Entry " + f_px(dEntry) + " · SL " + f_px(dSlValue) + (showTradeCheck ? " · TP " + f_px(dTP) : "")
-    stat = showTradeCheck ? (dTradeOk ? " | Trade mogelijk" : " | Trade niet mogelijk" + (dReason != "" ? ": " + dReason : "")) : ""
-    head + lvls + stat
+    stat = showTradeCheck ? (dTradeOk ? " | Trade mogelijk" : " | Trade niet mogelijk" + (dReason != "" ? ": " + str.replace_all(dReason, "\n", "; ") : "")) : ""
+    // 1.18.0: bij een breakout om :00/:30 ook de andere variant
+    alt = showTradeCheck and not pvFire and calcAltValid and dHalf != 1 ? " | " + (dHalf == 2 ? "30m" : "15m") + ": SL " + f_px(calcAltSL) + " · TP " + f_px(calcAltTP) + " · " + (calcAltOk ? "mogelijk" : "niet mogelijk" + (calcAltReason != "" ? ": " + str.replace_all(calcAltReason, "\n", "; ") : "")) : ""
+    head + lvls + stat + alt
 
 var int lastAlertedBreakTime = na
 // Al live gealert op de 30m-chart: het 15m-signaal van de 1e 15m-candle van

@@ -3,6 +3,53 @@
 Alle noemenswaardige wijzigingen aan `trade_lines.pine` worden hier bijgehouden.
 Versienummering volgt [Semantic Versioning](https://semver.org/lang/nl/) (MAJOR.MINOR.PATCH).
 
+## 1.20.3 — 2026-11-12
+
+### Standaardwaarden
+- *SL: lijn actief na signaal (aantal 30m-candles)* (`slSignalWindow`, het signaalvenster) standaard **1** in plaats van 2, in beide scripts.
+
+## 1.20.2 — 2026-11-12
+
+### Signalen
+- **Vals vroeg 15m-signaal op de 30m-chart opgelost** (beide scripts). Voorbeeld FTMO_OANDA:XAUUSD 30m, 12-11-2026: alert om 08:59:58 "Bearish breakdown (15m)" (entry 3956.73), terwijl er geen geldige breakout was. De rekenfeed (FXCM) sloot de 30m-candle van 08:30 net iets eerder dan de chart (FTMO_OANDA); in die laatste seconden vergeleek het vroege signaal de 1e 15m-candle (08:30–08:45) al met de nieuwe Support die pas door de close van diezelfde 30m-candle ontstond. Het vroege signaal op de 30m-chart wordt nu alleen gegeven zolang de rekenfeed de lopende 30m-candle nog niet heeft afgesloten.
+
+## 1.20.1 — 2026-11-12
+
+### Instellingen
+- **Schakelaar "Toon TP-lijn en Trade-mogelijkheid check" verwijderd** (beide scripts). Die stamde uit de tijd dat de Range-check een extra functie was; uitzetten haalde ook de tabel/het blok, de lijnen van de andere variant en TP/status in de alert weg, wat verwarrend samenliep met *Toon tabel 15m/30m en 'Trade niet mogelijk'-blok*. De trade-check (TP, Range, max R) staat nu altijd aan; voor een rustiger beeld zet je alleen de tabel/het blok uit.
+
+## 1.20.0 — 2026-11-12
+
+### Twee scripts in plaats van een instrumentprofiel
+- **`trade_lines.pine` is de versie voor XAUUSD, nieuw is `trade_lines_nasdaq.pine` voor de Nasdaq.** De code is gelijk; alleen de standaardwaarden verschillen (Nasdaq: SL-buffer 200, fallback target 700, min. afstand Target 2100, body-toleranties 350/350, max R 110 punten, rejection 350, contractgrootte 1, commissie 0) en de naam: *Trade Lijnen XAUUSD (SL/S/R)* en *Trade Lijnen Nasdaq (SL/S/R)*.
+- Het instrumentprofiel uit 1.19.0/1.19.1 is weer verwijderd (instellingen *Instrumentprofiel*, *Toon profiel*, *Positie profiel*). Alle instellingen werken weer rechtstreeks, en de alertnaam toont weer precies de gebruikte waarden.
+- De instelling *Toon tabel 15m/30m en 'Trade niet mogelijk'-blok* (1.19.0) blijft.
+- Nieuw: staat een script op het verkeerde instrument, dan verschijnt midden onderaan een oranje waarschuwing.
+- Onderhoud: elke wijziging wordt in beide scripts doorgevoerd; ze houden hetzelfde versienummer.
+
+## 1.19.1 — 2026-11-12
+
+### Weergave
+- Het profiel stond linksboven en viel daar weg achter de legenda en de koop/verkoopknoppen van TradingView. Nieuwe instelling *Positie profiel* (standaard **Middenonder**); *Toon profiel linksboven* heet nu *Toon profiel*.
+
+## 1.19.0 — 2026-11-12
+
+### Instrumentprofiel
+- **Automatisch de juiste instellingen per instrument.** Nieuwe instelling *Instrumentprofiel* (standaard **Automatisch**). Het script herkent goud (ticker met XAU of GOLD) en de Nasdaq (NAS100, US100) en gebruikt dan vaste waarden voor SL-buffer, fallback- en minimale Target-afstand, body-toleranties, max R, rejection, contractgrootte en commissie:
+  - Goud: 50 / 100 / 300 / 50 / 50 / 10 punten / 50 / 100 / $6
+  - Nasdaq: 200 / 700 / 2100 / 350 / 350 / 110 punten / 350 / 1 / $0
+- Op een ander symbool, of met *Handmatig*, gelden de getallen uit het Inputs-tabblad zoals voorheen.
+- Linksboven staat het actieve profiel met de belangrijkste waarden (groen), of "handmatig – controleer de instellingen" (oranje). Uit te zetten met *Toon profiel linksboven*.
+- Let op: de alertnaam toont de getallen uit het Inputs-tabblad, ook als het profiel ze vervangt. Accountgrootte en risico % vallen buiten het profiel.
+
+### Weergave
+- Nieuwe instelling *Toon tabel 15m/30m en 'Trade niet mogelijk'-blok* (groep Trade Mogelijkheid, standaard aan). Uit: geen tabel en geen blok; signalen, lijnen en alerts werken gewoon door.
+
+## 1.18.3 — 2026-11-12
+
+### Alerts
+- **Alert bij een breakout om :00/:30 kwam 15 minuten te laat op de 15m-chart.** Voorbeeld NAS100 12-11-2026: breakout-candle 06:15–06:30, alert pas om 06:45. Op de 15m-chart komt het nieuwe 30m-resultaat binnen in de candle ná de breakout-candle; de alert stond op "1x bij candle-close" en ging dus pas aan het eind van die candle af. Nu "1x per candle": de alert gaat af bij de eerste tick na de close van de breakout-candle (zelfde moment waarop lijnen en tabel verschijnen). Inhoud van de alert ongewijzigd.
+
 ## 1.18.2 — 2026-11-11
 
 ### Weergave

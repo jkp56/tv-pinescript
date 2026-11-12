@@ -1,5 +1,5 @@
 //@version=6
-// Versie: 1.18.2 - zie CHANGELOG.md voor de wijzigingsgeschiedenis.
+// Versie: 1.20.3 - zie CHANGELOG.md voor de wijzigingsgeschiedenis.
 //
 // Alle berekeningen (Support/Resistance, Targets, signalen, SL, TP en de
 // Range-check) draaien via request.security() altijd op het 30m-timeframe van
@@ -11,12 +11,13 @@
 // 15m-chart direct bij het sluiten van die 15m-candle; al het andere wordt
 // bijgewerkt bij het sluiten van een 30m-candle.
 // Andere timeframes dan 15m en 30m worden niet ondersteund.
-indicator("Trade Lijnen (SL/S/R)", overlay=true, max_lines_count=30, max_labels_count=30)
+// Versie voor XAUUSD (goud). De Nasdaq-versie is trade_lines_nasdaq.pine: zelfde code, andere standaardwaarden.
+indicator("Trade Lijnen XAUUSD (SL/S/R)", overlay=true, max_lines_count=30, max_labels_count=30)
 
 // ============================================================
 // VERSIE-INFO
 // ============================================================
-scriptVersion = input.string("1.18.2", "Versie", options=["1.18.2"], group="Info")
+scriptVersion = input.string("1.20.3", "Versie", options=["1.20.3"], group="Info")
 
 // ============================================================
 // REKENFEED: alle berekeningen (levels, signalen, SL/TP, Range-check) kunnen
@@ -71,7 +72,7 @@ showSL         = input.bool(true, "Toon SL lijnen", group="Stop Loss lijnen")
 trailSL        = input.bool(false, "SL: trailing (bijwerken bij elke nieuwe candle in het venster)", group="Stop Loss lijnen")
 tickOffset     = input.int(50, "SL: aantal ticks van wick", minval=1, group="Stop Loss lijnen")
 lineLen        = input.int(5, "SL/TP/doorbroken: lengte lijn tot label (aantal 30m-candles vanaf breakout)", minval=1, group="Stop Loss lijnen")
-slSignalWindow = input.int(2, "SL: lijn actief na signaal (aantal 30m-candles)", minval=1, group="Stop Loss lijnen", tooltip="Hoe lang (in 30m-candles, de signaal-candle telt mee) de SL-, TP- en break-lijnen zichtbaar blijven. Binnen dit venster telt na een MOGELIJKE trade geen nieuw signaal in dezelfde richting. Na 'Trade niet mogelijk' telt een breakout van een verder liggend niveau wel direct (doorschuiven).")
+slSignalWindow = input.int(1, "SL: lijn actief na signaal (aantal 30m-candles)", minval=1, group="Stop Loss lijnen", tooltip="Hoe lang (in 30m-candles, de signaal-candle telt mee) de SL-, TP- en break-lijnen zichtbaar blijven. Binnen dit venster telt na een MOGELIJKE trade geen nieuw signaal in dezelfde richting. Na 'Trade niet mogelijk' telt een breakout van een verder liggend niveau wel direct (doorschuiven).")
 showAltLines   = input.bool(true, "Breakout om :00/:30: ook SL/TP-lijnen van de andere variant (dun gestippeld)", group="Stop Loss lijnen", tooltip="Om :00/:30 sluiten 15m en 30m tegelijk. De variant uit 'Breakout om :00/:30 ... SL/TP-lijnen van' krijgt de gewone dikke gestreepte lijnen; de andere variant dunne, lichtere gestippelde lijnen met een kort label (15m)/(30m). Alleen als die andere variant mogelijk is.")
 longColor      = input.color(color.new(color.green, 0), "Kleur Long SL", group="Stop Loss lijnen")
 shortColor     = input.color(color.new(color.red, 0), "Kleur Short SL", group="Stop Loss lijnen")
@@ -80,8 +81,8 @@ shortColor     = input.color(color.new(color.red, 0), "Kleur Short SL", group="S
 // RESISTANCE / SUPPORT
 // ============================================================
 maxScanBars      = input.int(450, "Max bars terugzoeken", minval=10, maxval=500, group="Support / Resistance")
-autoTargetTicks  = input.int(100, "Fallback afstand target lijnen (ticks, alleen als geen geldige overgang gevonden wordt)", minval=1, group="Support / Resistance")
-minTargetDistance = input.int(300, "Minimale afstand Target t.o.v. Resistance/Support (ticks)", minval=1, group="Support / Resistance")
+autoTargetTicks   = input.int(100, "Fallback afstand target lijnen (ticks, alleen als geen geldige overgang gevonden wordt)", minval=1, group="Support / Resistance")
+minTargetDistance   = input.int(300, "Minimale afstand Target t.o.v. Resistance/Support (ticks)", minval=1, group="Support / Resistance")
 labelTextColor   = input.color(color.black, "Labelkleur (tekst)", group="Support / Resistance")
 excludeReversalCandle = input.bool(true, "Support/Resistance: reversal-candle uitsluiten van eigen invalidatie", group="Support / Resistance")
 bodyTolEnabled   = input.bool(false, "Body-tolerantie voor candle na de overgang", group="Support / Resistance")
@@ -109,14 +110,17 @@ signal15On = input.bool(true, "Ook breakout op de 1e 15m-candle van de 30m (vroe
 // ============================================================
 // TRADE MOGELIJKHEID: TP (bij ingestelde R/R) + Range-check
 // ============================================================
-showTradeCheck = input.bool(true, "Toon TP-lijn en Trade-mogelijkheid check", group="Trade Mogelijkheid")
+// 1.20.1: de aan/uit-schakelaar voor de trade-check is vervallen; de check
+// (TP, Range, max R) is de kern van het tradeplan en staat altijd aan.
+showTradeCheck = true
 tpRR           = input.float(1.2, "TP: Risk/Reward ratio", minval=0.01, step=0.1, group="Trade Mogelijkheid")
 minRangeRR     = input.float(1.5, "Minimaal benodigde R/R-ruimte in de Range", minval=0.01, step=0.1, group="Trade Mogelijkheid")
 maxRPoints     = input.float(10.0, "Maximaal toegestane R (punten)", minval=0.01, step=1, group="Trade Mogelijkheid", tooltip="Maximale afstand entry - SL in punten (prijseenheden), zoals de price range tool die toont. XAUUSD: 10 (= 100 pips, $10). Nasdaq (US100 / NAS100): 110 (110 indexpunten, waarde van de coach). Stel per chart in.")
 rejectionOn    = input.bool(false, "Rejection candle (15m) maakt trade ongeldig (alleen bij 30m-signaal)", group="Trade Mogelijkheid")
-rejectionTicks = input.int(50, "Rejection candle: minimale tegengestelde body (ticks)", minval=1, group="Trade Mogelijkheid")
+rejectionTicks   = input.int(50, "Rejection candle: minimale tegengestelde body (ticks)", minval=1, group="Trade Mogelijkheid")
 tpColor        = input.color(color.new(color.blue, 0), "Kleur TP-lijn", group="Trade Mogelijkheid")
 noTradeColor   = input.color(color.new(color.orange, 0), "Kleur 'Trade niet mogelijk'-blok", group="Trade Mogelijkheid")
+showTradeTable = input.bool(true, "Toon tabel 15m/30m en 'Trade niet mogelijk'-blok", group="Trade Mogelijkheid", tooltip="Uit: geen tabel en geen blok rechtsboven. Signalen, lijnen, labels en alerts blijven gewoon werken; de reden waarom een trade niet mogelijk is staat dan alleen nog in de alert.")
 noTradePosStr  = input.string("Rechtsboven", "Positie 'Trade niet mogelijk'-blok", options=["Rechtsboven", "Rechtsmidden", "Rechtsonder", "Middenboven", "Middenonder", "Linksboven", "Linksmidden", "Linksonder"], group="Trade Mogelijkheid")
 
 // Flip-hulplijnen (alleen visueel, beslissen niets), vanaf de flip-candle
@@ -134,7 +138,7 @@ flipColor     = input.color(color.new(color.purple, 0), "Kleur flip-hulplijnen",
 showLots     = input.bool(true, "Toon lotgrootte in TP-label", group="Lotgrootte")
 accountSize  = input.float(10000, "Accountgrootte ($)", minval=1, group="Lotgrootte")
 riskPct      = input.float(1.0, "Risico per trade (%)", minval=0.01, step=0.1, group="Lotgrootte")
-contractSize = input.float(100, "Contractgrootte (eenheden per lot, XAUUSD = 100)", minval=0.000001, group="Lotgrootte")
+contractSize   = input.float(100, "Contractgrootte (eenheden per lot, XAUUSD = 100)", minval=0.000001, group="Lotgrootte")
 commPerLot   = input.float(6, "Commissie per lot ($)", minval=0, step=0.5, group="Lotgrootte")
 
 tickSize = syminfo.mintick
@@ -665,7 +669,12 @@ calcPrevClose = request.security(calcTicker, calcTF, close[1], lookahead=barmerg
 is15Chart   = timeframe.period == lowerTF
 is30Chart   = timeframe.period == calcTF
 pvFirst15   = is15Chart and timeframe.change(calcTF) and barstate.isconfirmed
-pvLive30    = is30Chart and not barstate.isconfirmed and q30T.size() >= 2 and q30T.first() == time
+// 1.20.2: alleen zolang de rekenfeed de lopende 30m-candle nog NIET heeft
+// afgesloten (calcBarTime < time). Sluit de rekenfeed eerder dan de chart-feed
+// (bijv. FXCM vs FTMO_OANDA), dan zijn S/R al bijgewerkt met deze candle en
+// zou de 1e 15m-candle met een niveau van ná die candle vergeleken worden
+// (vals signaal, XAUUSD 12-11-2026 08:59:58).
+pvLive30    = is30Chart and not barstate.isconfirmed and q30T.size() >= 2 and q30T.first() == time and not na(calcBarTime) and calcBarTime < time
 pvC     = pvLive30 ? q30C.first() : pv15C
 pvH     = pvLive30 ? q30H.first() : pv15H
 pvL     = pvLive30 ? q30L.first() : pv15L
@@ -869,7 +878,7 @@ f_dualCell(int col, int row, string txt, color bg, bool bold = false) =>
 
 if barstate.islast
     table.clear(noTradeTable, 0, 0, 2, 6)
-    if dualShow
+    if showTradeTable and dualShow
         // kolom 1 = 15m, kolom 2 = 30m; de getekende variant krijgt "◀ lijnen"
         // ondoorzichtig, zodat lijnen niet door de tabel heen lopen
         bgHead = color.rgb(217, 217, 217)
@@ -900,7 +909,7 @@ if barstate.islast
         f_dualCell(0, 4, "TP (" + str.tostring(tpRR, "#.##") + "R)", bgHead)
         f_dualCell(0, 5, "Range", bgHead)
         f_dualCell(0, 6, "Status", bgHead)
-    else if noTradeMsg != ""
+    else if showTradeTable and noTradeMsg != ""
         table.cell(noTradeTable, 0, 0, noTradeMsg, text_color=color.black, text_halign=text.align_left, text_size=size.normal, bgcolor=noTradeColor)
 
 // ============================================================
@@ -1069,5 +1078,21 @@ if pvFire
     lastAlertedBreakTime := time
 else if isSupportedTF and calcBarDone and not alertedLive30 and not na(calcBreakTime) and (na(lastAlertedBreakTime) or calcBreakTime > lastAlertedBreakTime)
     if longSig or shortSig
-        alert(f_alertText(longSig, calcSig15 ? " (15m)" : " (30m)"), alert.freq_once_per_bar_close)
+        // 1.18.3: direct (1x per candle) i.p.v. bij de close van de candle.
+        // Op de 15m-chart komt het nieuwe 30m-resultaat pas binnen in de
+        // candle NA de breakout-candle; met freq_once_per_bar_close ging de
+        // alert dan pas aan het eind daarvan af (15 minuten te laat).
+        alert(f_alertText(longSig, calcSig15 ? " (15m)" : " (30m)"), alert.freq_once_per_bar)
         lastAlertedBreakTime := calcBreakTime
+
+// ============================================================
+// Waarschuwing bij het verkeerde instrument (1.20.0). Er is een apart script
+// voor XAUUSD (trade_lines.pine) en voor de Nasdaq (trade_lines_nasdaq.pine);
+// ze verschillen alleen in de standaardwaarden.
+// ============================================================
+assetOk = str.contains(str.upper(syminfo.ticker), "XAU") or str.contains(str.upper(syminfo.ticker), "GOLD")
+var table assetWarn = table.new(position.bottom_center, 1, 1, border_width=0)
+if barstate.islast
+    table.clear(assetWarn, 0, 0)
+    if not assetOk
+        table.cell(assetWarn, 0, 0, "Let op: dit script is voor XAUUSD, dit is " + syminfo.ticker + ". Gebruik het andere script of controleer alle instellingen.", text_color=color.black, text_size=size.normal, bgcolor=color.rgb(252, 228, 214))

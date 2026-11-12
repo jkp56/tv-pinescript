@@ -226,7 +226,11 @@ Zie punt 3. Geen van de vier "niet spelen"-regels en geen van de vier 30m-voorke
 
 ---
 
-## 6. Instrumentprofiel (idee 11-11-2026, eerst live observeren)
+## 6. Instrumentprofiel — VERVANGEN door twee scripts in v1.20.0 (12-11-2026)
+
+Gebouwd in v1.19.0, maar de gebruiker vond twee aparte scripts veel eenvoudiger: `trade_lines.pine` (XAUUSD) en `trade_lines_nasdaq.pine` (Nasdaq), zelfde code, andere standaardwaarden. Het profiel is in v1.20.0 verwijderd. Onderstaande tekst is het oorspronkelijke voorstel.
+
+### Oorspronkelijk voorstel (11-11-2026)
 
 Doel: bij het toevoegen van de indicator automatisch de juiste waarden per instrument. Pine Script kan standaardwaarden van inputs niet per symbool laten verschillen; "Opslaan als standaard" in TradingView bewaart één set voor alle symbolen.
 

@@ -3,6 +3,11 @@
 Alle noemenswaardige wijzigingen aan `trade_lines.pine` worden hier bijgehouden.
 Versienummering volgt [Semantic Versioning](https://semver.org/lang/nl/) (MAJOR.MINOR.PATCH).
 
+## 1.21.0 — 2026-11-18
+
+### Weergave
+- **Grootte van de range in de labels van Support, Resistance en de Target-lijnen** (beide scripts), in punten (prijseenheden). Resistance en Support tonen de afstand tussen Support en Resistance; Target Resistance de afstand tot Resistance; Target Support de afstand tot Support. Voorbeeld: `Target Resistance (FXCM) · Range 12.34 [pivot 8 candles terug]`.
+
 ## 1.20.3 — 2026-11-12
 
 ### Standaardwaarden

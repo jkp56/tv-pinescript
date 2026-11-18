@@ -1,6 +1,6 @@
 # Handleiding – Trade Lijnen (SL/S/R)
 
-Gebruikershandleiding voor `trade_lines.pine` (XAUUSD) en `trade_lines_nasdaq.pine` (Nasdaq), versie **1.20.3**.
+Gebruikershandleiding voor `trade_lines.pine` (XAUUSD) en `trade_lines_nasdaq.pine` (Nasdaq), versie **1.21.0**.
 
 **Twee scripts, één handleiding.** Er is een script voor goud en een voor de Nasdaq. De code is gelijk; alleen de standaardwaarden van de instellingen in ticks/punten, de contractgrootte en de commissie verschillen (zie "Instellingen per instrument" bij groep Lotgrootte), en de naam: *Trade Lijnen XAUUSD (SL/S/R)* en *Trade Lijnen Nasdaq (SL/S/R)*. Zet je een script op het verkeerde instrument, dan verschijnt midden onderaan een oranje waarschuwing. Alles in deze handleiding geldt voor beide. Voor de technische wijzigingsgeschiedenis zie [CHANGELOG.md](CHANGELOG.md); voor de exacte detectielogica zie [T4G daytrade rules.md](T4G%20daytrade%20rules.md). Dit document beschrijft hoe je het script gebruikt en wat elke instelling in het Inputs-tabblad wel en niet doet.
 
@@ -31,10 +31,10 @@ De Support/Resistance- en Target-niveaus worden **altijd op de 30-minuten candle
 
 | Element | Kleur (default) | Betekenis |
 |---|---|---|
-| Resistance-lijn | Rood, doorlopend | Dichtstbijzijnde geldige weerstand, loopt onbeperkt door naar rechts. Label toont hoeveel candles terug de pivot lag, of `[FALLBACK]` als er geen geldig patroon gevonden is (dan is het de hoogste high in de scanrange). |
-| Support-lijn | Groen, doorlopend | Spiegelbeeld van Resistance. |
-| Target Resistance-lijn | Rood, lichter/transparanter | Verder gelegen niveau boven Resistance; bepaalt de beschikbare "ruimte" voor een Long-trade. |
-| Target Support-lijn | Groen, lichter/transparanter | Spiegelbeeld van Target Resistance, voor Short-trades. |
+| Resistance-lijn | Rood, doorlopend | Dichtstbijzijnde geldige weerstand, loopt onbeperkt door naar rechts. Label toont de grootte van de range tussen Support en Resistance in punten (sinds v1.21.0) en hoeveel candles terug de pivot lag, of `[FALLBACK]` als er geen geldig patroon gevonden is (dan is het de hoogste high in de scanrange). |
+| Support-lijn | Groen, doorlopend | Spiegelbeeld van Resistance. Het label toont dezelfde range tussen Support en Resistance. |
+| Target Resistance-lijn | Rood, lichter/transparanter | Verder gelegen niveau boven Resistance; bepaalt de beschikbare "ruimte" voor een Long-trade. Het label toont de afstand tot Resistance in punten (sinds v1.21.0). |
+| Target Support-lijn | Groen, lichter/transparanter | Spiegelbeeld van Target Resistance, voor Short-trades. Het label toont de afstand tot Support in punten (sinds v1.21.0). |
 | BO-marker "BO (15m)" / "BO (30m)" | Groen (Long) / rood (Short) | Markeert de breakout-candle: de candle waarvan de close voorbij Resistance/Support de breakout bepaalt. (15m) of (30m) geeft aan of het een 15m- of 30m-breakout is; dat staat ook in de SL/TP-labels en de alert. Alleen zichtbaar als *Toon SL lijnen* aan staat (sinds v1.12.4). |
 | Zwarte stippellijn + label "Resistance/Support doorbroken: …" | Zwart, gestippeld | Toont het exacte prijsniveau waarop het LONG/SHORT-signaal getriggerd is. Nodig omdat Resistance/Support na de doorbraak zelf herberekend wordt en dus kan verschuiven — deze lijn/label blijft het originele doorbroken niveau tonen. Alleen zichtbaar als *Toon SL lijnen* aan staat (sinds v1.9.29). De lijn loopt `lineLen` candles vanaf de breakout-candle; daar begint het label (sinds v1.9.33). Op de 15m-chart beginnen de lijnen bij de candle waarvan de close de breakout bepaalt (sinds v1.12.4). |
 | Gestippelde lijn + label "Target Resistance/Support bij break: …" | Rood (Long) / groen (Short), gestippeld | Het Target zoals het vóór de signaal-candle op de chart stond: het target waarmee de Range-check rekent. Het Target op de chart zelf wordt na de break herberekend en kan verspringen; deze lijn blijft het oorspronkelijke target tonen. Ligt de lijn al aan de verkeerde kant van de close, dan is de Range negatief. Valt het niveau samen met een Resistance/Support/Target-label, dan wordt het samengevoegd ("= Target bij break") of boven/onder dat label gezet, zodat ze niet overlappen. Alleen zichtbaar als *Toon SL lijnen* aan staat (sinds v1.9.38). |
@@ -89,7 +89,7 @@ De alert wordt **niet** onderdrukt als de trade "niet mogelijk" is; dat staat in
 
 | Instelling | Default | Wat het doet | Wat het niet doet |
 |---|---|---|---|
-| Versie | `1.20.3` | Puur informatief: toont de actieve scriptversie boven in de instellingen, zodat je niet in de code hoeft te kijken. | Heeft geen enkele invloed op de berekeningen of weergave; er is ook maar 1 optie beschikbaar. |
+| Versie | `1.21.0` | Puur informatief: toont de actieve scriptversie boven in de instellingen, zodat je niet in de code hoeft te kijken. | Heeft geen enkele invloed op de berekeningen of weergave; er is ook maar 1 optie beschikbaar. |
 
 ### Groep "Rekenfeed"
 

@@ -3,6 +3,11 @@
 Alle noemenswaardige wijzigingen aan `trade_lines.pine` worden hier bijgehouden.
 Versienummering volgt [Semantic Versioning](https://semver.org/lang/nl/) (MAJOR.MINOR.PATCH).
 
+## 1.22.0 — 2026-11-18
+
+### Rekenfeed
+- **De Nasdaq-versie rekent standaard op de feed van de chart, niet meer op FXCM.** In `trade_lines_nasdaq.pine` staat *Berekeningen op andere feed dan de chart* standaard uit en is de exchange-prefix standaard leeg. `trade_lines.pine` (XAUUSD) blijft op FXCM rekenen; daar verandert alleen het versienummer.
+
 ## 1.21.0 — 2026-11-18
 
 ### Weergave

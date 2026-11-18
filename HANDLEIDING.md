@@ -1,6 +1,6 @@
 # Handleiding – Trade Lijnen (SL/S/R)
 
-Gebruikershandleiding voor `trade_lines.pine` (XAUUSD) en `trade_lines_nasdaq.pine` (Nasdaq), versie **1.21.0**.
+Gebruikershandleiding voor `trade_lines.pine` (XAUUSD) en `trade_lines_nasdaq.pine` (Nasdaq), versie **1.22.0**.
 
 **Twee scripts, één handleiding.** Er is een script voor goud en een voor de Nasdaq. De code is gelijk; alleen de standaardwaarden van de instellingen in ticks/punten, de contractgrootte en de commissie verschillen (zie "Instellingen per instrument" bij groep Lotgrootte), en de naam: *Trade Lijnen XAUUSD (SL/S/R)* en *Trade Lijnen Nasdaq (SL/S/R)*. Zet je een script op het verkeerde instrument, dan verschijnt midden onderaan een oranje waarschuwing. Alles in deze handleiding geldt voor beide. Voor de technische wijzigingsgeschiedenis zie [CHANGELOG.md](CHANGELOG.md); voor de exacte detectielogica zie [T4G daytrade rules.md](T4G%20daytrade%20rules.md). Dit document beschrijft hoe je het script gebruikt en wat elke instelling in het Inputs-tabblad wel en niet doet.
 
@@ -17,7 +17,7 @@ De indicator tekent automatisch, zonder handmatig werk:
 - Optionele **flip-hulplijnen** (0,12 × body terug / 0,6R door) om de flip met het oog te beoordelen.
 - **Alerts** bij elk nieuw LONG/SHORT-signaal, met entry, SL, TP en of de trade mogelijk is.
 
-De Support/Resistance- en Target-niveaus worden **altijd op de 30-minuten candles** berekend, ongeacht op welk timeframe je zelf kijkt. De breakout zelf wordt (standaard) per 15m-candle bekeken: entry, SL, R, TP, de Range-check en de max-R-check komen van de candle die de breakout geeft. Alles draait op de rekenfeed (standaard FXCM, zie §6 "Rekenfeed").
+De Support/Resistance- en Target-niveaus worden **altijd op de 30-minuten candles** berekend, ongeacht op welk timeframe je zelf kijkt. De breakout zelf wordt (standaard) per 15m-candle bekeken: entry, SL, R, TP, de Range-check en de max-R-check komen van de candle die de breakout geeft. Alles draait op de rekenfeed: bij XAUUSD standaard FXCM, bij de Nasdaq standaard de feed van de chart (zie §6 "Rekenfeed").
 
 ## 2. Vereisten voor gebruik
 
@@ -89,14 +89,14 @@ De alert wordt **niet** onderdrukt als de trade "niet mogelijk" is; dat staat in
 
 | Instelling | Default | Wat het doet | Wat het niet doet |
 |---|---|---|---|
-| Versie | `1.21.0` | Puur informatief: toont de actieve scriptversie boven in de instellingen, zodat je niet in de code hoeft te kijken. | Heeft geen enkele invloed op de berekeningen of weergave; er is ook maar 1 optie beschikbaar. |
+| Versie | `1.22.0` | Puur informatief: toont de actieve scriptversie boven in de instellingen, zodat je niet in de code hoeft te kijken. | Heeft geen enkele invloed op de berekeningen of weergave; er is ook maar 1 optie beschikbaar. |
 
 ### Groep "Rekenfeed"
 
 | Instelling | Default | Wat het doet | Wat het niet doet |
 |---|---|---|---|
-| Berekeningen op andere feed dan de chart (`useSourceFeed`) | Aan | Alle berekeningen (Resistance/Support, Targets, signalen, SL/TP, Range-/R-check, lotgrootte) draaien op de rekenfeed in plaats van op de chart-feed. Op een FTMO_OANDA-chart zie je dan de beslissing van FXCM. In de labels staat de feed erbij, bijv. `Long SL (FXCM): …`. | Rekent de prijzen niet om naar de chart-feed: SL, TP en levels zijn de FXCM-prijzen en kunnen een paar tienden afwijken van de OANDA-candles. |
-| Exchange-prefix van de rekenfeed (`sourceExchange`) | `FX` | De exchange die voor de ticker van de chart wordt gezet. TradingView gebruikt voor FXCM de prefix `FX`, dus `FX` → `FX:XAUUSD` (in de labels staat dan "FXCM"). `FXCM` werkt niet: dat geeft "Invalid symbol". | Is de prefix gelijk aan die van de chart, of leeg, dan rekent het script gewoon op de chart-feed. Het symbool moet op die exchange onder dezelfde naam bestaan; bij `FX` worden afwijkende OANDA-namen vertaald (bijv. `NAS100USD` → `NAS100`, `US30USD` → `US30`). Bij FTMO-namen met `.cash` valt dat achtervoegsel weg (bijv. `US100.cash` → `NAS100`, `US500.cash` → `SPX500`, `GER40.cash` → `GER30`; sinds v1.15.1). |
+| Berekeningen op andere feed dan de chart (`useSourceFeed`) | XAUUSD: aan. Nasdaq: uit (sinds v1.22.0) | Alle berekeningen (Resistance/Support, Targets, signalen, SL/TP, Range-/R-check, lotgrootte) draaien op de rekenfeed in plaats van op de chart-feed. Op een FTMO_OANDA-chart zie je dan de beslissing van FXCM. In de labels staat de feed erbij, bijv. `Long SL (FXCM): …`. | Rekent de prijzen niet om naar de chart-feed: SL, TP en levels zijn de FXCM-prijzen en kunnen een paar tienden afwijken van de OANDA-candles. |
+| Exchange-prefix van de rekenfeed (`sourceExchange`) | XAUUSD: `FX`. Nasdaq: leeg (sinds v1.22.0) | De exchange die voor de ticker van de chart wordt gezet. TradingView gebruikt voor FXCM de prefix `FX`, dus `FX` → `FX:XAUUSD` (in de labels staat dan "FXCM"). `FXCM` werkt niet: dat geeft "Invalid symbol". | Is de prefix gelijk aan die van de chart, of leeg, dan rekent het script gewoon op de chart-feed. Het symbool moet op die exchange onder dezelfde naam bestaan; bij `FX` worden afwijkende OANDA-namen vertaald (bijv. `NAS100USD` → `NAS100`, `US30USD` → `US30`). Bij FTMO-namen met `.cash` valt dat achtervoegsel weg (bijv. `US100.cash` → `NAS100`, `US500.cash` → `SPX500`, `GER40.cash` → `GER30`; sinds v1.15.1). |
 
 ### Groep "Freeze"
 

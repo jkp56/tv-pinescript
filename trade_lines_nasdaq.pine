@@ -1,5 +1,5 @@
 //@version=6
-// Versie: 1.22.0 - zie CHANGELOG.md voor de wijzigingsgeschiedenis.
+// Versie: 1.23.0 - zie CHANGELOG.md voor de wijzigingsgeschiedenis.
 //
 // Alle berekeningen (Support/Resistance, Targets, signalen, SL, TP en de
 // Range-check) draaien via request.security() altijd op het 30m-timeframe van
@@ -17,7 +17,7 @@ indicator("Trade Lijnen Nasdaq (SL/S/R)", overlay=true, max_lines_count=30, max_
 // ============================================================
 // VERSIE-INFO
 // ============================================================
-scriptVersion = input.string("1.22.0", "Versie", options=["1.22.0"], group="Info")
+scriptVersion = input.string("1.23.0", "Versie", options=["1.23.0"], group="Info")
 
 // ============================================================
 // REKENFEED: alle berekeningen (levels, signalen, SL/TP, Range-check) kunnen
@@ -83,6 +83,7 @@ shortColor     = input.color(color.new(color.red, 0), "Kleur Short SL", group="S
 // ============================================================
 maxScanBars      = input.int(450, "Max bars terugzoeken", minval=10, maxval=500, group="Support / Resistance")
 autoTargetTicks   = input.int(700, "Fallback afstand target lijnen (ticks, alleen als geen geldige overgang gevonden wordt)", minval=1, group="Support / Resistance")
+htfFallbackOn     = input.bool(true, "Geen Target op 30m: zoek verder op 1h, 4h en Daily", group="Support / Resistance", tooltip="Vindt het script binnen 'Max bars terugzoeken' geen geldig Target, dan zoekt het met dezelfde regels (body niet doorbroken, wick niet geraakt, minimale afstand) achtereenvolgens op 1h, 4h en Daily over de volledige beschikbare historie. Het dichtstbijzijnde geldige level boven Resistance resp. onder Support wordt het Target; het label toont het timeframe en de datum van de pivot. Pas als ook Daily niets oplevert, geldt de vaste fallback-afstand.")
 minTargetDistance   = input.int(2100, "Minimale afstand Target t.o.v. Resistance/Support (ticks)", minval=1, group="Support / Resistance")
 labelTextColor   = input.color(color.black, "Labelkleur (tekst)", group="Support / Resistance")
 excludeReversalCandle = input.bool(true, "Support/Resistance: reversal-candle uitsluiten van eigen invalidatie", group="Support / Resistance")
@@ -320,6 +321,121 @@ f_autoTargetSupport(maxScan, supportLevel, minDistance, excludeReversal) =>
             minTo1 := na(minTo1) ? f_bodyBottom(i) : math.min(minTo1, f_bodyBottom(i))
     [level, barsBack, shiftLevel, shiftBarsBack]
 
+// ============================================================
+// 1.23.0: TARGET-FALLBACK OP HOGERE TIMEFRAMES (1h -> 4h -> Daily)
+// f_htfLevels draait via request.security() op het hogere timeframe en houdt
+// over de volledige historie alle nog niet doorbroken Resistance- en Support-
+// levels bij, met dezelfde regels als op 30m:
+// - Resistance: bullish -> bearish overgang, level = body-top van de pivot (na
+//   een sessie-gap: open van de reversal-candle). Ongeldig zodra een latere
+//   body erboven sluit (laterTol / bodyTol gelden net als op 30m).
+// - Wick: de candle direct na de reversal-candle mag het level raken als hij de
+//   respecterende kleur heeft; elke andere latere wick die het level raakt
+//   maakt het ongeschikt als Target (het level blijft wel bestaan).
+// - Support: spiegelbeeld.
+// Er wordt steeds alleen de VORIGE (gesloten) HTF-candle verwerkt, zodat een
+// nog lopende HTF-candle nooit meetelt (geen repainting, ook niet historisch).
+// Teruggegeven: de htfMaxOut dichtstbijzijnde levels per kant (Resistance
+// oplopend, Support aflopend), de pivot-tijden (negatief = wick geraakt) en
+// het begin van de lopende HTF-candle.
+// ============================================================
+htfMaxOut = 40
+
+f_htfLevels() =>
+    var array<float> rL = array.new<float>()
+    var array<int>   rT = array.new<int>()
+    var array<int>   rB = array.new<int>()
+    var array<bool>  rW = array.new<bool>()
+    var array<float> sL = array.new<float>()
+    var array<int>   sT = array.new<int>()
+    var array<int>   sB = array.new<int>()
+    var array<bool>  sW = array.new<bool>()
+    if bar_index >= 2
+        o   = open[1]
+        c   = close[1]
+        h   = high[1]
+        l   = low[1]
+        bi  = bar_index - 1
+        top = math.max(o, c)
+        bot = math.min(o, c)
+        if rL.size() > 0
+            for j = rL.size() - 1 to 0
+                lv      = rL.get(j)
+                afterRv = bi == rB.get(j) + 1
+                tolOk   = bodyTolEnabled and afterRv and c < o and top <= lv + math.max(bodyTol, laterTol)
+                if top > lv + laterTol and not tolOk
+                    rL.remove(j)
+                    rT.remove(j)
+                    rB.remove(j)
+                    rW.remove(j)
+                else if rW.get(j) and h >= lv and not (afterRv and c < o)
+                    rW.set(j, false)
+        if sL.size() > 0
+            for j = sL.size() - 1 to 0
+                lv      = sL.get(j)
+                afterRv = bi == sB.get(j) + 1
+                tolOk   = bodyTolEnabled and afterRv and c > o and bot >= lv - math.max(bodyTol, laterTol)
+                if bot < lv - laterTol and not tolOk
+                    sL.remove(j)
+                    sT.remove(j)
+                    sB.remove(j)
+                    sW.remove(j)
+                else if sW.get(j) and l <= lv and not (afterRv and c > o)
+                    sW.set(j, false)
+        gap = sessionGapOpen and time[1] - time[2] > timeframe.in_seconds() * 1000
+        if close[2] > open[2] and c < o
+            rL.push(gap ? o : math.max(open[2], close[2]))
+            rT.push(time[2])
+            rB.push(bi)
+            rW.push(true)
+        if close[2] < open[2] and c > o
+            sL.push(gap ? o : math.min(open[2], close[2]))
+            sT.push(time[2])
+            sB.push(bi)
+            sW.push(true)
+    outRL = array.new<float>()
+    outRT = array.new<int>()
+    outSL = array.new<float>()
+    outST = array.new<int>()
+    if rL.size() > 0
+        ri = rL.sort_indices(order.ascending)
+        for k = 0 to math.min(htfMaxOut, ri.size()) - 1
+            idx = ri.get(k)
+            outRL.push(rL.get(idx))
+            outRT.push(rW.get(idx) ? rT.get(idx) : -rT.get(idx))
+    if sL.size() > 0
+        si = sL.sort_indices(order.descending)
+        for k = 0 to math.min(htfMaxOut, si.size()) - 1
+            idx = si.get(k)
+            outSL.push(sL.get(idx))
+            outST.push(sW.get(idx) ? sT.get(idx) : -sT.get(idx))
+    [outRL, outRT, outSL, outST, time]
+
+// Kiest uit de HTF-levels het dichtstbijzijnde geldige Target: minimaal
+// minDistance voorbij ref (dir = 1 boven Resistance, -1 onder Support), wick
+// niet geraakt op het HTF, en ook door geen enkele 30m-wick geraakt sinds het
+// begin van de lopende (nog niet verwerkte) HTF-candle.
+// Retourneert [level, pivotTime].
+f_htfPick(array<float> lv, array<int> tm, float ref, float minDistance, int dir, int htfStart) =>
+    float level = na
+    int   pTime = na
+    float ext = na
+    for i = 0 to maxScanBars - 1
+        if time[i] < htfStart
+            break
+        if f_validBar(i)
+            x = dir > 0 ? high[i] : low[i]
+            ext := na(ext) ? x : (dir > 0 ? math.max(ext, x) : math.min(ext, x))
+    if not na(ref) and not na(lv) and lv.size() > 0
+        for k = 0 to lv.size() - 1
+            l = lv.get(k)
+            t = tm.get(k)
+            if t > 0 and (l - ref) * dir >= minDistance and (na(ext) or (ext - l) * dir < 0)
+                level := l
+                pTime := t
+                break
+    [level, pTime]
+
 // Trade Mogelijkheid voor een signaal, dir = 1 (Long) of -1 (Short).
 // Retourneert [tp, rangeRR, r, ok, reden].
 f_tradeCheck(float entry, float sl, float target, int dir, float body2) =>
@@ -355,6 +471,9 @@ f_calc30m() =>
     var sFallback  = bool(na)
     var trFallback = bool(na)
     var tsFallback = bool(na)
+    // 1.23.0: timeframe waarop het Target gevonden is ("" = 30m of vaste fallback)
+    var string trSrc = ""
+    var string tsSrc = ""
     var int   rPivotTime  = na
     var int   sPivotTime  = na
     var int   trPivotTime = na
@@ -437,6 +556,11 @@ f_calc30m() =>
     float l15b   = has15b ? l15.last() : na
     float o15b   = has15b ? o15.last() : na
 
+    // 1.23.0: hogere timeframes voor de Target-fallback (geneste requests).
+    [h1RL, h1RT, h1SL, h1ST, h1Start] = request.security(calcTicker, "60", f_htfLevels(), lookahead=barmerge.lookahead_off)
+    [h4RL, h4RT, h4SL, h4ST, h4Start] = request.security(calcTicker, "240", f_htfLevels(), lookahead=barmerge.lookahead_off)
+    [hDRL, hDRT, hDSL, hDST, hDStart] = request.security(calcTicker, "D", f_htfLevels(), lookahead=barmerge.lookahead_off)
+
     if barstate.isconfirmed
         barTime       := time
 
@@ -469,15 +593,43 @@ f_calc30m() =>
         rPivotTime := time[rBarsBack]
         sPivotTime := time[sBarsBack]
 
+        // 1.23.0: geen Target op 30m -> zoek op 1h, dan 4h, dan Daily. Pas als
+        // ook Daily niets oplevert: vaste fallback-afstand.
         fallbackTicks = math.max(autoTargetTicks, minTargetDistance)
-        targetResistance := na(rawTargetResistance) ? resistance + fallbackTicks * tickSize : rawTargetResistance
-        targetSupport    := na(rawTargetSupport) ? support - fallbackTicks * tickSize : rawTargetSupport
-        trFallback := na(rawTargetResistance)
-        tsFallback := na(rawTargetSupport)
-        trBarsBack := na(rawTargetResistance) ? maxScanBars : trBack
-        tsBarsBack := na(rawTargetSupport) ? maxScanBars : tsBack
-        trPivotTime := time[trBarsBack]
-        tsPivotTime := time[tsBarsBack]
+        minDist       = minTargetDistance * tickSize
+        float htfTr = na
+        int   htfTrT = na
+        string htfTrSrc = ""
+        float htfTs = na
+        int   htfTsT = na
+        string htfTsSrc = ""
+        // (altijd berekend, zodat de functies elke candle draaien; alleen
+        // gebruikt als er op 30m geen Target is)
+        [r1, rt1] = f_htfPick(h1RL, h1RT, resistance, minDist, 1, h1Start)
+        [r4, rt4] = f_htfPick(h4RL, h4RT, resistance, minDist, 1, h4Start)
+        [rD, rtD] = f_htfPick(hDRL, hDRT, resistance, minDist, 1, hDStart)
+        [s1, st1] = f_htfPick(h1SL, h1ST, support, minDist, -1, h1Start)
+        [s4, st4] = f_htfPick(h4SL, h4ST, support, minDist, -1, h4Start)
+        [sD, stD] = f_htfPick(hDSL, hDST, support, minDist, -1, hDStart)
+        if htfFallbackOn and na(rawTargetResistance)
+            htfTr    := not na(r1) ? r1 : not na(r4) ? r4 : rD
+            htfTrT   := not na(r1) ? rt1 : not na(r4) ? rt4 : rtD
+            htfTrSrc := not na(r1) ? "1h" : not na(r4) ? "4h" : not na(rD) ? "D" : ""
+        if htfFallbackOn and na(rawTargetSupport)
+            htfTs    := not na(s1) ? s1 : not na(s4) ? s4 : sD
+            htfTsT   := not na(s1) ? st1 : not na(s4) ? st4 : stD
+            htfTsSrc := not na(s1) ? "1h" : not na(s4) ? "4h" : not na(sD) ? "D" : ""
+
+        targetResistance := not na(rawTargetResistance) ? rawTargetResistance : not na(htfTr) ? htfTr : resistance + fallbackTicks * tickSize
+        targetSupport    := not na(rawTargetSupport) ? rawTargetSupport : not na(htfTs) ? htfTs : support - fallbackTicks * tickSize
+        trFallback := na(rawTargetResistance) and na(htfTr)
+        tsFallback := na(rawTargetSupport) and na(htfTs)
+        trSrc      := htfTrSrc
+        tsSrc      := htfTsSrc
+        trBarsBack := not na(rawTargetResistance) ? trBack : na(htfTr) ? maxScanBars : na
+        tsBarsBack := not na(rawTargetSupport) ? tsBack : na(htfTs) ? maxScanBars : na
+        trPivotTime := not na(htfTr) ? htfTrT : time[nz(trBarsBack)]
+        tsPivotTime := not na(htfTs) ? htfTsT : time[nz(tsBarsBack)]
 
         // --- Breakout-signalen (tegen de PRE-update Resistance/Support) ---
         bullishLevel = prevResistance * (1 + breakPct / 100)
@@ -611,9 +763,10 @@ f_calc30m() =>
      longTradeOk, longTP, longReasonText, longRangeRR, longEntry, longR,
      shortTradeOk, shortTP, shortReasonText, shortRangeRR, shortEntry, shortR,
      sig15, blockLongNext, blockShortNext, sigHalf, longBody, shortBody,
-     altValid, altEntry, altSL, altTP, altR, altRangeRR, altOk, altReason]
+     altValid, altEntry, altSL, altTP, altR, altRangeRR, altOk, altReason,
+     trSrc, tsSrc]
 
-[calcResistance, calcSupport, calcTargetResistance, calcTargetSupport, calcRFallback, calcSFallback, calcTrFallback, calcTsFallback, calcRPivotTime, calcSPivotTime, calcTrPivotTime, calcTsPivotTime, calcRBarsBack, calcSBarsBack, calcTrBarsBack, calcTsBarsBack, calcBarTime, calcLongActive, calcShortActive, calcLongTrailSL, calcShortTrailSL, calcSlSide, calcLongBreakLevel, calcShortBreakLevel, calcLongBreakTarget, calcShortBreakTarget, calcBreakTime, calcBreakSide, calcLongTradeOk, calcLongTP, calcLongReasonText, calcLongRangeRR, calcLongEntry, calcLongR, calcShortTradeOk, calcShortTP, calcShortReasonText, calcShortRangeRR, calcShortEntry, calcShortR, calcSig15, calcBlockLongNext, calcBlockShortNext, calcSigHalf, calcLongBody, calcShortBody, calcAltValid, calcAltEntry, calcAltSL, calcAltTP, calcAltR, calcAltRangeRR, calcAltOk, calcAltReason] = request.security(calcTicker, calcTF, f_calc30m(), lookahead=barmerge.lookahead_off)
+[calcResistance, calcSupport, calcTargetResistance, calcTargetSupport, calcRFallback, calcSFallback, calcTrFallback, calcTsFallback, calcRPivotTime, calcSPivotTime, calcTrPivotTime, calcTsPivotTime, calcRBarsBack, calcSBarsBack, calcTrBarsBack, calcTsBarsBack, calcBarTime, calcLongActive, calcShortActive, calcLongTrailSL, calcShortTrailSL, calcSlSide, calcLongBreakLevel, calcShortBreakLevel, calcLongBreakTarget, calcShortBreakTarget, calcBreakTime, calcBreakSide, calcLongTradeOk, calcLongTP, calcLongReasonText, calcLongRangeRR, calcLongEntry, calcLongR, calcShortTradeOk, calcShortTP, calcShortReasonText, calcShortRangeRR, calcShortEntry, calcShortR, calcSig15, calcBlockLongNext, calcBlockShortNext, calcSigHalf, calcLongBody, calcShortBody, calcAltValid, calcAltEntry, calcAltSL, calcAltTP, calcAltR, calcAltRangeRR, calcAltOk, calcAltReason, calcTrSrc, calcTsSrc] = request.security(calcTicker, calcTF, f_calc30m(), lookahead=barmerge.lookahead_off)
 
 // ============================================================
 // Waarschuwing bij niet-ondersteund timeframe.
@@ -727,8 +880,11 @@ dTag15     = dSig15 ? " (15m)" : " (30m)"
 
 // rangeSize = grootte van de range in punten (prijseenheden). De range staat voor
 // de pivot-tekst, zodat een toevoeging "= Target bij break" niet achter het getal komt.
-f_nameText(string name, bool fallback, int barsBack, float rangeSize) =>
-    name + srcTag + (na(rangeSize) ? "" : " · Range " + str.tostring(rangeSize, format.mintick)) + (fallback ? " [FALLBACK]" : " [pivot " + str.tostring(barsBack) + " candles terug]")
+// 1.23.0: htfSrc ("1h"/"4h"/"D") = Target gevonden op een hoger timeframe;
+// dan staat de datum van de pivot (Nederlandse tijd) in het label in plaats van het aantal candles.
+f_nameText(string name, bool fallback, int barsBack, float rangeSize, string htfSrc = "", int pivotTime = na) =>
+    pivotTxt = htfSrc != "" ? " [" + htfSrc + " pivot " + str.format_time(pivotTime, "dd-MM-yyyy HH:mm", "Europe/Amsterdam") + "]" : fallback ? " [FALLBACK]" : " [pivot " + str.tostring(barsBack) + " candles terug]"
+    name + srcTag + (na(rangeSize) ? "" : " · Range " + str.tostring(rangeSize, format.mintick)) + pivotTxt
 
 // ============================================================
 // Resistance / Support / Target-lijnen + labels (ongewijzigd)
@@ -764,8 +920,8 @@ if effectiveNewData and not na(calcResistance)
 
     rNameLabel  := label.new(calcBarTime, calcResistance, f_nameText("Resistance", calcRFallback, calcRBarsBack, srRange), xloc.bar_time, yloc.price, color.new(color.red, 100), label.style_label_left, labelTextColor, size.small)
     sNameLabel  := label.new(calcBarTime, calcSupport, f_nameText("Support", calcSFallback, calcSBarsBack, srRange), xloc.bar_time, yloc.price, color.new(color.green, 100), label.style_label_left, labelTextColor, size.small)
-    trNameLabel := label.new(calcBarTime, calcTargetResistance, f_nameText("Target Resistance", calcTrFallback, calcTrBarsBack, trRange), xloc.bar_time, yloc.price, color.new(color.red, 100), label.style_label_left, labelTextColor, size.small)
-    tsNameLabel := label.new(calcBarTime, calcTargetSupport, f_nameText("Target Support", calcTsFallback, calcTsBarsBack, tsRange), xloc.bar_time, yloc.price, color.new(color.green, 100), label.style_label_left, labelTextColor, size.small)
+    trNameLabel := label.new(calcBarTime, calcTargetResistance, f_nameText("Target Resistance", calcTrFallback, calcTrBarsBack, trRange, calcTrSrc, calcTrPivotTime), xloc.bar_time, yloc.price, color.new(color.red, 100), label.style_label_left, labelTextColor, size.small)
+    tsNameLabel := label.new(calcBarTime, calcTargetSupport, f_nameText("Target Support", calcTsFallback, calcTsBarsBack, tsRange, calcTsSrc, calcTsPivotTime), xloc.bar_time, yloc.price, color.new(color.green, 100), label.style_label_left, labelTextColor, size.small)
 
 // ============================================================
 // Break-lijn van het actieve signaal + target-lijn bij de break.

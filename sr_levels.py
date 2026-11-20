@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Support, Resistance en Targets berekenen zoals trade_lines.pine (v1.22.0).
+"""Support, Resistance en Targets berekenen zoals trade_lines.pine (v1.23.0).
 
 Invoer is de JSON-uitvoer van de TradingView MCP-tool get_ohlcv, op 30m-candles.
 Gebruik voor XAUUSD de rekenfeed FXCM (FX:XAUUSD) en voor de Nasdaq FTMO_OANDA
@@ -9,9 +9,14 @@ scanrange van 450 gesloten candles beschikbaar is:
     get_ohlcv(symbol="FX:XAUUSD", interval="30m", count=500, format="columns")
     get_ohlcv(symbol="FTMO_OANDA:US100.CASH", interval="30m", count=500, format="columns")
 
+Vindt het script op 30m geen Target, dan zoekt het (net als Pine sinds 1.23.0)
+verder op 1h, 4h en Daily, als je die candles meegeeft met --h1, --h4 en --d1.
+Zonder die bestanden valt het meteen terug op de vaste fallback-afstand.
+
 Gebruik:
 
     python sr_levels.py bars.json
+    python sr_levels.py bars.json --h1 h1.json --h4 h4.json --d1 d1.json
     python sr_levels.py bars.json --history 10
     python sr_levels.py bars.json --json
     type bars.json | python sr_levels.py -
@@ -30,9 +35,12 @@ import sys
 import time as time_module
 from dataclasses import dataclass, replace
 from datetime import datetime
-from typing import Iterator, NamedTuple, Optional
+from typing import Iterator, NamedTuple, Optional, Sequence
 
 BAR_SECONDS = 1800
+HTF_SECONDS = {"1h": 3600, "4h": 14400, "D": 86400}
+# Pine geeft per kant de 40 dichtstbijzijnde HTF-levels door (htfMaxOut).
+HTF_MAX_OUT = 40
 
 
 class Bar(NamedTuple):
@@ -58,10 +66,11 @@ class Settings:
     body_tol_enabled: bool = False
     later_tol_enabled: bool = False
     session_gap_open: bool = True
+    htf_fallback: bool = True
 
 
 PROFILES = {
-    "xauusd": Settings(auto_target_ticks=100, min_target_distance=300, body_tol_ticks=50, later_tol_ticks=50),
+    "xauusd": Settings(auto_target_ticks=1000, min_target_distance=300, body_tol_ticks=50, later_tol_ticks=50),
     "nasdaq": Settings(auto_target_ticks=700, min_target_distance=2100, body_tol_ticks=350, later_tol_ticks=350),
 }
 
@@ -69,9 +78,10 @@ PROFILES = {
 @dataclass(frozen=True)
 class Line:
     price: float
-    bars_back: int
+    bars_back: Optional[int]
     pivot_time: Optional[int]
     fallback: bool
+    source: str = ""  # "1h", "4h" of "D" als het Target op een hoger timeframe gevonden is
 
 
 @dataclass(frozen=True)
@@ -88,13 +98,104 @@ def _mirror(bar: Bar) -> Bar:
     return Bar(bar.t, -bar.o, -bar.l, -bar.h, -bar.c, bar.valid)
 
 
+class HtfLevels:
+    """Niet-doorbroken Resistance-levels op een hoger timeframe, zoals f_htfLevels in Pine.
+
+    Voor Support wordt een gespiegelde reeks candles gebruikt. snapshot(n) geeft de
+    situatie zoals Pine die ziet tijdens HTF-candle n: alleen candles 0..n-1 (gesloten)
+    zijn verwerkt. Per level: (prijs, pivot-tijd, wick niet geraakt).
+    """
+
+    def __init__(self, bars: Sequence[Bar], seconds: int, settings: Settings) -> None:
+        self.bars = list(bars)
+        self.times = [bar.t for bar in self.bars]
+        tick = settings.tick
+        body_tol = settings.body_tol_ticks * tick
+        later_tol = settings.later_tol_ticks * tick if settings.later_tol_enabled else 0.0
+        levels: list[list] = []  # [prijs, pivot-tijd, index reversal-candle, wick ok]
+        self._snapshots: list[list[tuple[float, int, bool]]] = []
+        for n in range(len(self.bars)):
+            self._snapshots.append(
+                [(lv, t, ok) for lv, t, _, ok in sorted(levels, key=lambda item: item[0])[:HTF_MAX_OUT]]
+            )
+            # Pine verwerkt op candle n+1 de candle n (bar[1]) met pivot n-1 (bar[2]).
+            if n < 1:
+                continue
+            bar, pivot = self.bars[n], self.bars[n - 1]
+            top = max(bar.o, bar.c)
+            kept = []
+            for item in levels:
+                lv, _, rev, ok = item
+                after_rev = n == rev + 1
+                tol_ok = settings.body_tol_enabled and after_rev and bar.c < bar.o and top <= lv + max(body_tol, later_tol)
+                if top > lv + later_tol and not tol_ok:
+                    continue
+                if ok and bar.h >= lv and not (after_rev and bar.c < bar.o):
+                    item[3] = False
+                kept.append(item)
+            levels = kept
+            gap = settings.session_gap_open and bar.t - pivot.t > seconds
+            if pivot.c > pivot.o and bar.c < bar.o:
+                levels.append([bar.o if gap else max(pivot.o, pivot.c), pivot.t, n, True])
+
+    def index_at(self, t: int) -> Optional[int]:
+        """Index van de HTF-candle waarin tijdstip t valt (laatste candle met start <= t)."""
+        lo, hi = 0, len(self.times) - 1
+        if hi < 0 or self.times[0] > t:
+            return None
+        while lo < hi:
+            mid = (lo + hi + 1) // 2
+            if self.times[mid] <= t:
+                lo = mid
+            else:
+                hi = mid - 1
+        return lo
+
+    def pick(self, ref: float, min_distance: float, bars30: Sequence[Bar], end: int, max_scan: int) -> Optional[tuple[float, int]]:
+        """Dichtstbijzijnde geldige Target boven ref, zoals f_htfPick in Pine."""
+        n = self.index_at(bars30[end].t)
+        if n is None:
+            return None
+        start = self.times[n]
+        ext: Optional[float] = None
+        for i in range(max_scan):
+            index = end - i
+            if index < 0 or bars30[index].t < start:
+                break
+            bar = bars30[index]
+            if bar.valid:
+                ext = bar.h if ext is None else max(ext, bar.h)
+        for level, pivot_time, wick_ok in self._snapshots[n]:
+            if wick_ok and level - ref >= min_distance and (ext is None or ext < level):
+                return level, pivot_time
+        return None
+
+
+class HtfSource(NamedTuple):
+    label: str
+    resistance: HtfLevels
+    support: HtfLevels  # gespiegeld
+    first_time: int
+
+
+def build_htf(label: str, bars: Sequence[Bar], settings: Settings) -> HtfSource:
+    seconds = HTF_SECONDS[label]
+    return HtfSource(
+        label,
+        HtfLevels(bars, seconds, settings),
+        HtfLevels([_mirror(bar) for bar in bars], seconds, settings),
+        bars[0].t,
+    )
+
+
 class _Side:
     """Zoekt het niveau en Target aan één kant; index i = aantal candles terug."""
 
-    def __init__(self, bars: list[Bar], end: int, settings: Settings) -> None:
+    def __init__(self, bars: list[Bar], end: int, settings: Settings, htf: Sequence[tuple[str, HtfLevels]] = ()) -> None:
         self.bars = bars
         self.end = end
         self.s = settings
+        self.htf = htf
         self.body_tol = settings.body_tol_ticks * settings.tick
         self.later_tol = settings.later_tol_ticks * settings.tick if settings.later_tol_enabled else 0.0
 
@@ -179,29 +280,36 @@ class _Side:
             level = shift
             back = shift_back
 
-        target_fallback = target is None
-        if target is None:
-            target = level + max(s.auto_target_ticks, s.min_target_distance) * s.tick
+        if target is not None:
+            target_line = Line(target, target_back, self.time_at(target_back), False)
+        else:
+            # Geen Target op 30m: zoek op 1h, 4h en Daily (Pine 1.23.0), daarna vaste afstand.
+            target_line = None
+            if s.htf_fallback:
+                for label, engine in self.htf:
+                    found = engine.pick(level, s.min_target_distance * s.tick, self.bars, self.end, s.max_scan)
+                    if found is not None:
+                        target_line = Line(found[0], None, found[1], False, label)
+                        break
+            if target_line is None:
+                price = level + max(s.auto_target_ticks, s.min_target_distance) * s.tick
+                target_line = Line(price, s.max_scan, self.time_at(s.max_scan), True)
 
-        return (
-            Line(level, back, self.time_at(back), fallback),
-            Line(target, target_back, self.time_at(target_back), target_fallback),
-        )
+        return Line(level, back, self.time_at(back), fallback), target_line
 
 
-def calculate(bars: list[Bar], end: int, settings: Settings) -> Levels:
+def calculate(bars: list[Bar], end: int, settings: Settings, htf: Sequence[HtfSource] = ()) -> Levels:
     """Berekent de niveaus bij het sluiten van de candle op index end."""
-    resistance, target_resistance = _Side(bars, end, settings).calculate()
-    mirrored, mirrored_target = _Side([_mirror(bar) for bar in bars], end, settings).calculate()
-    support = Line(-mirrored.price, mirrored.bars_back, mirrored.pivot_time, mirrored.fallback)
-    target_support = Line(
-        -mirrored_target.price, mirrored_target.bars_back, mirrored_target.pivot_time, mirrored_target.fallback
-    )
+    resistance, target_resistance = _Side(bars, end, settings, [(h.label, h.resistance) for h in htf]).calculate()
+    mirrored_bars = [_mirror(bar) for bar in bars]
+    mirrored, mirrored_target = _Side(mirrored_bars, end, settings, [(h.label, h.support) for h in htf]).calculate()
+    support = replace(mirrored, price=-mirrored.price)
+    target_support = replace(mirrored_target, price=-mirrored_target.price)
     return Levels(bars[end].t, resistance, support, target_resistance, target_support)
 
 
-def parse_bars(payload: object) -> tuple[list[Bar], Optional[str]]:
-    """Leest de get_ohlcv-uitvoer in rij- of kolomvorm."""
+def parse_bars(payload: object, interval: str = "30m") -> tuple[list[Bar], Optional[str]]:
+    """Leest de get_ohlcv-uitvoer in rij- of kolomvorm (30m, of 1h/4h/D voor de Target-fallback)."""
     symbol = None
     if isinstance(payload, dict) and isinstance(payload.get("content"), list):
         text = next((item.get("text") for item in payload["content"] if item.get("type") == "text"), None)
@@ -226,8 +334,18 @@ def parse_bars(payload: object) -> tuple[list[Bar], Optional[str]]:
     ]
     if len(bars) < 2:
         raise ValueError("Te weinig candles in de invoer.")
-    if min(b.t - a.t for a, b in zip(bars, bars[1:])) != BAR_SECONDS:
-        raise ValueError("De invoer moet uit 30m-candles bestaan (interval=\"30m\").")
+    # Dubbele candles (overlap bij het samenvoegen van pagina's) eruit.
+    unique = {bar.t: bar for bar in bars}
+    bars = [unique[t] for t in sorted(unique)]
+    diffs = [b.t - a.t for a, b in zip(bars, bars[1:])]
+    if interval == "30m":
+        if min(diffs) != BAR_SECONDS:
+            raise ValueError("De invoer moet uit 30m-candles bestaan (interval=\"30m\").")
+    else:
+        # Meest voorkomende afstand; sessie-openingen en weekenden geven grotere gaten.
+        common = max(set(diffs), key=diffs.count)
+        if common != HTF_SECONDS[interval]:
+            raise ValueError(f"Het {interval}-bestand bevat geen {interval}-candles (meest voorkomende afstand {common} s).")
     return bars, symbol
 
 
@@ -265,6 +383,8 @@ def line_rows(levels: Levels) -> list[tuple[str, Line, float]]:
 
 
 def describe(line: Line) -> str:
+    if line.source:
+        return f"{line.source} pivot ({format_time(line.pivot_time)})"
     if line.fallback:
         return "FALLBACK"
     return f"pivot {line.bars_back} candles terug ({format_time(line.pivot_time)})"
@@ -299,6 +419,7 @@ def to_json(levels: Levels) -> dict:
                 "bars_back": line.bars_back,
                 "pivot_time": line.pivot_time,
                 "fallback": line.fallback,
+                "source": line.source or "30m",
             }
             for key, (_, line, size) in zip(keys, line_rows(levels))
         },
@@ -314,6 +435,10 @@ def main() -> int:
     parser.add_argument("--history", type=int, default=1, metavar="N", help="toon de laatste N gesloten candles")
     parser.add_argument("--now", help="rekenmoment (epoch of ISO), bepaalt of de laatste candle gesloten is")
     parser.add_argument("--json", action="store_true", help="uitvoer als JSON")
+    parser.add_argument("--h1", metavar="BESTAND", help="1h-candles (get_ohlcv) voor de Target-fallback")
+    parser.add_argument("--h4", metavar="BESTAND", help="4h-candles (get_ohlcv) voor de Target-fallback")
+    parser.add_argument("--d1", metavar="BESTAND", help="Daily-candles (get_ohlcv) voor de Target-fallback")
+    parser.add_argument("--no-htf", action="store_true", help="geen Target-fallback op 1h/4h/Daily (zoals de Pine-instelling uit)")
     args = parser.parse_args()
 
     if hasattr(sys.stdout, "reconfigure"):
@@ -340,6 +465,18 @@ def main() -> int:
         if args.tick is not None and args.tick <= 0:
             raise ValueError("--tick moet groter zijn dan 0.")
         settings = PROFILES[profile] if args.tick is None else replace(PROFILES[profile], tick=args.tick)
+        if args.no_htf:
+            settings = replace(settings, htf_fallback=False)
+
+        htf: list[HtfSource] = []
+        for label, path in (("1h", args.h1), ("4h", args.h4), ("D", args.d1)):
+            if path is None or args.no_htf:
+                continue
+            with open(path, encoding="utf-8") as handle:
+                htf_bars, htf_symbol = parse_bars(json.load(handle), label)
+            if htf_symbol and input_symbol and htf_symbol.upper() != input_symbol.upper():
+                raise ValueError(f"Het {label}-bestand is van {htf_symbol}, de 30m-candles van {input_symbol}.")
+            htf.append(build_htf(label, htf_bars, settings))
 
         # Net als in Pine telt een lopende candle niet mee.
         last = len(bars) - 1
@@ -354,11 +491,14 @@ def main() -> int:
                 f"{settings.max_scan}. Vraag meer candles op als een niveau op FALLBACK staat.",
                 file=sys.stderr,
             )
-        history = [calculate(bars, end, settings) for end in range(first, last + 1)]
+        history = [calculate(bars, end, settings, htf) for end in range(first, last + 1)]
     except (OSError, ValueError, KeyError, TypeError) as error:
         print(f"Fout: {error}", file=sys.stderr)
         return 2
 
+    if htf and not args.json:
+        coverage = ", ".join(f"{h.label} vanaf {format_time(h.first_time)}" for h in htf)
+        print(f"Target-fallback met: {coverage}", file=sys.stderr)
     if args.json:
         result = [to_json(levels) for levels in history]
         print(json.dumps({"symbol": symbol, "levels": result if args.history > 1 else result[0]}, indent=2))

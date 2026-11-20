@@ -3,6 +3,17 @@
 Alle noemenswaardige wijzigingen aan `trade_lines.pine` worden hier bijgehouden.
 Versienummering volgt [Semantic Versioning](https://semver.org/lang/nl/) (MAJOR.MINOR.PATCH).
 
+## 1.23.0 — 2026-11-20
+
+### Target-fallback op hogere timeframes
+- **Geen Target op 30m: het script zoekt verder op 1h, dan 4h, dan Daily** (beide scripts, nieuwe instelling *Geen Target op 30m: zoek verder op 1h, 4h en Daily*, standaard aan). Op elk timeframe gelden dezelfde regels als op 30m: overgang op body-niveau (na een sessie-gap: open van de reversal-candle), level ongeldig zodra een latere body erdoorheen sluit (body-toleranties tellen mee), wick niet geraakt (behalve de respecterende candle direct na de reversal-candle) en minimaal `minTargetDistance` voorbij Resistance/Support. Gezocht wordt over de volledige beschikbare historie van dat timeframe, niet alleen binnen *Max bars terugzoeken*. Het dichtstbijzijnde geldige level wordt het Target. Er wordt alleen met gesloten candles van het hogere timeframe gerekend; daarnaast mag geen 30m-wick sinds het begin van de lopende candle van dat timeframe het level geraakt hebben. Pas als ook Daily niets oplevert, geldt de vaste fallback-afstand.
+- Het label toont het timeframe en de pivot-datum (Nederlandse tijd), bijvoorbeeld `Target Support (FXCM) · Range 41.94 [1h pivot 02-09-2025 14:00]`. `[FALLBACK]` verschijnt alleen nog bij de vaste afstand.
+- Voorbeeld XAUUSD, 20-11-2026 05:30: Support 3523.93, geen Target op 30m (koers op het laagste punt sinds januari). Tot nu toe Target Support 3513.93 `[FALLBACK]`; nu **3481.99** `[1h pivot 02-09-2025 14:00]`.
+- De Range-check rekent met dit Target, dus een trade die eerder "niet mogelijk" was door de krappe vaste fallback, kan nu wel mogelijk zijn (en omgekeerd).
+
+### Standaardwaarden
+- *Fallback afstand target lijnen* in `trade_lines.pine` (XAUUSD) standaard **1000** ticks ($10) in plaats van 100. De Nasdaq-versie is ongewijzigd (700).
+
 ## 1.22.0 — 2026-11-18
 
 ### Rekenfeed

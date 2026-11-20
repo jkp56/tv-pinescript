@@ -3,6 +3,11 @@
 Alle noemenswaardige wijzigingen aan `trade_lines.pine` worden hier bijgehouden.
 Versienummering volgt [Semantic Versioning](https://semver.org/lang/nl/) (MAJOR.MINOR.PATCH).
 
+## 1.23.1 — 2026-11-20
+
+### Weergave
+- **De range staat niet meer in de labels van Resistance en Support** (beide scripts). De labels van Target Resistance en Target Support tonen de range nog wel (afstand tot Resistance resp. Support).
+
 ## 1.23.0 — 2026-11-20
 
 ### Target-fallback op hogere timeframes

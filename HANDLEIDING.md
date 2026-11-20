@@ -1,6 +1,6 @@
 # Handleiding – Trade Lijnen (SL/S/R)
 
-Gebruikershandleiding voor `trade_lines.pine` (XAUUSD) en `trade_lines_nasdaq.pine` (Nasdaq), versie **1.22.0**.
+Gebruikershandleiding voor `trade_lines.pine` (XAUUSD) en `trade_lines_nasdaq.pine` (Nasdaq), versie **1.23.1**.
 
 **Twee scripts, één handleiding.** Er is een script voor goud en een voor de Nasdaq. De code is gelijk; alleen de standaardwaarden van de instellingen in ticks/punten, de contractgrootte en de commissie verschillen (zie "Instellingen per instrument" bij groep Lotgrootte), en de naam: *Trade Lijnen XAUUSD (SL/S/R)* en *Trade Lijnen Nasdaq (SL/S/R)*. Zet je een script op het verkeerde instrument, dan verschijnt midden onderaan een oranje waarschuwing. Alles in deze handleiding geldt voor beide. Voor de technische wijzigingsgeschiedenis zie [CHANGELOG.md](CHANGELOG.md); voor de exacte detectielogica zie [T4G daytrade rules.md](T4G%20daytrade%20rules.md). Dit document beschrijft hoe je het script gebruikt en wat elke instelling in het Inputs-tabblad wel en niet doet.
 
@@ -31,8 +31,8 @@ De Support/Resistance- en Target-niveaus worden **altijd op de 30-minuten candle
 
 | Element | Kleur (default) | Betekenis |
 |---|---|---|
-| Resistance-lijn | Rood, doorlopend | Dichtstbijzijnde geldige weerstand, loopt onbeperkt door naar rechts. Label toont de grootte van de range tussen Support en Resistance in punten (sinds v1.21.0) en hoeveel candles terug de pivot lag, of `[FALLBACK]` als er geen geldig patroon gevonden is (dan is het de hoogste high in de scanrange). |
-| Support-lijn | Groen, doorlopend | Spiegelbeeld van Resistance. Het label toont dezelfde range tussen Support en Resistance. |
+| Resistance-lijn | Rood, doorlopend | Dichtstbijzijnde geldige weerstand, loopt onbeperkt door naar rechts. Label toont hoeveel candles terug de pivot lag, of `[FALLBACK]` als er geen geldig patroon gevonden is (dan is het de hoogste high in de scanrange). |
+| Support-lijn | Groen, doorlopend | Spiegelbeeld van Resistance. |
 | Target Resistance-lijn | Rood, lichter/transparanter | Verder gelegen niveau boven Resistance; bepaalt de beschikbare "ruimte" voor een Long-trade. Het label toont de afstand tot Resistance in punten (sinds v1.21.0). |
 | Target Support-lijn | Groen, lichter/transparanter | Spiegelbeeld van Target Resistance, voor Short-trades. Het label toont de afstand tot Support in punten (sinds v1.21.0). |
 | Target-label `[1h pivot …]` / `[4h pivot …]` / `[D pivot …]` | — | Er was binnen *Max bars terugzoeken* op 30m geen geldig Target; het script vond het op een hoger timeframe (sinds v1.23.0). De datum is die van de pivot-candle op dat timeframe; daar begint ook de lijn. `[FALLBACK]` betekent dat ook Daily niets opleverde en het Target op de vaste fallback-afstand ligt. |
@@ -90,7 +90,7 @@ De alert wordt **niet** onderdrukt als de trade "niet mogelijk" is; dat staat in
 
 | Instelling | Default | Wat het doet | Wat het niet doet |
 |---|---|---|---|
-| Versie | `1.22.0` | Puur informatief: toont de actieve scriptversie boven in de instellingen, zodat je niet in de code hoeft te kijken. | Heeft geen enkele invloed op de berekeningen of weergave; er is ook maar 1 optie beschikbaar. |
+| Versie | `1.23.1` | Puur informatief: toont de actieve scriptversie boven in de instellingen, zodat je niet in de code hoeft te kijken. | Heeft geen enkele invloed op de berekeningen of weergave; er is ook maar 1 optie beschikbaar. |
 
 ### Groep "Rekenfeed"
 

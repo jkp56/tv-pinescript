@@ -3,6 +3,14 @@
 Alle noemenswaardige wijzigingen aan `trade_lines.pine` worden hier bijgehouden.
 Versienummering volgt [Semantic Versioning](https://semver.org/lang/nl/) (MAJOR.MINOR.PATCH).
 
+## 1.24.0 — 2026-11-20
+
+### Weergave
+- **Breakout om :00/:30 waarbij zowel 15m als 30m niet mogelijk is: geen tabel meer, alleen het korte "Trade niet mogelijk"-blok** (beide scripts), ongeacht de instelling *Breakout om :00/:30 ... SL/TP-lijnen van*. Het blok toont beide redenen, bijvoorbeeld `Long trade niet mogelijk (15m en 30m) (FXCM)` met daaronder `15m: …` en `30m: …`. Is minstens één variant mogelijk, dan verschijnt de tabel zoals voorheen.
+
+### Standaardwaarden
+- *TP: Risk/Reward ratio* standaard **1.0** in plaats van 1.2 (beide scripts).
+
 ## 1.23.1 — 2026-11-20
 
 ### Weergave

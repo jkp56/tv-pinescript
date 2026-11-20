@@ -1,5 +1,5 @@
 //@version=6
-// Versie: 1.23.1 - zie CHANGELOG.md voor de wijzigingsgeschiedenis.
+// Versie: 1.24.0 - zie CHANGELOG.md voor de wijzigingsgeschiedenis.
 //
 // Alle berekeningen (Support/Resistance, Targets, signalen, SL, TP en de
 // Range-check) draaien via request.security() altijd op het 30m-timeframe van
@@ -17,7 +17,7 @@ indicator("Trade Lijnen XAUUSD (SL/S/R)", overlay=true, max_lines_count=30, max_
 // ============================================================
 // VERSIE-INFO
 // ============================================================
-scriptVersion = input.string("1.23.1", "Versie", options=["1.23.1"], group="Info")
+scriptVersion = input.string("1.24.0", "Versie", options=["1.24.0"], group="Info")
 
 // ============================================================
 // REKENFEED: alle berekeningen (levels, signalen, SL/TP, Range-check) kunnen
@@ -114,7 +114,7 @@ signal15On = input.bool(true, "Ook breakout op de 1e 15m-candle van de 30m (vroe
 // 1.20.1: de aan/uit-schakelaar voor de trade-check is vervallen; de check
 // (TP, Range, max R) is de kern van het tradeplan en staat altijd aan.
 showTradeCheck = true
-tpRR           = input.float(1.2, "TP: Risk/Reward ratio", minval=0.01, step=0.1, group="Trade Mogelijkheid")
+tpRR           = input.float(1.0, "TP: Risk/Reward ratio", minval=0.01, step=0.1, group="Trade Mogelijkheid")
 minRangeRR     = input.float(1.5, "Minimaal benodigde R/R-ruimte in de Range", minval=0.01, step=0.1, group="Trade Mogelijkheid")
 maxRPoints     = input.float(10.0, "Maximaal toegestane R (punten)", minval=0.01, step=1, group="Trade Mogelijkheid", tooltip="Maximale afstand entry - SL in punten (prijseenheden), zoals de price range tool die toont. XAUUSD: 10 (= 100 pips, $10). Nasdaq (US100 / NAS100): 110 (110 indexpunten, waarde van de coach). Stel per chart in.")
 rejectionOn    = input.bool(false, "Rejection candle (15m) maakt trade ongeldig (alleen bij 30m-signaal)", group="Trade Mogelijkheid")
@@ -1018,6 +1018,13 @@ if drawNow
     dualARng := calcAltRangeRR
     dualAOk  := calcAltOk
     dualAWhy := calcAltReason
+    // 1.24.0: 15m en 30m allebei niet mogelijk -> geen tabel, alleen het korte
+    // blok, ongeacht bkMode. Beide redenen staan erin, eerst 15m, dan 30m.
+    if dualShow and not dualPOk and not dualAOk
+        dualShow := false
+        why15 = dualIs15 ? dualPWhy : dualAWhy
+        why30 = dualIs15 ? dualAWhy : dualPWhy
+        noTradeMsg := (dLongSig ? "Long" : "Short") + " trade niet mogelijk (15m en 30m)" + srcTag + "\n15m: " + why15 + "\n30m: " + why30
 
 f_tablePos(string s) =>
     switch s

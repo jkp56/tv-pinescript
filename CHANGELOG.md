@@ -3,6 +3,11 @@
 Alle noemenswaardige wijzigingen aan `trade_lines.pine` worden hier bijgehouden.
 Versienummering volgt [Semantic Versioning](https://semver.org/lang/nl/) (MAJOR.MINOR.PATCH).
 
+## 1.27.0 — 2026-11-23
+
+### Instellingen
+- **Nieuwe instelling *Maximaal toegestane R gebruiken*** (`maxROn`, groep "Trade Mogelijkheid", standaard **aan**; beide scripts). Uit: de regel "Maximaal toegestane R (punten)" wordt niet meer toegepast, en een grote R maakt de trade niet meer "niet mogelijk". De Range-check en de rejection-check werken ongewijzigd. Aan: gedrag gelijk aan 1.26.0.
+
 ## 1.26.0 — 2026-11-23
 
 ### Target-fallback

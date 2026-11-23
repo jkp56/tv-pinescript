@@ -3,6 +3,18 @@
 Alle noemenswaardige wijzigingen aan `trade_lines.pine` worden hier bijgehouden.
 Versienummering volgt [Semantic Versioning](https://semver.org/lang/nl/) (MAJOR.MINOR.PATCH).
 
+## 1.25.0 — 2026-11-23
+
+### Weergave
+- **Ook bij een 15m-signaal op de 1e 15m-candle verschijnt de 30m-variant** (beide scripts). Tot nu toe kwam de 15m/30m-tabel alleen bij een breakout om :00/:30 (2e 15m-candle = 30m-close). Bij een breakout op de 1e 15m-candle wordt nu bij de 30m-close ook de 30m-variant berekend: entry = 30m-close, SL voorbij de wick van de hele 30m-candle, met rejection-check op de 2e 15m-candle. Daarna verschijnt de tabel (15m ◀ lijnen + 30m), of, als beide niet mogelijk zijn, het blok `... trade niet mogelijk (15m en 30m)` met beide redenen.
+- De 30m-variant is alleen informatief: het blijft één signaal (15m), en de lijnen blijven die van de 15m-trade. Is de 15m-trade mogelijk en staat *Freeze* aan, dan worden de lijnen bevroren en verschijnt de tabel niet.
+- De alert die bij de 30m-close afgaat (30m-chart niet live tijdens de candle) bevat nu ook de 30m-variant. De vroege 15m-alert verandert niet; die komt vóór de 30m-close.
+### Instellingen
+- **Instelling *SL: trailing (bijwerken bij elke nieuwe candle in het venster)* verwijderd** (beide scripts). De SL staat altijd vast op de signaal-candle; dat was al de standaard.
+
+### Voorbeeld
+- XAUUSD, 23-11-2026: long-break boven 3626.30 op de 1e 15m-candle, 15m niet mogelijk (R 13.37 > max 10). Tot nu toe was er geen 30m-informatie.
+
 ## 1.24.0 — 2026-11-20
 
 ### Weergave

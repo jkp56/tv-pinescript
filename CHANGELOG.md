@@ -3,6 +3,17 @@
 Alle noemenswaardige wijzigingen aan `trade_lines.pine` worden hier bijgehouden.
 Versienummering volgt [Semantic Versioning](https://semver.org/lang/nl/) (MAJOR.MINOR.PATCH).
 
+## 1.26.0 — 2026-11-23
+
+### Target-fallback
+- **De Target-fallback zoekt niet meer op Daily, alleen nog op 1h en daarna 4h** (beide scripts). Levert ook 4h niets op, dan geldt de vaste fallback-afstand. De instelling heet nu *Geen Target op 30m: zoek verder op 1h en 4h*.
+- Eén geneste `request.security` minder; scheelt geheugen (o.a. in Bar Replay).
+- `sr_levels.py` en `HANDLEIDING_SR_LEVELS.md` zijn gelijkgetrokken: de optie `--d1` is vervallen.
+
+### Geheugen (vooral Bar Replay: "onvoldoende geheugen")
+- **HTF-levels begrensd** (beide scripts): per kant worden nog **10** in plaats van 40 levels doorgegeven (`htfMaxOut`), en per kant worden er maximaal **150** bewaard (`htfMaxKeep`). Bij meer valt het level dat het verst van de koers ligt af (Resistance: het hoogste, Support: het laagste). Het gekozen Target is vrijwel altijd een van de eerste paar levels, dus de uitkomst verandert in de praktijk niet. `sr_levels.py` doet hetzelfde.
+- **Alleen de laatste 5000 30m-candles worden berekend** (`calc_bars_count`, op `indicator()` en op de 30m-request; ongeveer 3,5 maand). Lijnen, labels en alerts gebruiken alleen recente data en S/R zoekt maximaal 500 candles terug, dus daar verandert niets. Signalen ouder dan dat worden niet meer berekend. De 1h- en 4h-requests voor de Target-fallback rekenen nog steeds over de volledige historie.
+
 ## 1.25.0 — 2026-11-23
 
 ### Weergave

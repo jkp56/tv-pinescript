@@ -10,13 +10,14 @@ scanrange van 450 gesloten candles beschikbaar is:
     get_ohlcv(symbol="FTMO_OANDA:US100.CASH", interval="30m", count=500, format="columns")
 
 Vindt het script op 30m geen Target, dan zoekt het (net als Pine sinds 1.23.0)
-verder op 1h, 4h en Daily, als je die candles meegeeft met --h1, --h4 en --d1.
+verder op 1h en 4h, als je die candles meegeeft met --h1 en --h4 (Daily
+vervallen, net als in Pine 1.26.0).
 Zonder die bestanden valt het meteen terug op de vaste fallback-afstand.
 
 Gebruik:
 
     python sr_levels.py bars.json
-    python sr_levels.py bars.json --h1 h1.json --h4 h4.json --d1 d1.json
+    python sr_levels.py bars.json --h1 h1.json --h4 h4.json
     python sr_levels.py bars.json --history 10
     python sr_levels.py bars.json --json
     type bars.json | python sr_levels.py -
@@ -38,9 +39,11 @@ from datetime import datetime
 from typing import Iterator, NamedTuple, Optional, Sequence
 
 BAR_SECONDS = 1800
-HTF_SECONDS = {"1h": 3600, "4h": 14400, "D": 86400}
-# Pine geeft per kant de 40 dichtstbijzijnde HTF-levels door (htfMaxOut).
-HTF_MAX_OUT = 40
+HTF_SECONDS = {"1h": 3600, "4h": 14400}
+# Pine geeft per kant de 10 dichtstbijzijnde HTF-levels door (htfMaxOut) en bewaart
+# er maximaal 150 (htfMaxKeep; het verst liggende level valt af). Sinds Pine 1.26.0.
+HTF_MAX_OUT = 10
+HTF_MAX_KEEP = 150
 
 
 class Bar(NamedTuple):
@@ -81,7 +84,7 @@ class Line:
     bars_back: Optional[int]
     pivot_time: Optional[int]
     fallback: bool
-    source: str = ""  # "1h", "4h" of "D" als het Target op een hoger timeframe gevonden is
+    source: str = ""  # "1h" of "4h" als het Target op een hoger timeframe gevonden is
 
 
 @dataclass(frozen=True)
@@ -137,6 +140,8 @@ class HtfLevels:
             gap = settings.session_gap_open and bar.t - pivot.t > seconds
             if pivot.c > pivot.o and bar.c < bar.o:
                 levels.append([bar.o if gap else max(pivot.o, pivot.c), pivot.t, n, True])
+            while len(levels) > HTF_MAX_KEEP:
+                levels.remove(max(levels, key=lambda item: item[0]))
 
     def index_at(self, t: int) -> Optional[int]:
         """Index van de HTF-candle waarin tijdstip t valt (laatste candle met start <= t)."""
@@ -283,7 +288,7 @@ class _Side:
         if target is not None:
             target_line = Line(target, target_back, self.time_at(target_back), False)
         else:
-            # Geen Target op 30m: zoek op 1h, 4h en Daily (Pine 1.23.0), daarna vaste afstand.
+            # Geen Target op 30m: zoek op 1h en 4h (Pine 1.26.0), daarna vaste afstand.
             target_line = None
             if s.htf_fallback:
                 for label, engine in self.htf:
@@ -437,8 +442,7 @@ def main() -> int:
     parser.add_argument("--json", action="store_true", help="uitvoer als JSON")
     parser.add_argument("--h1", metavar="BESTAND", help="1h-candles (get_ohlcv) voor de Target-fallback")
     parser.add_argument("--h4", metavar="BESTAND", help="4h-candles (get_ohlcv) voor de Target-fallback")
-    parser.add_argument("--d1", metavar="BESTAND", help="Daily-candles (get_ohlcv) voor de Target-fallback")
-    parser.add_argument("--no-htf", action="store_true", help="geen Target-fallback op 1h/4h/Daily (zoals de Pine-instelling uit)")
+    parser.add_argument("--no-htf", action="store_true", help="geen Target-fallback op 1h/4h (zoals de Pine-instelling uit)")
     args = parser.parse_args()
 
     if hasattr(sys.stdout, "reconfigure"):
@@ -469,7 +473,7 @@ def main() -> int:
             settings = replace(settings, htf_fallback=False)
 
         htf: list[HtfSource] = []
-        for label, path in (("1h", args.h1), ("4h", args.h4), ("D", args.d1)):
+        for label, path in (("1h", args.h1), ("4h", args.h4)):
             if path is None or args.no_htf:
                 continue
             with open(path, encoding="utf-8") as handle:

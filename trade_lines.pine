@@ -1,5 +1,5 @@
 //@version=6
-// Versie: 1.27.0 - zie CHANGELOG.md voor de wijzigingsgeschiedenis.
+// Versie: 1.28.0 - zie CHANGELOG.md voor de wijzigingsgeschiedenis.
 //
 // Alle berekeningen (Support/Resistance, Targets, signalen, SL, TP en de
 // Range-check) draaien via request.security() altijd op het 30m-timeframe van
@@ -17,7 +17,7 @@ indicator("Trade Lijnen XAUUSD (SL/S/R)", overlay=true, max_lines_count=30, max_
 // ============================================================
 // VERSIE-INFO
 // ============================================================
-scriptVersion = input.string("1.27.0", "Versie", options=["1.27.0"], group="Info")
+scriptVersion = input.string("1.28.0", "Versie", options=["1.28.0"], group="Info")
 
 // ============================================================
 // REKENFEED: alle berekeningen (levels, signalen, SL/TP, Range-check) kunnen
@@ -100,10 +100,10 @@ breakPct = input.float(0.01, "Break-tolerantie: close voorbij S/R (% van het lev
 // Sluit die 15m-candle al voorbij S/R, dan is DAT het (enige) signaal:
 // entry = close van die 15m-candle, SL = low/high van die 15m-candle -/+ x
 // ticks, flip-candle = de 2e 15m-candle. Een 30m-signaal op dezelfde 30m-
-// candle vervalt dan. Op de 15m-chart verschijnt het signaal (lijnen + alert)
+// candle vervalt dan. Op de 15m-chart verschijnt het signaal (lijnen)
 // direct bij het sluiten van de 1e 15m-candle; op de 30m-chart pas bij het
 // sluiten van de 30m-candle.
-bkMode     = input.string("15m", "Breakout om :00/:30 (15m en 30m sluiten tegelijk): SL/TP-lijnen van", options=["15m", "30m"], group="Signaal instellingen", tooltip="Om :00 en :30 sluiten de 15m- en de 30m-candle tegelijk. Volgens het tradeplan speel je standaard de 15m; bij een doji, een 15m-SL op het level, geen wick of een zwakke break-out de 30m. 15m: signaal, SL, TP, Range-check en flip-lijnen van de 2e 15m-candle. 30m: van de hele 30m-candle. De andere variant staat in de tabel en de alert. Een breakout om :15/:45 is altijd 15m.")
+bkMode     = input.string("15m", "Breakout om :00/:30 (15m en 30m sluiten tegelijk): SL/TP-lijnen van", options=["15m", "30m"], group="Signaal instellingen", tooltip="Om :00 en :30 sluiten de 15m- en de 30m-candle tegelijk. Volgens het tradeplan speel je standaard de 15m; bij een doji, een 15m-SL op het level, geen wick of een zwakke break-out de 30m. 15m: signaal, SL, TP, Range-check en flip-lijnen van de 2e 15m-candle. 30m: van de hele 30m-candle. De andere variant staat in de tabel. Een breakout om :15/:45 is altijd 15m.")
 every15 = bkMode == "15m"
 signal15On = input.bool(true, "Ook breakout op de 1e 15m-candle van de 30m (vroeg signaal)", group="Signaal instellingen", tooltip="Sluit de eerste 15m-candle van een 30m-candle al voorbij Resistance/Support, dan is dat het signaal (entry, SL en R van die 15m-candle). Per breakout is er maar één signaal: 15m of 30m.")
 
@@ -122,7 +122,7 @@ rejectionOn    = input.bool(false, "Rejection candle (15m) maakt trade ongeldig 
 rejectionTicks   = input.int(50, "Rejection candle: minimale tegengestelde body (ticks)", minval=1, group="Trade Mogelijkheid")
 tpColor        = input.color(color.new(color.blue, 0), "Kleur TP-lijn", group="Trade Mogelijkheid")
 noTradeColor   = input.color(color.new(color.orange, 0), "Kleur 'Trade niet mogelijk'-blok", group="Trade Mogelijkheid")
-showTradeTable = input.bool(true, "Toon tabel 15m/30m en 'Trade niet mogelijk'-blok", group="Trade Mogelijkheid", tooltip="Uit: geen tabel en geen blok rechtsboven. Signalen, lijnen, labels en alerts blijven gewoon werken; de reden waarom een trade niet mogelijk is staat dan alleen nog in de alert.")
+showTradeTable = input.bool(true, "Toon tabel 15m/30m en 'Trade niet mogelijk'-blok", group="Trade Mogelijkheid", tooltip="Uit: geen tabel en geen blok rechtsboven. Signalen, lijnen en labels blijven gewoon werken.")
 noTradePosStr  = input.string("Rechtsboven", "Positie 'Trade niet mogelijk'-blok", options=["Rechtsboven", "Rechtsmidden", "Rechtsonder", "Middenboven", "Middenonder", "Linksboven", "Linksmidden", "Linksonder"], group="Trade Mogelijkheid")
 
 // Flip-hulplijnen (alleen visueel, beslissen niets), vanaf de flip-candle
@@ -551,7 +551,7 @@ f_calc30m() =>
     var float  shortBody       = na
 
     // 1.18.0: bij een breakout om :00/:30 (15m en 30m sluiten tegelijk) de
-    // ANDERE variant (30m als de 15m gekozen is en omgekeerd), voor tabel/alert.
+    // ANDERE variant (30m als de 15m gekozen is en omgekeerd), voor de tabel.
     var bool   altValid   = false
     var float  altEntry   = na
     var float  altSL      = na
@@ -832,7 +832,7 @@ sigTradeOk = (longSig and calcLongTradeOk) or (shortSig and calcShortTradeOk)
 // VROEG 15m-SIGNAAL: bij het sluiten van de
 // 1e 15m-candle van een 30m-candle wordt dezelfde controle gedaan als in
 // f_calc30m (zelfde S/R/Target zoals ze nu op de chart staan = de PRE-update
-// waarden, zelfde vorige close), zodat lijnen en alert direct verschijnen.
+// waarden, zelfde vorige close), zodat de lijnen direct verschijnen.
 // Bij het sluiten van de 30m-candle neemt f_calc30m het over met precies
 // hetzelfde signaal.
 // - 15m-chart: op de gesloten 1e 15m-candle.
@@ -1237,48 +1237,6 @@ if effectiveNewData
 // Vroeg 15m-signaal met geldige trade bevriest ook (zelfde regel als hierboven).
 if freezeOnValidTrade and barstate.islast and pvFire and pvOk
     linesFrozen := true
-
-// ============================================================
-// Alerts - 1x per signaal. Een vroeg 15m-signaal alert direct bij de close
-// van de 1e 15m-candle (15m-chart) of, op de 30m-chart, bij de eerste tick
-// daarna (1x per candle); de 30m-alert slaat dat signaal daarna over (zelfde
-// breakTime, of op de 30m-chart: hetzelfde live 15m-signaal). Was de 30m-
-// chart niet live tijdens die candle, dan alert het 15m-signaal bij de
-// 30m-close met "(15m)" in de tekst. De 30m-alert wacht,
-// net als de lijnen, tot de 30m-candle ook op de chart gesloten is
-// (calcBarDone): live op de 15m-chart geen alert op een lopende 30m-waarde.
-// De tekst bevat symbool, entry, SL, TP en of de trade mogelijk is.
-// ============================================================
-f_px(float x) =>
-    na(x) ? "-" : str.tostring(x, format.mintick)
-
-f_alertText(bool isLong, string tag) =>
-    head = syminfo.ticker + srcTag + " " + (isLong ? "Bullish breakout" + tag + ": close boven Resistance + " : "Bearish breakdown" + tag + ": close onder Support - ") + str.tostring(breakPct) + "%"
-    lvls = " | Entry " + f_px(dEntry) + " · SL " + f_px(dSlValue) + (showTradeCheck ? " · TP " + f_px(dTP) : "")
-    stat = showTradeCheck ? (dTradeOk ? " | Trade mogelijk" : " | Trade niet mogelijk" + (dReason != "" ? ": " + str.replace_all(dReason, "\n", "; ") : "")) : ""
-    // 1.18.0: bij een breakout om :00/:30 ook de andere variant
-    // (1.25.0: ook bij een 15m-signaal op de 1e 15m-candle de 30m-variant)
-    alt = showTradeCheck and not pvFire and calcAltValid ? " | " + (dHalf != 0 ? "30m" : "15m") + ": SL " + f_px(calcAltSL) + " · TP " + f_px(calcAltTP) + " · " + (calcAltOk ? "mogelijk" : "niet mogelijk" + (calcAltReason != "" ? ": " + str.replace_all(calcAltReason, "\n", "; ") : "")) : ""
-    head + lvls + stat + alt
-
-var int lastAlertedBreakTime = na
-// Al live gealert op de 30m-chart: het 15m-signaal van de 1e 15m-candle van
-// deze (nu gesloten) realtime 30m-candle.
-alertedLive30 = is30Chart and barstate.isrealtime and signal15On and calcSigHalf == 1 and calcBreakTime == time
-if pvFire
-    if pvLive30
-        alert(f_alertText(pvLong, " (15m)"), alert.freq_once_per_bar)
-    else
-        alert(f_alertText(pvLong, " (15m)"), alert.freq_once_per_bar_close)
-    lastAlertedBreakTime := time
-else if isSupportedTF and calcBarDone and not alertedLive30 and not na(calcBreakTime) and (na(lastAlertedBreakTime) or calcBreakTime > lastAlertedBreakTime)
-    if longSig or shortSig
-        // 1.18.3: direct (1x per candle) i.p.v. bij de close van de candle.
-        // Op de 15m-chart komt het nieuwe 30m-resultaat pas binnen in de
-        // candle NA de breakout-candle; met freq_once_per_bar_close ging de
-        // alert dan pas aan het eind daarvan af (15 minuten te laat).
-        alert(f_alertText(longSig, calcSig15 ? " (15m)" : " (30m)"), alert.freq_once_per_bar)
-        lastAlertedBreakTime := calcBreakTime
 
 // ============================================================
 // Waarschuwing bij het verkeerde instrument (1.20.0). Er is een apart script

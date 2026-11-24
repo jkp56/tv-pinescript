@@ -3,6 +3,11 @@
 Alle noemenswaardige wijzigingen aan `trade_lines.pine` worden hier bijgehouden.
 Versienummering volgt [Semantic Versioning](https://semver.org/lang/nl/) (MAJOR.MINOR.PATCH).
 
+## 1.28.0 — 2026-11-24
+
+### Alerts
+- **Alerts verwijderd** (beide scripts). Het script roept geen `alert()` meer aan; een TradingView-alert met *Any alert() function call* op deze indicator gaat niet meer af. Lijnen, labels, tabel en het "Trade niet mogelijk"-blok blijven gelijk.
+
 ## 1.27.0 — 2026-11-23
 
 ### Instellingen
